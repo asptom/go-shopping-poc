@@ -1,0 +1,25 @@
+go-shopping-poc/
+├── go.mod
+├── go.sum
+├── README.md
+├── cmd/
+│   ├── orderservice/         # main.go for Order Service
+│   │   └── main.go
+│   ├── userservice/          # main.go for User Service
+│   │   └── main.go
+│   └── ...                   # other service entrypoints
+├── internal/                 # Private code for this repo (not importable by others)
+│   ├── orders/               # Business logic for orders
+│   ├── users/                # Business logic for users
+│   └── ...                   # other internal packages
+├── pkg/                      # Shared code (importable by other modules)
+│   ├── event/                # Event bus, event interfaces, Kafka integration
+│   ├── logger/               # Logging utilities
+│   ├── config/               # Shared config loading
+│   └── ...                   # other shared packages
+├── api/                      # Protobuf/OpenAPI definitions
+│   └── ...
+├── deployments/              # Kubernetes/Helm/docker-compose manifests
+│   └── ...
+└── scripts/                  # Helper scripts (build, test, etc.)
+    └── ...
