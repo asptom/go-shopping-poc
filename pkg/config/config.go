@@ -16,6 +16,7 @@ type Config struct {
 	WebSocketTimeoutMs   int
 	WebSocketReadBuffer  int
 	WebSocketWriteBuffer int
+	webSocketPort        string
 }
 
 func Load(envFile string) *Config {
@@ -29,6 +30,7 @@ func Load(envFile string) *Config {
 		WebSocketTimeoutMs:   getEnvInt("WEBSOCKET_TIMEOUT_MS", 5000),
 		WebSocketReadBuffer:  getEnvInt("WEBSOCKET_READ_BUFFER", 1024),
 		WebSocketWriteBuffer: getEnvInt("WEBSOCKET_WRITE_BUFFER", 1024),
+		webSocketPort:        getEnv("WEBSOCKET_PORT", ":8080"),
 	}
 }
 
@@ -59,4 +61,7 @@ func (c *Config) WebSocketReadBufferSize() int {
 }
 func (c *Config) WebSocketWriteBufferSize() int {
 	return c.WebSocketWriteBuffer
+}
+func (c *Config) WebSocketPort() string {
+	return c.webSocketPort
 }

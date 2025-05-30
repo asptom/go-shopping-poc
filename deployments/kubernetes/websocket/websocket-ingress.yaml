@@ -8,7 +8,7 @@ metadata:
     app.kubernetes.io/version: v1.0
   annotations:
     #traefik.ingress.kubernetes.io/router.entrypoints: web
-    #nginx.ingress.kubernetes.io/auth-tls-secret: "shopping/pocstorelocal-tls"
+    nginx.ingress.kubernetes.io/auth-tls-secret: "shopping/pocstorelocal-tls"
 spec:
   ingressClassName: nginx
   rules:
@@ -22,7 +22,7 @@ spec:
                 name: store-websocket
                 port:
                   name: http
-  #tls:
-  #- hosts:
-  #  - pocstore.local
-  #  secretName: pocstorelocal-tls
+  tls:
+  - hosts:
+    - pocstore.local
+    secretName: pocstorelocal-tls

@@ -47,7 +47,8 @@ func main() {
 	http.HandleFunc("/ws", server.Handle(echoHandler))
 
 	logging.Info("The WebSocket server is starting...")
-	addr := ":80"
+	//addr := ":80"
+	addr := cfg.WebSocketPort()
 	logging.Info("WebSocket server listening on %s/ws", addr)
 
 	// Start server in a goroutine
