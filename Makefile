@@ -5,7 +5,8 @@ PROJECT_ROOT = pwd
 
 # Find all service directories under cmd/
 #SERVICES := $(shell find cmd -mindepth 1 -maxdepth 1 -type d -exec basename {} \;)
-SERVICES = websocket
+#SERVICES = websocket
+SERVICES = eventwriter eventreader
 
 .PHONY: all build run test lint clean docker-build kubernetes-deploy kubernetes-delete run-service build-service
 

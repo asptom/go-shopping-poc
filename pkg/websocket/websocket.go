@@ -80,22 +80,3 @@ func (s *WebSocketServer) Handle(customHandler HandlerFunc) http.HandlerFunc {
 		}()
 	}
 }
-
-/* func (s *WebSocketServer) listen(conn *websocket.Conn) {
-	defer func() {
-		conn.Close()
-		delete(s.Clients, conn)
-	}()
-	for {
-		mt, msg, err := conn.ReadMessage()
-		if err != nil {
-			logging.Error("Read error: %v", err)
-			break
-		}
-		// Echo back for demonstration
-		if err := conn.WriteMessage(mt, msg); err != nil {
-			logging.Error("Write error: %v", err)
-			break
-		}
-	}
-} */

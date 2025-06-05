@@ -1,0 +1,4 @@
+replicaCount=1
+listeners.client.protocol=PLAINTEXT
+listeners.controller.protocol=PLAINTEXT
+listeners.interbroker.protocol=PLAINTEXT
