@@ -8,4 +8,7 @@ kubectl exec --tty -i kafka-client --namespace kafka -- bash -c "kafka-topics.sh
 
 kubectl exec --tty -i kafka-client --namespace kafka -- bash -c "kafka-acls.sh --command-config /tmp/client.properties --list --topic * --bootstrap-server kafka.kafka.svc.cluster.local:9092"
 
+kubectl exec --tty -i kafka-client --namespace kafka -- bash -c "kafka-topics.sh  --create --topic EventExample --bootstrap-server kafka.kafka.svc.cluster.local:9092"
+
+
 kubectl cp --namespace kafka ./kafka_client.properties kafka-client:/tmp/client.properties

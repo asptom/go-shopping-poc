@@ -8,7 +8,7 @@ PROJECT_ROOT = pwd
 #SERVICES = websocket
 SERVICES = eventwriter eventreader
 
-.PHONY: all build run test lint clean docker-build kubernetes-deploy kubernetes-delete run-service build-service
+.PHONY: all build run test lint clean docker-build k8s-deploy k8s-delete run-service build-service
 
 all: build
 
@@ -56,22 +56,50 @@ docker-build:
 		echo "Docker image for $$svc built and pushed."; \
 	done
 
-kubernetes-deploy:
+k8s-deploy:
+	@echo
 	@echo "Deploying to Kubernetes..."
+	@echo "--------------------------------"
 	@for svc in $(SERVICES); do \
-	    echo "Deploying $$svc..."; \
-	    kubectl apply -f deployments/kubernetes/$$svc/$$svc-deployment.yaml; \
-		kubectl apply -f deployments/kubernetes/$$svc/$$svc-service.yaml; \
-		kubectl apply -f deployments/kubernetes/$$svc/$$svc-ingress.yaml; \
+	    echo "-> Deploying $$svc..."; \
+		if [ ! -f deployments/kubernetes/$$svc/$$svc-deployment.yaml ]; then \
+			echo "--> Deployment file for $$svc not found, skipping..."; \
+		else \
+			kubectl apply -f deployments/kubernetes/$$svc/$$svc-deployment.yaml; \
+		fi; \
+		if [ ! -f deployments/kubernetes/$$svc/$$svc-service.yaml ]; then \
+			echo "--> Service file for $$svc not found, skipping..."; \
+		else \
+			kubectl apply -f deployments/kubernetes/$$svc/$$svc-service.yaml; \
+		fi; \
+		if [ ! -f deployments/kubernetes/$$svc/$$svc-ingress.yaml ]; then \
+			echo "--> Ingress file for $$svc not found, skipping..."; \
+		else \
+			kubectl apply -f deployments/kubernetes/$$svc/$$svc-ingress.yaml; \
+		fi; \
+		echo "--> $$svc deployed to Kubernetes."; \
+		echo "--------------------------------"; \
 	done
-	@echo "All services deployed to Kubernetes."
+	@echo "All services deployed to Kubernetes with configurations from deployments/kubernetes."
+	@echo
 
-kubernetes-delete:
+k8s-delete:
+	@echo 
 	@echo "Deleting Kubernetes deployments..."
+	@echo "--------------------------------"
 	@for svc in $(SERVICES); do \
-	    echo "Deleting $$svc..."; \
-	    kubectl delete -f deployments/kubernetes/$$svc/$$svc-deployment.yaml; \
-		kubectl delete -f deployments/kubernetes/$$svc/$$svc-service.yaml; \
-		kubectl delete -f deployments/kubernetes/$$svc/$$svc-ingress.yaml; \
+	    echo "--> Deleting $$svc..."; \
+		if [ -f deployments/kubernetes/$$svc/$$svc-deployment.yaml ]; then \
+	    	kubectl delete -f deployments/kubernetes/$$svc/$$svc-deployment.yaml; \
+		fi; \
+		if [ -f deployments/kubernetes/$$svc/$$svc-service.yaml ]; then \
+	    	kubectl delete -f deployments/kubernetes/$$svc/$$svc-service.yaml; \
+		fi; \
+		if [ -f deployments/kubernetes/$$svc/$$svc-ingress.yaml ]; then \
+	    	kubectl delete -f deployments/kubernetes/$$svc/$$svc-ingress.yaml; \
+		fi; \
+		echo "--> Deleted $$svc from kubernetes."; \
+		echo "--------------------------------"; \
 	done
 	@echo "All services deleted from Kubernetes."
+	@echo
