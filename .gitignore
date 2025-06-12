@@ -31,3 +31,4 @@ go.work.sum
 # Project specific files
 resources/security/tls_certificates/certificates/*
 bin/
+docs/generated/

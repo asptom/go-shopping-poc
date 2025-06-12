@@ -1,0 +1,142 @@
+-- This script initializes the PostgreSQL database used by the shoppingcart services
+
+-- Environment variables used in this script:
+-- PSQL_SHOPPING_CARTS_DB: Name of the ShoppingCarts database
+-- PSQL_SHOPPING_CARTS_ROLE: Role for the ShoppingCarts database
+-- PSQL_SHOPPING_CARTS_PASSWORD: Password for the ShoppingCarts role
+
+-- The variables are expected to be set in the environment and then replaced in the template file using envsubst.
+
+-------------------------------
+-- Intitialize ShoppingCarts --
+-------------------------------
+
+DROP SCHEMA IF EXISTS shoppingcarts CASCADE;
+CREATE SCHEMA shoppingcarts AUTHORIZATION $PSQL_SHOPPING_CARTS_ROLE;
+
+DROP TABLE IF EXISTS shoppingcarts.EventLog;
+CREATE TABLE shoppingcarts.EventLog (
+    eventid uuid not null,
+    eventdomain varchar(255) not null,
+    eventtype varchar(255) not null, 
+    timeprocessed timestamp not null,
+    primary key (eventid)
+);
+
+DROP TABLE IF EXISTS shoppingcarts.Contact;
+CREATE TABLE shoppingcarts.Contact (
+    id int not null,
+    cartId uuid not null,
+    email varchar(255) not null,
+    firstName varchar(255) not null,
+    lastName varchar(255) not null,
+    phone varchar(255) not null,
+    primary key (id)
+);
+
+DROP TABLE IF EXISTS shoppingcarts.Address;
+CREATE TABLE shoppingcarts.Address (
+    id int not null,
+    cartId uuid not null,
+    addressType varchar(255) not null,
+    firstName varchar(255) not null,
+    lastName varchar(255) not null,
+    address_1 varchar(255) not null,
+    address_2 varchar(255) not null,
+    city varchar(255) not null,
+    state varchar(255) not null,
+    zip varchar(255) not null,
+    primary key (id)
+);
+
+DROP TABLE IF EXISTS shoppingcarts.CreditCard;
+CREATE TABLE shoppingcarts.CreditCard (
+    id int not null,
+    cartId uuid not null,
+    cardType varchar(255),
+    cardNumber varchar(255),
+    cardHolderName varchar(255),
+    cardExpires varchar(255),
+    cardCVV varchar(255),
+    primary key (id)
+);
+
+DROP TABLE IF EXISTS shoppingcarts.ShoppingCartItem;
+CREATE TABLE shoppingcarts.ShoppingCartItem (
+    id int not null,
+    cartId uuid not null,
+    lineNumber varchar(255) not null,
+    productId varchar(255) not null,
+    productName varchar(255),
+    unitPrice numeric(19,2),
+    quantity numeric(19),
+    totalPrice numeric (19,2),
+    primary key (id)
+);
+
+DROP TABLE IF EXISTS shoppingcarts.ShoppingCartStatus;
+CREATE TABLE shoppingcarts.ShoppingCartStatus (
+    id int not null,
+    cartId uuid not null,
+    status varchar(255),
+    statusDateTime timestamp,
+    primary key (id)
+);
+
+DROP TABLE IF EXISTS shoppingcarts.ShoppingCart;
+CREATE TABLE shoppingcarts.ShoppingCart (
+    cartId uuid not null,
+    contactId int not null,
+    creditCardId int not null,
+    netPrice numeric(19,2),
+    tax numeric(19,2),
+    shipping numeric(19,2),
+    totalPrice numeric(19,2),
+    primary key (cartId)
+);
+
+-- One-to-one relationships
+
+ALTER TABLE IF EXISTS shoppingcarts.ShoppingCart
+    ADD CONSTRAINT fk_contactId
+        FOREIGN KEY (contactId)
+            REFERENCES shoppingcarts.Contact;
+
+ALTER TABLE IF EXISTS shoppingcarts.ShoppingCart
+    ADD CONSTRAINT fk_creditCardId
+        FOREIGN KEY (creditCardId)
+            REFERENCES shoppingcarts.CreditCard;
+
+-- One-to-many relationships
+
+ALTER TABLE IF EXISTS shoppingcarts.Address
+    ADD CONSTRAINT fk_cartId
+        FOREIGN KEY (cartId)
+            REFERENCES shoppingcarts.ShoppingCart;
+
+ALTER TABLE IF EXISTS shoppingcarts.ShoppingCartStatus
+    ADD CONSTRAINT fk_cartId
+        FOREIGN KEY (cartId)
+            REFERENCES shoppingcarts.ShoppingCart;
+
+ALTER TABLE IF EXISTS shoppingcarts.ShoppingCartItem
+    ADD CONSTRAINT fk_cartId
+        FOREIGN KEY (cartId)
+            REFERENCES shoppingcarts.ShoppingCart;
+
+DROP TABLE IF EXISTS shoppingcarts.OutboxEvent;
+CREATE TABLE shoppingcarts.OutboxEvent (
+    id uuid not null,
+    aggregatetype varchar(255) not null,
+    aggregateid varchar(255) not null,
+    type varchar(255) not null,
+    timestamp timestamp not null,
+    payload varchar(7500),
+    primary key (id)
+);
+
+SET search_path TO shoppingcarts;
+CREATE SEQUENCE hibernate_sequence START 1;
+
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA shoppingcarts TO $PSQL_SHOPPING_CARTS_ROLE;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA shoppingcarts TO $PSQL_SHOPPING_CARTS_ROLE;

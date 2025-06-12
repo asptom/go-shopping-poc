@@ -38,12 +38,12 @@ clean:
 	@echo "Cleaning binaries..."
 	rm -rf bin/*
 
-# Example: make run-service SERVICE=eventexample
+# Example: make run-service SERVICE=eventreader ENV=development
 run-service:
 	@echo "Running $(SERVICE) with $(ENV_FILE)..."
 	APP_ENV=$(ENV) go run ./cmd/$(SERVICE)
 
-# Example: make build-service SERVICE=eventexample
+# Example: make build-service SERVICE=eventreader
 build-service:
 	@echo "Building $(SERVICE)..."
 	GOOS=linux GOARCH=amd64 go build -o bin/$(SERVICE) ./cmd/$(SERVICE)

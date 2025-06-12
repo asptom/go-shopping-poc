@@ -11,9 +11,9 @@ import (
 )
 
 type Config struct {
-	KafkaBroker             string
-	KafkaUsername           string
-	KafkaPassword           string
+	KafkaBroker string
+	// KafkaUsername           string
+	// KafkaPassword           string
 	KafkaTopic_EventExample string
 	KafkaGroup_EventExample string
 
@@ -35,9 +35,9 @@ func Load(envFile string) *Config {
 	_ = godotenv.Load(envFile) // Loads the specified .env file
 
 	return &Config{
-		KafkaBroker:                  getEnv("KAFKA_BROKER", "localhost:9092"),
-		KafkaUsername:                getEnv("KAFKA_USERNAME", ""),
-		KafkaPassword:                getEnv("KAFKA_PASSWORD", ""),
+		KafkaBroker: getEnv("KAFKA_BROKER", "localhost:9092"),
+		// KafkaUsername:                getEnv("KAFKA_USERNAME", ""),
+		// KafkaPassword:                getEnv("KAFKA_PASSWORD", ""),
 		KafkaTopic_EventExample:      getEnv("KAFKA_TOPIC_EVENT_EXAMPLE", "EventExampleTopic"),
 		KafkaGroup_EventExample:      getEnv("KAFKA_GROUP_EVENT_EXAMPLE", "event-example-group"),
 		EventWriter_KafkaWriteTopics: getEnvArray("EVENT_WRITER_KAFKA_WRITE_TOPICS", []string{"WriteTopic1", "WriteTopic2"}),
@@ -135,12 +135,13 @@ func (c *Config) WebSocketPort() string {
 func (c *Config) GetKafkaBroker() string {
 	return c.KafkaBroker
 }
-func (c *Config) GetKafkaUsername() string {
-	return c.KafkaUsername
-}
-func (c *Config) GetKafkaPassword() string {
-	return c.KafkaPassword
-}
+
+// func (c *Config) GetKafkaUsername() string {
+// 	return c.KafkaUsername
+// }
+// func (c *Config) GetKafkaPassword() string {
+// 	return c.KafkaPassword
+// }
 
 // Getters for event examples
 func (c *Config) GetKafkaTopicEventExample() string {

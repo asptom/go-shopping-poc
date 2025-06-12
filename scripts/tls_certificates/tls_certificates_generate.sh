@@ -1,32 +1,32 @@
 #!/usr/bin/env bash
 
-PROJECT_HOME="/Users/tom/Projects/Go/go-shopping-poc"
-if [ ! -d "$PROJECT_HOME" ]; then
-    echo "Project home directory does not exist: $PROJECT_HOME"
-    exit 1
-fi
+# This script will be used for the generation of the TLS certificates
+# and the installation of the certificates in the system keychain
 
-cd $PROJECT_HOME/resources/security/tls_certificates/configuration
-if [ $? -ne 0 ]; then
-    echo "Configuration directory does not exist: $PROJECT_HOME/resources/security/tls_certificates/configuration"
+PROJECT_HOME="/Users/tom/Projects/Go/go-shopping-poc"
+
+source "$PROJECT_HOME/scripts/common/load_env.sh"
+
+cd $TLS_CONFIGURATION_DIR || {
+    echo "Failed to change directory to $TLS_CONFIGURATION_DIR"
     echo "Configuration files are required to generate TLS certificates."
     exit 1
-fi
+}
 
-cd $PROJECT_HOME/resources/security/tls_certificates/certificates
+cd $TLS_CERTIFICATES_DIR
 if [ $? -ne 0 ]; then
-    mkdir -p $PROJECT_HOME/resources/security/tls_certificates/certificates
-    echo "Created directory for TLS certificates: $PROJECT_HOME/resources/security/tls_certificates/certificates"
-    cd $PROJECT_HOME/resources/security/tls_certificates/certificates
+    mkdir -p $TLS_CERTIFICATES_DIR
+    echo "Created directory for TLS certificates:" $TLS_CERTIFICATES_DIR
+    cd $TLS_CERTIFICATES_DIR
     if [ $? -ne 0 ]; then
-        echo "Failed to change directory to $PROJECT_HOME/resources/security/tls_certificates/certificates after creating it"
+        echo "Failed to change directory to cd $TLS_CERTIFICATES_DIR after creating it"
         exit 1
     fi
 fi
 
 echo ""
 echo "-----------------------------------------------------------------------"
-echo -n "Are you sure that you want to generate new tls certificates? (Y/n): "
+echo -n "Are you sure that you want to generate new tls certificates? Y/n: "
 read -r generate_new
 echo "-----------------------------------------------------------------------"
 echo ""
