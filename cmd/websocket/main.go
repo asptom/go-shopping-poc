@@ -30,12 +30,10 @@ func echoHandler(conn *websocket.Conn) {
 }
 
 func main() {
-	// Load config (choose env file based on APP_ENV)
-	env := os.Getenv("APP_ENV")
-	envFile := ".env.development"
-	if env == "production" {
-		envFile = ".env.production"
-	}
+
+	// Load configuration
+
+	envFile := config.ResolveEnvFile()
 	cfg := config.Load(envFile)
 
 	// Optionally set log level from env/config

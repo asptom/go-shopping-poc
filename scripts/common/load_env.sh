@@ -13,6 +13,8 @@ if [ ! -f "$PROJECT_HOME/.env" ]; then
     exit 1
 fi
 
+echo "Loading environment variables from $PROJECT_HOME/.env"
+# Load the base .env file
 set -a
 source "$PROJECT_HOME/.env"
 set +a

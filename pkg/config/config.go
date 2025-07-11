@@ -29,6 +29,8 @@ type Config struct {
 	WebSocketReadBuffer  int
 	WebSocketWriteBuffer int
 	webSocketPort        string
+
+	CustomerDBURL string
 }
 
 func Load(envFile string) *Config {
@@ -51,6 +53,7 @@ func Load(envFile string) *Config {
 		WebSocketReadBuffer:          getEnvInt("WEBSOCKET_READ_BUFFER", 1024),
 		WebSocketWriteBuffer:         getEnvInt("WEBSOCKET_WRITE_BUFFER", 1024),
 		webSocketPort:                getEnv("WEBSOCKET_PORT", ":8080"),
+		CustomerDBURL:                getEnv("CUSTOMER_DB_URL", "postgres://user:password@localhost:5432/customer_db?sslmode=disable"),
 	}
 }
 
@@ -169,4 +172,9 @@ func (c *Config) GetEventReaderKafkaReadTopics() []string {
 }
 func (c *Config) GetEventReaderKafkaGroupId() string {
 	return c.EventReader_KafkaGroupID
+}
+
+// Getters for Customer DB URL
+func (c *Config) GetCustomerDBURL() string {
+	return c.CustomerDBURL
 }

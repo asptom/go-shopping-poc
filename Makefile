@@ -7,8 +7,9 @@ PROJECT_ROOT = pwd
 #SERVICES := $(shell find cmd -mindepth 1 -maxdepth 1 -type d -exec basename {} \;)
 #SERVICES = websocket
 SERVICES = eventwriter eventreader
+MODELS = $(shell find resources/postgresql/models/ -mindepth 1 -maxdepth 1 -type d -exec basename {} \;)
 
-.PHONY: all build run test lint clean docker-build k8s-deploy k8s-delete run-service build-service
+.PHONY: all build sqlc run test lint clean docker-build k8s-deploy k8s-delete run-service build-service
 
 all: build
 
@@ -37,6 +38,36 @@ lint:
 clean:
 	@echo "Cleaning binaries..."
 	rm -rf bin/*
+
+
+# Clean sqlc generated files
+sqlc-clean:
+	@echo "Cleaning sqlc generated files..."
+	@for model in $(MODELS); do \
+	    echo "Cleaning sqlc generated go files for $$model..."; \
+	    rm -f ./domain/$$model/generated/*.go; \
+	done
+
+# Create domain go structs using sqlc
+sqlc: sqlc-clean
+	@echo "Generating Go structs using sqlc..."
+	@for model in $(MODELS); do \
+	    echo "Generating structs for $$model..."; \
+		if [ ! -f ./resources/postgresql/models/$$model/sqlc.yaml ]; then \
+			echo "--> sqlc.yaml not found for $$model, skipping..."; \
+		else \
+			sqlc generate -f ./resources/postgresql/models/$$model/sqlc.yaml; \
+			if [ -d ./resources/postgresql/models/$$model/generated ]; then \
+				mv ./resources/postgresql/models/$$model/generated/* ./domain/$$model/generated/; \
+				rm -rf ./resources/postgresql/models/$$model/generated; \
+				echo "--> Go files generated for $$model."; \
+			elif [ -d ./domain/$$model/generated ]; then \
+				echo "--> Go files already exist for $$model, skipping generation."; \
+			else \
+				echo "--> No Go files generated for $$model."; \
+			fi; \
+		fi; \
+	done
 
 # Example: make run-service SERVICE=eventreader ENV=development
 run-service:

@@ -47,12 +47,9 @@ func main() {
 	logging.SetLevel("DEBUG")
 	logging.Info("EventReader service started")
 
-	// Choose env file based on an ENV variable or default to development
-	env := os.Getenv("APP_ENV")
-	envFile := ".env.development"
-	if env == "production" {
-		envFile = ".env.production"
-	}
+	// Load configuration
+
+	envFile := config.ResolveEnvFile()
 	cfg := config.Load(envFile)
 
 	logging.Info("Configuration loaded from %s", envFile)
