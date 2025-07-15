@@ -1,3 +1,0 @@
-
------------------------------------------------------------------------
-Enter the namespace to get logs from (default: shopping): 

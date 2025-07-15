@@ -5,13 +5,13 @@ PROJECT_ROOT = pwd
 
 # Find all service directories under cmd/
 #SERVICES := $(shell find cmd -mindepth 1 -maxdepth 1 -type d -exec basename {} \;)
-#SERVICES = websocket
-SERVICES = eventwriter eventreader
+#SERVICES = websocket eventwriter eventreader customer
+SERVICES = customer
 MODELS = $(shell find resources/postgresql/models/ -mindepth 1 -maxdepth 1 -type d -exec basename {} \;)
 
 .PHONY: all build sqlc run test lint clean docker-build k8s-deploy k8s-delete run-service build-service
 
-all: build
+all: clean build docker-build k8s-deploy
 
 build:
 	@echo "Building all services..."

@@ -27,7 +27,7 @@ echo "-----------------------"
 echo "Postgresql is available"
 echo "-----------------------"
 
-# Change to the domains directory
+# Change to the models directory
 if ! cd "$PSQL_MODELS_DIR"; then
     echo "Failed to change directory to $PSQL_MODELS_DIR"
     exit 1
@@ -39,26 +39,28 @@ if ! command -v envsubst &> /dev/null; then
     exit 1
 fi
 
-# Loop through all .db_template files under the models directory to create the databases and roles
+# Loop through all <domain>_db.sql files under the models directory to create the databases and roles
 # and then create the schemas from the <domain>_schema.sql files that correspond to each template
 echo
 echo "--------------------------------------------"
 echo "Creating databases and roles from db_templates in $PSQL_MODELS_DIR"
 echo
 
-find "$PSQL_MODELS_DIR" -type f -name '*.db_template' | sort | while read -r template; do
+find "$PSQL_MODELS_DIR" -type f -name '*_db.sql' | sort | while read -r template; do
   
-    outputdb="${template%.db_template}.db"
-    if [ -f "$output" ]; then
-        echo "Output file $output already exists - deleting..."
-        rm "$output"
+    outputdb="${template%_db.sql}.db"
+    if [ -f "$outputdb" ]; then
+        echo "Output file $outputdb already exists - deleting..."
+        rm "$outputdb"
     fi
 
     echo
-    echo "Processing template: $template"
+    echo "Processing database template: $template"
     envsubst < "$template" > "$outputdb"
-    
-    echo "Substituted variables in $template -> $outputdb"
+    if [ $? -ne 0 ]; then
+        echo "Failed to substitute environment variables in $template"
+        continue
+    fi
     
     # Check if the output file is empty
     if [ ! -s "$outputdb" ]; then
@@ -92,7 +94,7 @@ find "$PSQL_MODELS_DIR" -type f -name '*.db_template' | sort | while read -r tem
     # Now create the schema for this database using the corresponding <domain>_schema.sql file
     # The schema file should be named <domain>_schema.sql and located in the same directory as the template
     
-    sqlfile="${template%.db_template}_schema.sql"
+    sqlfile="${template%_db.sql}_schema.sql"
     if [ ! -f "$sqlfile" ]; then
         echo "Schema file $sqlfile NOT found for template $template"
         exit 1

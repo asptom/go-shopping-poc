@@ -1,0 +1,28 @@
+kind: Ingress
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: store-customer
+  namespace: shopping
+  labels:
+    app.kubernetes.io/name: store-customer
+    app.kubernetes.io/version: v1.0
+  annotations:
+    #traefik.ingress.kubernetes.io/router.entrypoints: web
+    nginx.ingress.kubernetes.io/auth-tls-secret: "shopping/pocstorelocal-tls"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: pocstore.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: store-customer
+                port:
+                  name: http
+  tls:
+  - hosts:
+    - pocstore.local
+    secretName: pocstorelocal-tls

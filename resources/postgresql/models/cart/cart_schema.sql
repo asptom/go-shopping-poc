@@ -3,10 +3,8 @@
 -- This schema is used to manage cart-related data
 
 -- Credentials are managed outside of source control in the .ENV file
--- There is a corresponding .db_template script that is used to initialize the database
+-- There is a corresponding <domain>_db.sql script that is used to initialize the database
 -- This script is used to create the carts schema in PostgreSQL
-
--- This script is also used to generate Go structs for the cart domain using sqlc
 
 -- The following lines will be used to set the DB, USER, and PGPASSWORD used to 
 -- run the psqlclient that executes this script
@@ -19,125 +17,126 @@ CREATE SCHEMA carts;
 
 SET search_path TO carts;
 
-DROP TABLE IF EXISTS carts.EventLog;
-CREATE TABLE carts.EventLog (
-    eventid uuid not null,
-    eventdomain varchar(255) not null,
-    eventtype varchar(255) not null, 
-    timeprocessed timestamp not null,
-    primary key (eventid)
-);
-
 DROP TABLE IF EXISTS carts.Contact;
 CREATE TABLE carts.Contact (
-    id int not null,
-    cartId uuid not null,
-    email varchar(255) not null,
-    firstName varchar(255) not null,
-    lastName varchar(255) not null,
-    phone varchar(255) not null,
+    id bigint not null,
+    cart_id uuid not null,
+    email text not null,
+    first_name text not null,
+    last_name text not null,
+    phone text not null,
     primary key (id)
 );
 
 DROP TABLE IF EXISTS carts.Address;
 CREATE TABLE carts.Address (
-    id int not null,
-    cartId uuid not null,
-    addressType varchar(255) not null,
-    firstName varchar(255) not null,
-    lastName varchar(255) not null,
-    address_1 varchar(255) not null,
-    address_2 varchar(255) not null,
-    city varchar(255) not null,
-    state varchar(255) not null,
-    zip varchar(255) not null,
+    id bigint not null,
+    cart_id uuid not null,
+    address_type text not null,
+    first_name text not null,
+    last_name text not null,
+    address_1 text not null,
+    address_2 text not null,
+    city text not null,
+    state text not null,
+    zip text not null,
     primary key (id)
 );
 
 DROP TABLE IF EXISTS carts.CreditCard;
 CREATE TABLE carts.CreditCard (
-    id int not null,
-    cartId uuid not null,
-    cardType varchar(255),
-    cardNumber varchar(255),
-    cardHolderName varchar(255),
-    cardExpires varchar(255),
-    cardCVV varchar(255),
+    id bigint not null,
+    cart_id uuid not null,
+    card_type text,
+    card_number text,
+    card_holder_name text,
+    card_expires text,
+    card_cvv text,
     primary key (id)
 );
 
 DROP TABLE IF EXISTS carts.ShoppingCartItem;
 CREATE TABLE carts.ShoppingCartItem (
-    id int not null,
-    cartId uuid not null,
-    lineNumber varchar(255) not null,
-    productId varchar(255) not null,
-    productName varchar(255),
-    unitPrice numeric(19,2),
+    id bigint not null,
+    cart_id uuid not null,
+    line_number text not null,
+    product_id text not null,
+    product_name text,
+    unit_price numeric(19,2),
     quantity numeric(19),
-    totalPrice numeric (19,2),
+    total_price numeric (19,2),
     primary key (id)
 );
 
 DROP TABLE IF EXISTS carts.cartstatus;
 CREATE TABLE carts.cartstatus (
-    id int not null,
-    cartId uuid not null,
-    status varchar(255),
-    statusDateTime timestamp,
+    id bigint not null,
+    cart_id uuid not null,
+    cart_status text,
+    status_date_time timestamp,
     primary key (id)
 );
 
 DROP TABLE IF EXISTS carts.ShoppingCart;
 CREATE TABLE carts.ShoppingCart (
-    cartId uuid not null,
-    contactId int not null,
-    creditCardId int not null,
-    netPrice numeric(19,2),
+    cart_id uuid not null,
+    contact_id bigint not null,
+    credit_card_id bigint not null,
+    net_price numeric(19,2),
     tax numeric(19,2),
     shipping numeric(19,2),
-    totalPrice numeric(19,2),
-    primary key (cartId)
+    total_price numeric(19,2),
+    primary key (cart_id)
+);
+
+DROP TABLE IF EXISTS carts.EventLog;
+CREATE TABLE carts.EventLog (
+    event_id uuid not null,
+    event_domain text not null,
+    event_type text not null, 
+    time_processed timestamp not null,
+    primary key (event_id)
+);
+
+DROP TABLE IF EXISTS carts.OutboxEvent;
+CREATE TABLE carts.OutboxEvent (
+    id uuid not null,
+    aggregate_type text not null,
+    aggregate_id text not null,
+    event_type text not null,
+    time_stamp timestamp not null,
+    payload text,
+    primary key (id)
 );
 
 -- One-to-one relationships
 
 ALTER TABLE IF EXISTS carts.ShoppingCart
-    ADD CONSTRAINT fk_contactId
-        FOREIGN KEY (contactId)
+    ADD CONSTRAINT fk_contact_id
+        FOREIGN KEY (contactid)
             REFERENCES carts.Contact;
 
 ALTER TABLE IF EXISTS carts.ShoppingCart
-    ADD CONSTRAINT fk_creditCardId
-        FOREIGN KEY (creditCardId)
+    ADD CONSTRAINT fk_credit_card_id
+        FOREIGN KEY (credit_card_id)
             REFERENCES carts.CreditCard;
 
 -- One-to-many relationships
 
 ALTER TABLE IF EXISTS carts.Address
-    ADD CONSTRAINT fk_cartId
-        FOREIGN KEY (cartId)
+    ADD CONSTRAINT fk_cart_id
+        FOREIGN KEY (cart_id)
             REFERENCES carts.ShoppingCart;
 
-ALTER TABLE IF EXISTS carts.cartstatus
-    ADD CONSTRAINT fk_cartId
-        FOREIGN KEY (cartId)
+ALTER TABLE IF EXISTS carts.cart_status
+    ADD CONSTRAINT fk_cart_id
+        FOREIGN KEY (cartid)
             REFERENCES carts.ShoppingCart;
 
 ALTER TABLE IF EXISTS carts.ShoppingCartItem
-    ADD CONSTRAINT fk_cartId
-        FOREIGN KEY (cartId)
+    ADD CONSTRAINT fk_cart_id
+        FOREIGN KEY (cart_id)
             REFERENCES carts.ShoppingCart;
 
-DROP TABLE IF EXISTS carts.OutboxEvent;
-CREATE TABLE carts.OutboxEvent (
-    id uuid not null,
-    aggregatetype varchar(255) not null,
-    aggregateid varchar(255) not null,
-    type varchar(255) not null,
-    timestamp timestamp not null,
-    payload varchar(7500),
-    primary key (id)
-);
 
 CREATE SEQUENCE cart_sequence START 1 INCREMENT BY 1;

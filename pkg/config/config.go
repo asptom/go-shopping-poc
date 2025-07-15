@@ -14,23 +14,21 @@ type Config struct {
 	KafkaBroker string
 	// KafkaUsername           string
 	// KafkaPassword           string
-	KafkaTopic_EventExample string
-	KafkaGroup_EventExample string
-
+	KafkaTopic_EventExample      string
+	KafkaGroup_EventExample      string
 	EventWriter_KafkaWriteTopics []string
 	EventWriter_KafkaReadTopics  []string
 	EventWriter_KafkaGroupID     string
 	EventReader_KafkaWriteTopics []string
 	EventReader_KafkaReadTopics  []string
 	EventReader_KafkaGroupID     string
-
-	webSocketURL         string
-	WebSocketTimeoutMs   int
-	WebSocketReadBuffer  int
-	WebSocketWriteBuffer int
-	webSocketPort        string
-
-	CustomerDBURL string
+	webSocketURL                 string
+	WebSocketTimeoutMs           int
+	WebSocketReadBuffer          int
+	WebSocketWriteBuffer         int
+	webSocketPort                string
+	CustomerDBURL                string
+	CustomerServicePort          string
 }
 
 func Load(envFile string) *Config {
@@ -53,7 +51,8 @@ func Load(envFile string) *Config {
 		WebSocketReadBuffer:          getEnvInt("WEBSOCKET_READ_BUFFER", 1024),
 		WebSocketWriteBuffer:         getEnvInt("WEBSOCKET_WRITE_BUFFER", 1024),
 		webSocketPort:                getEnv("WEBSOCKET_PORT", ":8080"),
-		CustomerDBURL:                getEnv("CUSTOMER_DB_URL", "postgres://user:password@localhost:5432/customer_db?sslmode=disable"),
+		CustomerDBURL:                getEnv("PSQL_CUSTOMER_DB_URL", "postgres://user:password@localhost:5432/customer_db?sslmode=disable"),
+		CustomerServicePort:          getEnv("CUSTOMER_SERVICE_PORT", ":80"),
 	}
 }
 
@@ -71,7 +70,7 @@ func getEnvArray(key string, fallback []string) []string {
 		for _, v := range splitAndTrim(value, ",") {
 			// Only append non-empty values
 			// This is a simple check, you might want to handle more complex cases
-			logging.Info("Config: %s=%s", key, v)
+			//logging.Info("Config: %s=%s", key, v)
 
 			if v != "" {
 				parts = append(parts, v)
@@ -116,7 +115,6 @@ func getEnvInt(key string, fallback int) int {
 func (c *Config) WebSocketEnabled() bool {
 	return c.webSocketURL != ""
 }
-
 func (c *Config) WebSocketURL() string {
 	return c.webSocketURL
 }
@@ -174,7 +172,10 @@ func (c *Config) GetEventReaderKafkaGroupId() string {
 	return c.EventReader_KafkaGroupID
 }
 
-// Getters for Customer DB URL
+// Getters for Customer services
 func (c *Config) GetCustomerDBURL() string {
 	return c.CustomerDBURL
+}
+func (c *Config) GetCustomerServicePort() string {
+	return c.CustomerServicePort
 }
