@@ -3,25 +3,32 @@ go-shopping-poc/
 ├── go.sum
 ├── README.md
 ├── cmd/
-│   ├── orderservice/         # main.go for Order Service
+│   ├── customer/             # main.go for Customer Service
 │   │   └── main.go
-│   ├── userservice/          # main.go for User Service
+│   ├── order/                # main.go for Order Service
 │   │   └── main.go
 │   └── ...                   # other service entrypoints
+├── deployments/              # Kubernetes/Helm/docker-compose manifests
+│   └── ...
+├── docs/                     # Project documents and explanations
+│   └── ...
 ├── internal/                 # Private code for this repo (not importable by others)
-│   ├── orders/               # Business logic for orders
-│   ├── users/                # Business logic for users
+│   ├── entity/               # Entity definitions for all domains
+│   │   └── customer.go
+│   │   └── order.go
+│   ├── service/              # Business logic and plumbing for domain services
+│   │   └── customer/
+│   │       └── handler.go
+│   │       └── repository.go
+│   │       └── service.go
+│   │   └── order
 │   └── ...                   # other internal packages
 ├── pkg/                      # Shared code (importable by other modules)
 │   ├── event/                # Event bus, event interfaces, Kafka integration
 │   ├── logger/               # Logging utilities
 │   ├── config/               # Shared config loading
 │   └── ...                   # other shared packages
-├── api/                      # Protobuf/OpenAPI definitions
+├── resources/                # Non-code resources needed by the project (security/certificates/config)
 │   └── ...
-├── deployments/              # Kubernetes/Helm/docker-compose manifests
+├── scripts/                  # Helper scripts (build, install, test, etc.)
 │   └── ...
-├── scripts/                  # Helper scripts (build, test, etc.)
-│   └── ...
-└── resources/                # Non-code resources needed by the project (security/certificates/config)
-    └── ...
