@@ -18,7 +18,7 @@ func NewCustomerHandler(service *CustomerService) *CustomerHandler {
 }
 
 func (h *CustomerHandler) CreateCustomer(w http.ResponseWriter, r *http.Request) {
-	var customer entity.CustomerBase
+	var customer entity.Customer
 	if err := json.NewDecoder(r.Body).Decode(&customer); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

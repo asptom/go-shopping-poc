@@ -32,7 +32,7 @@ CREATE TABLE customers.Customer (
 
 DROP TABLE IF EXISTS customers.Address;
 CREATE TABLE customers.Address (
-    id bigint not null,
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     customer_id uuid not null,
     address_type text not null,
     first_name text,
@@ -42,52 +42,47 @@ CREATE TABLE customers.Address (
     city text,
     state text,
     zip text,
-    is_default boolean,
-    primary key (id)
+    is_default boolean
 );
 
 DROP TABLE IF EXISTS customers.CreditCard;
 CREATE TABLE customers.CreditCard (
-    id bigint not null,
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     customer_id uuid not null,
     card_type text,
     card_number text,
     card_holder_name text,
     card_expires text,
     card_cvv text,
-    is_default boolean,
-    primary key (id)
+    is_default boolean
 );
 
 --CREATE DOMAIN customer_status AS text CHECK (VALUE IN ('active', 'inactive', 'suspended', 'deleted'));
 
 DROP TABLE IF EXISTS customers.CustomerStatus;
 CREATE TABLE customers.CustomerStatus (
-    id bigint not null,
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     customer_id uuid not null,
     customer_status text not null,
-    status_date_time timestamp,
-    primary key (id)
+    status_date_time timestamp not null
 );
 
 DROP TABLE IF EXISTS customers.EventLog;
 CREATE TABLE customers.EventLog (
-    event_id uuid not null,
+    event_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     event_domain text not null,
     event_type text not null, 
-    time_processed timestamp not null,
-    primary key (event_id)
+    time_processed timestamp not null
 );
 
 DROP TABLE IF EXISTS customers.OutboxEvent;
 CREATE TABLE customers.OutboxEvent (
-    id uuid not null,
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     aggregate_type text not null,
     aggregate_id text not null,
     event_type text not null,
     time_stamp timestamp not null,
-    payload text,
-    primary key (id)
+    payload text
 );
 
 -- One-to-many relationships

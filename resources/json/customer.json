@@ -1,0 +1,30 @@
+{
+    "user_name": "toma",
+    "email": "mobileasp@gmail.com",
+    "first_name": "Tom",
+    "last_name": "Asp",
+    "phone": "(904)614-0856",
+    "addresses": [{
+        "address_type": "shipping",
+        "first_name": "Tom",
+        "last_name": "Asp",
+        "address_1": "123 Main St",
+        "address_2": "",
+        "city": "Jacksonville",
+        "state": "FL",
+        "zip": "32256",
+        "is_default": true
+    }],
+    "credit_cards": [{
+        "card_type": "Visa",
+        "card_number": "4111111111111111",
+        "card_holder_name": "Tom Asp",
+        "card_expires": "12/25",
+        "card_cvv": "123",
+        "is_default": true
+    }],
+    "customer_statuses": [{
+        "customer_status": "active",
+        "status_date_time": "2023-01-01T00:00:00Z"
+    }]
+}

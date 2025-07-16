@@ -19,18 +19,17 @@ SET search_path TO carts;
 
 DROP TABLE IF EXISTS carts.Contact;
 CREATE TABLE carts.Contact (
-    id bigint not null,
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     cart_id uuid not null,
     email text not null,
     first_name text not null,
     last_name text not null,
-    phone text not null,
-    primary key (id)
+    phone text not null
 );
 
 DROP TABLE IF EXISTS carts.Address;
 CREATE TABLE carts.Address (
-    id bigint not null,
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     cart_id uuid not null,
     address_type text not null,
     first_name text not null,
@@ -39,46 +38,42 @@ CREATE TABLE carts.Address (
     address_2 text not null,
     city text not null,
     state text not null,
-    zip text not null,
-    primary key (id)
+    zip text not null
 );
 
 DROP TABLE IF EXISTS carts.CreditCard;
 CREATE TABLE carts.CreditCard (
-    id bigint not null,
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     cart_id uuid not null,
     card_type text,
     card_number text,
     card_holder_name text,
     card_expires text,
-    card_cvv text,
-    primary key (id)
+    card_cvv text
 );
 
-DROP TABLE IF EXISTS carts.ShoppingCartItem;
-CREATE TABLE carts.ShoppingCartItem (
-    id bigint not null,
+DROP TABLE IF EXISTS carts.CartItem;
+CREATE TABLE carts.CartItem (
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     cart_id uuid not null,
     line_number text not null,
     product_id text not null,
     product_name text,
     unit_price numeric(19,2),
     quantity numeric(19),
-    total_price numeric (19,2),
-    primary key (id)
+    total_price numeric (19,2)
 );
 
-DROP TABLE IF EXISTS carts.cartstatus;
-CREATE TABLE carts.cartstatus (
-    id bigint not null,
+DROP TABLE IF EXISTS carts.CartStatus;
+CREATE TABLE carts.CartStatus (
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     cart_id uuid not null,
     cart_status text,
-    status_date_time timestamp,
-    primary key (id)
+    status_date_time timestamp
 );
 
-DROP TABLE IF EXISTS carts.ShoppingCart;
-CREATE TABLE carts.ShoppingCart (
+DROP TABLE IF EXISTS carts.Cart;
+CREATE TABLE carts.Cart (
     cart_id uuid not null,
     contact_id bigint not null,
     credit_card_id bigint not null,
@@ -91,32 +86,30 @@ CREATE TABLE carts.ShoppingCart (
 
 DROP TABLE IF EXISTS carts.EventLog;
 CREATE TABLE carts.EventLog (
-    event_id uuid not null,
+    event_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     event_domain text not null,
     event_type text not null, 
-    time_processed timestamp not null,
-    primary key (event_id)
+    time_processed timestamp not null
 );
 
 DROP TABLE IF EXISTS carts.OutboxEvent;
 CREATE TABLE carts.OutboxEvent (
-    id uuid not null,
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     aggregate_type text not null,
     aggregate_id text not null,
     event_type text not null,
     time_stamp timestamp not null,
-    payload text,
-    primary key (id)
+    payload text
 );
 
 -- One-to-one relationships
 
-ALTER TABLE IF EXISTS carts.ShoppingCart
+ALTER TABLE IF EXISTS carts.Cart
     ADD CONSTRAINT fk_contact_id
-        FOREIGN KEY (contactid)
+        FOREIGN KEY (contact_id)
             REFERENCES carts.Contact;
 
-ALTER TABLE IF EXISTS carts.ShoppingCart
+ALTER TABLE IF EXISTS carts.Cart
     ADD CONSTRAINT fk_credit_card_id
         FOREIGN KEY (credit_card_id)
             REFERENCES carts.CreditCard;
@@ -126,17 +119,17 @@ ALTER TABLE IF EXISTS carts.ShoppingCart
 ALTER TABLE IF EXISTS carts.Address
     ADD CONSTRAINT fk_cart_id
         FOREIGN KEY (cart_id)
-            REFERENCES carts.ShoppingCart;
+            REFERENCES carts.Cart;
 
-ALTER TABLE IF EXISTS carts.cart_status
-    ADD CONSTRAINT fk_cart_id
-        FOREIGN KEY (cartid)
-            REFERENCES carts.ShoppingCart;
-
-ALTER TABLE IF EXISTS carts.ShoppingCartItem
+ALTER TABLE IF EXISTS carts.CartStatus
     ADD CONSTRAINT fk_cart_id
         FOREIGN KEY (cart_id)
-            REFERENCES carts.ShoppingCart;
+            REFERENCES carts.Cart;
+
+ALTER TABLE IF EXISTS carts.CartItem
+    ADD CONSTRAINT fk_cart_id
+        FOREIGN KEY (cart_id)
+            REFERENCES carts.Cart;
 
 
 CREATE SEQUENCE cart_sequence START 1 INCREMENT BY 1;
