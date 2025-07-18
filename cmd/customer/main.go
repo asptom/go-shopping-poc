@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"go-shopping-poc/pkg/config"
+	"go-shopping-poc/pkg/event"
 	"go-shopping-poc/pkg/logging"
 	"go-shopping-poc/pkg/outbox"
 
@@ -43,7 +44,19 @@ func main() {
 	}
 	defer db.Close()
 
-	// initialize layers
+	// Connect to Kafka
+	broker := cfg.KafkaBroker
+	writeTopics := cfg.GetCustomerKafkaWriteTopics()
+	groupID := cfg.GetCustomerKafkaGroupID()
+
+	bus := event.NewKafkaEventBus(broker, nil, writeTopics, groupID)
+
+	// Initialize
+	logging.Debug("Initializing outbox reader and writer")
+	outboxReader := outbox.NewReader(db, bus, 1, 1)
+	outboxReader.Start()
+	logging.Debug("Outbox reader started")
+	defer outboxReader.Stop()
 	outboxWriter := outbox.NewWriter(db)
 	repo := customer.NewCustomerRepository(db, outboxWriter)
 	service := customer.NewCustomerService(repo)

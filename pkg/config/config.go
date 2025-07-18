@@ -29,6 +29,8 @@ type Config struct {
 	webSocketPort                string
 	CustomerDBURL                string
 	CustomerServicePort          string
+	Customer_KafkaWriteTopics    []string
+	Customer_KafkaGroupID        string
 }
 
 func Load(envFile string) *Config {
@@ -39,13 +41,13 @@ func Load(envFile string) *Config {
 		// KafkaUsername:                getEnv("KAFKA_USERNAME", ""),
 		// KafkaPassword:                getEnv("KAFKA_PASSWORD", ""),
 		KafkaTopic_EventExample:      getEnv("KAFKA_TOPIC_EVENT_EXAMPLE", "EventExampleTopic"),
-		KafkaGroup_EventExample:      getEnv("KAFKA_GROUP_EVENT_EXAMPLE", "event-example-group"),
+		KafkaGroup_EventExample:      getEnv("KAFKA_GROUP_EVENT_EXAMPLE", "CustomerEventGroup"),
 		EventWriter_KafkaWriteTopics: getEnvArray("EVENT_WRITER_KAFKA_WRITE_TOPICS", []string{"WriteTopic1", "WriteTopic2"}),
 		EventWriter_KafkaReadTopics:  getEnvArray("EVENT_WRITER_KAFKA_READ_TOPICS", []string{}),
 		EventWriter_KafkaGroupID:     getEnv("EVENT_EXAMPLE_KAFKA_GROUP_ID", "event-example-writer-group"),
 		EventReader_KafkaWriteTopics: getEnvArray("EVENT_READER_KAFKA_WRITE_TOPICS", []string{}),
 		EventReader_KafkaReadTopics:  getEnvArray("EVENT_READER_KAFKA_READ_TOPICS", []string{"ReadTopic1", "ReadTopic2"}),
-		EventReader_KafkaGroupID:     getEnv("EVENT_EXAMPLE_KAFKA_GROUP_ID", "event-example-reader-group"),
+		EventReader_KafkaGroupID:     getEnv("EVENT_EXAMPLE_KAFKA_GROUP_ID", "CustomerEventGroup"),
 		webSocketURL:                 getEnv("WEBSOCKET_URL", "ws://localhost:8080/ws"),
 		WebSocketTimeoutMs:           getEnvInt("WEBSOCKET_TIMEOUT_MS", 5000),
 		WebSocketReadBuffer:          getEnvInt("WEBSOCKET_READ_BUFFER", 1024),
@@ -53,6 +55,8 @@ func Load(envFile string) *Config {
 		webSocketPort:                getEnv("WEBSOCKET_PORT", ":8080"),
 		CustomerDBURL:                getEnv("PSQL_CUSTOMER_DB_URL", "postgres://user:password@localhost:5432/customer_db?sslmode=disable"),
 		CustomerServicePort:          getEnv("CUSTOMER_SERVICE_PORT", ":80"),
+		Customer_KafkaWriteTopics:    getEnvArray("CUSTOMER_KAFKA_WRITE_TOPICS", []string{"CustomerEvent"}),
+		Customer_KafkaGroupID:        getEnv("CUSTOMER_KAFKA_GROUP_ID", "CustomerEventGroup"),
 	}
 }
 
@@ -178,4 +182,10 @@ func (c *Config) GetCustomerDBURL() string {
 }
 func (c *Config) GetCustomerServicePort() string {
 	return c.CustomerServicePort
+}
+func (c *Config) GetCustomerKafkaWriteTopics() []string {
+	return c.Customer_KafkaWriteTopics
+}
+func (c *Config) GetCustomerKafkaGroupID() string {
+	return c.Customer_KafkaGroupID
 }

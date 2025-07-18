@@ -50,7 +50,7 @@ echo
 # kubectl exec --tty -i kafka-client --namespace $KAFKA_CLUSTER_NAMESPACE -- bash -c "kafka-topics.sh --command-config /tmp/client.properties --create --topic EventExampleRead1 --bootstrap-server $KAFKA_CLUSTER_NAME.$KAFKA_CLUSTER_NAMESPACE.svc.cluster.local:9092"
 
 # kubectl exec --tty -i kafka-client --namespace $KAFKA_CLUSTER_NAMESPACE -- bash -c "kafka-topics.sh --create --topic EventExampleRead1 --bootstrap-server $KAFKA_CLUSTER_NAME.$KAFKA_CLUSTER_NAMESPACE.svc.cluster.local:9092"
-kubectl exec --tty -i kafka-client --namespace $KAFKA_CLUSTER_NAMESPACE -- bash -c "kafka-topics.sh --create --topic EventExample --bootstrap-server $KAFKA_CLUSTER_NAME.$KAFKA_CLUSTER_NAMESPACE.svc.cluster.local:9092"
+kubectl exec --tty -i kafka-client --namespace $KAFKA_CLUSTER_NAMESPACE -- bash -c "kafka-topics.sh --create --topic CustomerEvent --bootstrap-server $KAFKA_CLUSTER_NAME.$KAFKA_CLUSTER_NAMESPACE.svc.cluster.local:9092"
 
 echo
 echo "List topics"

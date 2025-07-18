@@ -19,7 +19,7 @@ type ExampleEvent struct {
 	ExampleData string
 }
 
-func (e ExampleEvent) Name() string { return "ExampleEvent" }
+func (e ExampleEvent) Name() string { return "CustomerEvent" }
 func (e ExampleEvent) Payload() interface{} {
 	b, err := json.Marshal(e)
 	if err != nil {
@@ -31,7 +31,7 @@ func (e ExampleEvent) Payload() interface{} {
 // eventFactory creates an Event from Kafka message data.
 func eventFactory(name string, payload []byte) (event.Event, error) {
 	switch name {
-	case "ExampleEvent":
+	case "CustomerEvent":
 		var e ExampleEvent
 		if err := json.Unmarshal(payload, &e); err != nil {
 			return nil, err
@@ -64,9 +64,9 @@ func main() {
 
 	bus := event.NewKafkaEventBus(broker, readTopics, writeTopics, groupID)
 
-	// Subscribe to ExampleEvent events
-	logging.Info("Subscribing to ExampleEvent on topics: %v", readTopics)
-	bus.Subscribe("ExampleEvent", func(e event.Event) {
+	// Subscribe to CustomerEvent events
+	logging.Info("Subscribing to CustomerEvent on topics: %v", readTopics)
+	bus.Subscribe("CustomerEvent", func(e event.Event) {
 		data, ok := e.Payload().([]byte)
 		if !ok {
 			logging.Error("Payload is not []byte")
