@@ -2,7 +2,7 @@ package customer
 
 import (
 	"context"
-	"go-shopping-poc/internal/entity"
+	entity "go-shopping-poc/internal/entity/customer"
 
 	"github.com/google/uuid"
 )

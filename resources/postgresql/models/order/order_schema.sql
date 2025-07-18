@@ -87,24 +87,6 @@ CREATE TABLE orders.OrderHead (
     primary key (order_id)
 );
 
-DROP TABLE IF EXISTS orders.EventLog;
-CREATE TABLE orders.EventLog (
-    event_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    event_domain text not null,
-    event_type text not null, 
-    time_processed timestamp not null
-);
-
-DROP TABLE IF EXISTS orders.OutboxEvent;
-CREATE TABLE orders.OutboxEvent (
-    id bigint,
-    aggregate_type text not null,
-    aggregate_id text not null,
-    event_type text not null,
-    time_stamp timestamp not null,
-    payload text
-);
-
 -- One-to-one relationships
 
 ALTER TABLE IF EXISTS orders.OrderHead
@@ -135,3 +117,28 @@ ALTER TABLE IF EXISTS orders.OrderStatus
             REFERENCES orders.OrderHead;
 
 CREATE SEQUENCE order_sequence START 1 INCREMENT BY 1;
+
+-- Outbox pattern for event sourcing
+-- This schema is used to manage outbox events for this database
+
+DROP SCHEMA IF EXISTS outbox CASCADE;
+CREATE SCHEMA outbox;
+
+DROP TABLE IF EXISTS outbox.processed_events;
+CREATE TABLE outbox.processed_events (
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    event_id uuid not null,
+    event_type text not null,
+    time_processed timestamp not null
+);
+
+DROP TABLE IF EXISTS outbox.outbox;
+CREATE TABLE outbox.outbox (
+    id uuid PRIMARY KEY,
+    created_at timestamp not null,
+    event_type text not null,
+    event_payload text,
+    times_attempted integer DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_outbox_created_at ON outbox.outbox (created_at);

@@ -6,6 +6,7 @@ import (
 
 	"go-shopping-poc/pkg/config"
 	"go-shopping-poc/pkg/logging"
+	"go-shopping-poc/pkg/outbox"
 
 	"go-shopping-poc/internal/service/customer"
 
@@ -43,7 +44,8 @@ func main() {
 	defer db.Close()
 
 	// initialize layers
-	repo := customer.NewCustomerRepository(db)
+	outboxWriter := outbox.NewWriter(db)
+	repo := customer.NewCustomerRepository(db, outboxWriter)
 	service := customer.NewCustomerService(repo)
 	handler := customer.NewCustomerHandler(service)
 

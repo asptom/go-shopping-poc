@@ -84,24 +84,6 @@ CREATE TABLE carts.Cart (
     primary key (cart_id)
 );
 
-DROP TABLE IF EXISTS carts.EventLog;
-CREATE TABLE carts.EventLog (
-    event_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    event_domain text not null,
-    event_type text not null, 
-    time_processed timestamp not null
-);
-
-DROP TABLE IF EXISTS carts.OutboxEvent;
-CREATE TABLE carts.OutboxEvent (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    aggregate_type text not null,
-    aggregate_id text not null,
-    event_type text not null,
-    time_stamp timestamp not null,
-    payload text
-);
-
 -- One-to-one relationships
 
 ALTER TABLE IF EXISTS carts.Cart
@@ -133,3 +115,28 @@ ALTER TABLE IF EXISTS carts.CartItem
 
 
 CREATE SEQUENCE cart_sequence START 1 INCREMENT BY 1;
+
+-- Outbox pattern for event sourcing
+-- This schema is used to manage outbox events for this database
+
+DROP SCHEMA IF EXISTS outbox CASCADE;
+CREATE SCHEMA outbox;
+
+DROP TABLE IF EXISTS outbox.processed_events;
+CREATE TABLE outbox.processed_events (
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    event_id uuid not null,
+    event_type text not null,
+    time_processed timestamp not null
+);
+
+DROP TABLE IF EXISTS outbox.outbox;
+CREATE TABLE outbox.outbox (
+    id uuid PRIMARY KEY,
+    created_at timestamp not null,
+    event_type text not null,
+    event_payload text,
+    times_attempted integer DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_outbox_created_at ON outbox.outbox (created_at);

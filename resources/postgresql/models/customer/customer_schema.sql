@@ -67,24 +67,6 @@ CREATE TABLE customers.CustomerStatus (
     status_date_time timestamp not null
 );
 
-DROP TABLE IF EXISTS customers.EventLog;
-CREATE TABLE customers.EventLog (
-    event_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    event_domain text not null,
-    event_type text not null, 
-    time_processed timestamp not null
-);
-
-DROP TABLE IF EXISTS customers.OutboxEvent;
-CREATE TABLE customers.OutboxEvent (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    aggregate_type text not null,
-    aggregate_id text not null,
-    event_type text not null,
-    time_stamp timestamp not null,
-    payload text
-);
-
 -- One-to-many relationships
 
 ALTER TABLE IF EXISTS customers.CreditCard
@@ -103,3 +85,28 @@ ALTER TABLE IF EXISTS customers.CustomerStatus
             REFERENCES customers.Customer;
 
 CREATE SEQUENCE customer_sequence START 1 INCREMENT BY 1;
+
+-- Outbox pattern for event sourcing
+-- This schema is used to manage outbox events for this database
+
+DROP SCHEMA IF EXISTS outbox CASCADE;
+CREATE SCHEMA outbox;
+
+DROP TABLE IF EXISTS outbox.processed_events;
+CREATE TABLE outbox.processed_events (
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    event_id uuid not null,
+    event_type text not null,
+    time_processed timestamp not null
+);
+
+DROP TABLE IF EXISTS outbox.outbox;
+CREATE TABLE outbox.outbox (
+    id uuid PRIMARY KEY,
+    created_at timestamp not null,
+    event_type text not null,
+    event_payload text,
+    times_attempted integer DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_outbox_created_at ON outbox.outbox (created_at);

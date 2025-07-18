@@ -2,8 +2,12 @@ package customer
 
 import (
 	"context"
-	"go-shopping-poc/internal/entity"
 	"time"
+
+	entity "go-shopping-poc/internal/entity/customer"
+	event "go-shopping-poc/internal/event/customer"
+	"go-shopping-poc/pkg/logging"
+	outbox "go-shopping-poc/pkg/outbox"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -16,14 +20,19 @@ type CustomerRepository interface {
 	//DeleteCustomer(ctx context.Context, id uuid.UUID) error
 }
 type customerRepository struct {
-	db *sqlx.DB // Assume Database is an interface for database operations
+	db           *sqlx.DB
+	outboxWriter *outbox.Writer
 }
 
-func NewCustomerRepository(db *sqlx.DB) CustomerRepository {
-	return &customerRepository{db: db}
+func NewCustomerRepository(db *sqlx.DB, outboxWriter *outbox.Writer) CustomerRepository {
+	return &customerRepository{db: db, outboxWriter: outboxWriter}
 }
 
 func (r *customerRepository) InsertCustomer(ctx context.Context, customer *entity.Customer) error {
+
+	logging.SetLevel("DEBUG")
+	logging.Info("Inserting new customer...")
+
 	newID := uuid.New()
 	customer.CustomerID = newID.String() // Set the new UUID as string in customer
 	query := `INSERT INTO customers.Customer (customer_id, user_name, email, first_name, last_name, phone) VALUES (:customer_id, :user_name, :email, :first_name, :last_name, :phone)`
@@ -58,6 +67,17 @@ func (r *customerRepository) InsertCustomer(ctx context.Context, customer *entit
 		if _, err := tx.NamedExecContext(ctx, status_query, status); err != nil {
 			return err
 		}
+	}
+
+	customerEvent := event.CustomerCreatedEvent{EventPayload: *customer}
+
+	outboxEvent := outbox.NewOutboxEvent(newID, customerEvent.Name(), customerEvent.Payload())
+	logging.Debug("customerEvent.Payload: %s", customerEvent.Payload())
+	logging.Debug("Outbox event created for customer creation: %s", outboxEvent.ID)
+	logging.Debug("Outbox event payload: %s:", outboxEvent.EventPayload)
+
+	if err := r.outboxWriter.WriteEvent(*outboxEvent); err != nil {
+		return err
 	}
 	return tx.Commit()
 }

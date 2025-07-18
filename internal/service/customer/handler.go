@@ -3,7 +3,7 @@ package customer
 import (
 	"context"
 	"encoding/json"
-	"go-shopping-poc/internal/entity"
+	entity "go-shopping-poc/internal/entity/customer"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"

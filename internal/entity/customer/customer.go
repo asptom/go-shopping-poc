@@ -21,7 +21,7 @@ type Customer struct {
 }
 
 type CustomerBase struct {
-	CustomerID uuid.UUID `json:"customer_id" db:"customer_id"`
+	CustomerID uuid.UUID `json:"-" db:"customer_id"`
 	Username   string    `json:"user_name" db:"user_name"`
 	Email      string    `json:"email" db:"email"`
 	FirstName  string    `json:"first_name" db:"first_name"`
@@ -30,8 +30,8 @@ type CustomerBase struct {
 }
 
 type Address struct {
-	ID          int64     `json:"id" db:"id"`
-	CustomerID  uuid.UUID `json:"customer_id" db:"customer_id"`
+	ID          int64     `json:"-" db:"id"`
+	CustomerID  uuid.UUID `json:"-" db:"customer_id"`
 	AddressType string    `json:"address_type" db:"address_type"`
 	FirstName   string    `json:"first_name" db:"first_name"`
 	LastName    string    `json:"last_name" db:"last_name"`
@@ -44,8 +44,8 @@ type Address struct {
 }
 
 type CreditCard struct {
-	ID             int64     `json:"id" db:"id"`
-	CustomerID     uuid.UUID `json:"customer_id" db:"customer_id"`
+	ID             int64     `json:"-" db:"id"`
+	CustomerID     uuid.UUID `json:"-" db:"customer_id"`
 	CardType       string    `json:"card_type" db:"card_type"`
 	CardNumber     string    `json:"card_number" db:"card_number"`
 	CardHolderName string    `json:"card_holder_name" db:"card_holder_name"`
@@ -55,8 +55,8 @@ type CreditCard struct {
 }
 
 type CustomerStatus struct {
-	ID             int64     `json:"id" db:"id"`
-	CustomerID     uuid.UUID `json:"customer_id" db:"customer_id"`
+	ID             int64     `json:"-" db:"id"`
+	CustomerID     uuid.UUID `json:"-" db:"customer_id"`
 	CustomerStatus string    `json:"customer_status" db:"customer_status"`
 	StatusDateTime time.Time `json:"status_date_time" db:"status_date_time"` // RFC3339 string
 }
