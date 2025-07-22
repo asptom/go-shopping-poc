@@ -1,5 +1,10 @@
 package outbox
 
+// Outbox reader is used to read and publish events that have
+// been stored in a database outbox table.  The outbox pattern
+// guarantees that if a local transaction is committed, the
+// correspnding event will eventually be published.
+
 import (
 	"context"
 	event "go-shopping-poc/pkg/event"
@@ -15,34 +20,18 @@ type EventPublisher interface {
 	Publish(ctx context.Context, topic string, event event.Event) error
 }
 
-type PublishEvent struct {
-	EventType    string
-	EventPayload any
-}
-
-func NewPublishEvent(eventType string, eventPayload any) PublishEvent {
-	return PublishEvent{
-		EventType:    eventType,
-		EventPayload: eventPayload,
-	}
-}
-
-func (e PublishEvent) Name() string { return e.EventType }
-func (e PublishEvent) Payload() any {
-	return e.EventPayload
-}
-
 type Reader struct {
 	db              *sqlx.DB
 	publisher       *event.KafkaEventBus
 	ctx             context.Context
 	cancel          context.CancelFunc
-	batchSize       int // Number of events to process in a single batch
-	deleteBatchSize int // Number of events to delete as a batch after processing
+	batchSize       int           // Number of events to process in a single batch
+	deleteBatchSize int           // Number of events to delete as a batch after processing
+	processInterval time.Duration // Time between outbox scans
 	wg              sync.WaitGroup
 }
 
-func NewReader(db *sqlx.DB, publisher *event.KafkaEventBus, batchSize int, deleteBatchSize int) *Reader {
+func NewReader(db *sqlx.DB, publisher *event.KafkaEventBus, batchSize int, deleteBatchSize int, processInterval time.Duration) *Reader {
 	ctx, cancel := context.WithCancel(context.Background())
 	r := &Reader{
 		db:              db,
@@ -51,6 +40,7 @@ func NewReader(db *sqlx.DB, publisher *event.KafkaEventBus, batchSize int, delet
 		cancel:          cancel,
 		batchSize:       batchSize,
 		deleteBatchSize: deleteBatchSize,
+		processInterval: processInterval,
 	}
 	return r
 }
@@ -60,9 +50,10 @@ func (r *Reader) Start() {
 
 	r.wg.Add(1)
 	go func() {
+		// ticker := time.NewTicker(5 * time.Second) // Adjust the interval as needed
+		// logging.Debug("Outbox Reader started, processing events every 5 seconds")
+		ticker := time.NewTicker(r.processInterval)
 
-		ticker := time.NewTicker(5 * time.Second) // Adjust the interval as needed
-		logging.Debug("Outbox Reader started, processing events every 5 seconds")
 		defer ticker.Stop()
 		defer r.wg.Done()
 		defer r.wg.Wait()
@@ -101,16 +92,18 @@ func (r *Reader) processOutbox() {
 		logging.Info("No new outbox events to process")
 		return
 	}
-	topic := "CustomerEvent" // Assuming a single topic for simplicity - FIX THIS
 	for _, outboxEvent := range outboxEvents {
-		logging.Debug("Publishing event ID: %s, Type: %s, Created At: %s, Times Attempted: %d, with payload: %s",
-			outboxEvent.ID, outboxEvent.EventType, outboxEvent.CreatedAt.Format(time.RFC3339), outboxEvent.TimesAttempted, string(outboxEvent.EventPayload))
-		pe := NewPublishEvent(outboxEvent.EventType, outboxEvent.EventPayload)
-		if err := r.publisher.Publish(r.ctx, topic, pe); err != nil {
-			logging.Error("Failed to publish event %s: %v", pe, err)
-			continue
+		//logging.Debug("Will publish event ID: %s, Type: %s, Created At: %s, Times Attempted: %d, with payload: %s",
+		//	outboxEvent.ID, outboxEvent.EventType, outboxEvent.CreatedAt.Format(time.RFC3339), outboxEvent.TimesAttempted, string(outboxEvent.EventPayload))
+		pe := event.NewProcessEvent(outboxEvent.EventType, outboxEvent.EventPayload)
+		for _, topic := range r.publisher.WriteTopics() {
+			logging.Info("Will publish outbox event to topic: %s", topic)
+			if err := r.publisher.Publish(r.ctx, topic, pe); err != nil {
+				logging.Error("Failed to publish event %s: %v", pe, err)
+				continue
+			}
+			logging.Debug("Published event ID: %s to topic: %s with payload: %s", outboxEvent.ID, topic, pe.Payload())
 		}
-		logging.Debug("Published event ID: %s to topic: %s with payload: %s", outboxEvent.ID, topic, pe.Payload())
 
 		logging.Info("Processed %d outbox events", len(outboxEvents))
 

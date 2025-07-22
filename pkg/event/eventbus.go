@@ -26,6 +26,14 @@ func NewKafkaEventBus(broker string, readTopics []string, writeTopics []string, 
 	return newKafkaEventBusInternal(broker, readTopics, writeTopics, groupID, nil)
 }
 
+func (eb *KafkaEventBus) WriteTopics() []string {
+	var topics []string
+	for topic := range eb.writers {
+		topics = append(topics, topic)
+	}
+	return topics
+}
+
 // NewKafkaEventBusWithAuth creates a new KafkaEventBus with SASL/PLAIN authentication.
 func NewKafkaEventBusWithAuth(broker string, readTopics []string, writeTopics []string, groupID string, username, password string) *KafkaEventBus {
 	var dialer *kafka.Dialer
