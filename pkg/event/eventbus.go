@@ -86,12 +86,15 @@ func (eb *KafkaEventBus) Subscribe(eventName string, handler Handler) {
 	eb.mu.Lock()
 	defer eb.mu.Unlock()
 	eb.handlers[eventName] = append(eb.handlers[eventName], handler)
+	logging.Info("KafkaEventBus - subscribed to event: %s", eventName)
 }
 
 // Publish sends an event to a specified Kafka topic.
 func (eb *KafkaEventBus) Publish(ctx context.Context, topic string, event Event) error {
+	logging.Debug("KafkaEventBus - Publishing event to topic: %s, event name: %s", topic, event.Name())
 	writer, ok := eb.writers[topic]
 	if !ok {
+		logging.Debug("KafkaEventBus - No writer found for topic: %s", topic)
 		return ErrUnknownTopic(topic)
 	}
 

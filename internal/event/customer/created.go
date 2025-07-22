@@ -6,14 +6,22 @@ import (
 )
 
 type CustomerCreatedEvent struct {
-	EventPayload entity.Customer `json:"customer"`
+	EventType    string
+	EventPayload entity.Customer
+}
+
+func NewCustomerCreatedEvent(customer entity.Customer) CustomerCreatedEvent {
+	return CustomerCreatedEvent{
+		EventType:    "CustomerCreated",
+		EventPayload: customer,
+	}
 }
 
 // Implement the event.Event interface
 
 func (e CustomerCreatedEvent) Name() string { return "CustomerCreated" }
 func (e CustomerCreatedEvent) Payload() any {
-	b, err := json.Marshal(e)
+	b, err := json.Marshal(e.EventPayload)
 	if err != nil {
 		return nil
 	}

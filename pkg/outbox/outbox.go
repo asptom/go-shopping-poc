@@ -14,12 +14,12 @@ type OutboxEvent struct {
 	TimesAttempted int       `json:"times_attempted" db:"times_attempted"`
 }
 
-func NewOutboxEvent(eventID uuid.UUID, eventType string, eventPayload any) *OutboxEvent {
+func NewOutboxEvent(eventID uuid.UUID, eventType string, eventPayload []byte) *OutboxEvent {
 	return &OutboxEvent{
 		ID:             uuid.New(),
 		CreatedAt:      time.Now(),
 		EventType:      eventType,
-		EventPayload:   eventPayload.([]byte),
+		EventPayload:   eventPayload,
 		TimesAttempted: 0,
 	}
 }

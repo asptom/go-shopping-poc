@@ -69,9 +69,9 @@ func (r *customerRepository) InsertCustomer(ctx context.Context, customer *entit
 		}
 	}
 
-	customerEvent := event.CustomerCreatedEvent{EventPayload: *customer}
+	customerEvent := event.NewCustomerCreatedEvent(*customer)
+	outboxEvent := outbox.NewOutboxEvent(newID, customerEvent.Name(), customerEvent.Payload().([]byte))
 
-	outboxEvent := outbox.NewOutboxEvent(newID, customerEvent.Name(), customerEvent.Payload())
 	logging.Debug("customerEvent.Payload: %s", customerEvent.Payload())
 	logging.Debug("Outbox event created for customer creation: %s", outboxEvent.ID)
 	logging.Debug("Outbox event payload: %s:", outboxEvent.EventPayload)

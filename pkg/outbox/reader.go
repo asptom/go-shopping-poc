@@ -2,7 +2,6 @@ package outbox
 
 import (
 	"context"
-	"encoding/json"
 	event "go-shopping-poc/pkg/event"
 	"go-shopping-poc/pkg/logging"
 	"sync"
@@ -16,18 +15,21 @@ type EventPublisher interface {
 	Publish(ctx context.Context, topic string, event event.Event) error
 }
 
-type CustomerEvent struct {
+type PublishEvent struct {
 	EventType    string
-	EventPayload []byte
+	EventPayload any
 }
 
-func (e CustomerEvent) Name() string { return "CustomerEvent" }
-func (e CustomerEvent) Payload() interface{} {
-	b, err := json.Marshal(e)
-	if err != nil {
-		return nil
+func NewPublishEvent(eventType string, eventPayload any) PublishEvent {
+	return PublishEvent{
+		EventType:    eventType,
+		EventPayload: eventPayload,
 	}
-	return b
+}
+
+func (e PublishEvent) Name() string { return e.EventType }
+func (e PublishEvent) Payload() any {
+	return e.EventPayload
 }
 
 type Reader struct {
@@ -101,18 +103,20 @@ func (r *Reader) processOutbox() {
 	}
 	topic := "CustomerEvent" // Assuming a single topic for simplicity - FIX THIS
 	for _, outboxEvent := range outboxEvents {
-		logging.Debug("Publishing event ID: %s, Type: %s, Created At: %s, Times Attempted: %d",
-			outboxEvent.ID, outboxEvent.EventType, outboxEvent.CreatedAt.Format(time.RFC3339), outboxEvent.TimesAttempted)
-		if err := r.publisher.Publish(r.ctx, topic, CustomerEvent{EventType: outboxEvent.EventType, EventPayload: outboxEvent.EventPayload}); err != nil {
-			logging.Error("Failed to publish event %s: %v", outboxEvent.EventType, err)
+		logging.Debug("Publishing event ID: %s, Type: %s, Created At: %s, Times Attempted: %d, with payload: %s",
+			outboxEvent.ID, outboxEvent.EventType, outboxEvent.CreatedAt.Format(time.RFC3339), outboxEvent.TimesAttempted, string(outboxEvent.EventPayload))
+		pe := NewPublishEvent(outboxEvent.EventType, outboxEvent.EventPayload)
+		if err := r.publisher.Publish(r.ctx, topic, pe); err != nil {
+			logging.Error("Failed to publish event %s: %v", pe, err)
 			continue
 		}
+		logging.Debug("Published event ID: %s to topic: %s with payload: %s", outboxEvent.ID, topic, pe.Payload())
+
+		logging.Info("Processed %d outbox events", len(outboxEvents))
+
+		r.deleteProcessedEvents(outboxEvents)
+		r.logProcessedEvents(outboxEvents)
 	}
-
-	logging.Info("Processed %d outbox events", len(outboxEvents))
-
-	r.deleteProcessedEvents(outboxEvents)
-	r.logProcessedEvents(outboxEvents)
 }
 
 // deleteProcessedEvents deletes processed events from the outbox.
