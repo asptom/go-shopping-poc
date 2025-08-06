@@ -123,22 +123,17 @@ CREATE SEQUENCE order_sequence START 1 INCREMENT BY 1;
 
 DROP SCHEMA IF EXISTS outbox CASCADE;
 CREATE SCHEMA outbox;
-
-DROP TABLE IF EXISTS outbox.processed_events;
-CREATE TABLE outbox.processed_events (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    event_id uuid not null,
-    event_type text not null,
-    time_processed timestamp not null
-);
+SET search_path TO outbox;
 
 DROP TABLE IF EXISTS outbox.outbox;
 CREATE TABLE outbox.outbox (
-    id uuid PRIMARY KEY,
-    created_at timestamp not null,
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     event_type text not null,
-    event_payload text,
-    times_attempted integer DEFAULT 0
+    topic text not null,
+    event_payload jsonb not null,
+    created_at timestamp DEFAULT CURRENT_TIMESTAMP not null,
+    times_attempted integer DEFAULT 0,
+    published_at timestamp
 );
 
-CREATE INDEX IF NOT EXISTS idx_outbox_created_at ON outbox.outbox (created_at);
+CREATE INDEX IF NOT EXISTS idx_outbox_unpublished ON outbox.outbox (published_at) WHERE published_at IS NULL;

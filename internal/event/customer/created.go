@@ -1,44 +1,44 @@
 package events
 
 import (
-	"bytes"
-	"encoding/json"
 	entity "go-shopping-poc/internal/entity/customer"
-	"go-shopping-poc/pkg/event"
-	"go-shopping-poc/pkg/logging"
+	event "go-shopping-poc/pkg/event"
+	"time"
+
+	"github.com/google/uuid"
 )
 
-type CustomerCreatedEvent struct {
-	EventType    string
-	EventPayload entity.Customer
+type CustomerCreatedPayload struct {
+	Customer entity.Customer `json:"customer"`
 }
 
+// CustomerCreatedEvent is a concrete event type
+type CustomerCreatedEvent struct {
+	event.Event[CustomerCreatedPayload]
+}
+
+const EventTypeCustomerCreated = "CustomerCreated"
+
+// NewCustomerCreatedEvent creates a new CustomerCreatedEvent
 func NewCustomerCreatedEvent(customer entity.Customer) CustomerCreatedEvent {
 	return CustomerCreatedEvent{
-		EventType:    "CustomerCreated",
-		EventPayload: customer,
+		Event: event.Event[CustomerCreatedPayload]{
+			ID:        uuid.New().String(),
+			Type:      EventTypeCustomerCreated,
+			TimeStamp: time.Now(),
+			Payload: CustomerCreatedPayload{
+				Customer: customer,
+			},
+		},
 	}
 }
 
-func CustomerCreatedEventFactory(name string, payload []byte) (event.Event, error) {
-	logging.Debug("Factory for CustomerCreatedEvent - received event")
-	var b = bytes.NewBuffer(payload)
-	var p entity.Customer
-	if err := json.NewDecoder(b).Decode(&p); err != nil {
-		logging.Error("Failed to unmarshal CustomerCreated event payload: %v", err)
-		return nil, err
-	}
-	logging.Debug("Factory for CustomerCreatedEvent - payload: %s", string(payload))
-	return NewCustomerCreatedEvent(p), nil
+// GetType returns the event type
+func (e CustomerCreatedEvent) GetType() string {
+	return EventTypeCustomerCreated
 }
 
-// Implement the event.Event interface
-
-func (e CustomerCreatedEvent) Name() string { return "CustomerCreated" }
-func (e CustomerCreatedEvent) Payload() any {
-	b, err := json.Marshal(e.EventPayload)
-	if err != nil {
-		return nil
-	}
-	return b
+// GetTopic returns the Kafka topic
+func (e CustomerCreatedEvent) GetTopic() string {
+	return "CustomerEvents"
 }

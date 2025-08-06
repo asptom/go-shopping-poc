@@ -50,14 +50,14 @@ func main() {
 	groupID := cfg.GetCustomerKafkaGroupID()
 	outboxInterval := cfg.GetCustomerOutboxProcessingInterval()
 
-	bus := event.NewKafkaEventBus(broker, nil, writeTopics, groupID)
+	bus := event.NewEventBus(broker, nil, writeTopics, groupID)
 
 	// Initialize
 	logging.Debug("Initializing outbox reader and writer")
-	outboxReader := outbox.NewReader(db, bus, 1, 1, outboxInterval)
-	outboxReader.Start()
-	logging.Debug("Outbox reader started")
-	defer outboxReader.Stop()
+	outboxPublisher := outbox.NewPublisher(db, bus, 1, 1, outboxInterval)
+	outboxPublisher.Start()
+	logging.Debug("Outbox publisher started")
+	defer outboxPublisher.Stop()
 	outboxWriter := outbox.NewWriter(db)
 	repo := customer.NewCustomerRepository(db, outboxWriter)
 	service := customer.NewCustomerService(repo)

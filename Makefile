@@ -9,7 +9,7 @@ PROJECT_ROOT = pwd
 SERVICES = customer eventreader
 MODELS = $(shell find resources/postgresql/models/ -mindepth 1 -maxdepth 1 -type d -exec basename {} \;)
 
-.PHONY: all build sqlc run test lint clean docker-build k8s-deploy k8s-delete run-service build-service
+.PHONY: all build sqlc run test lint clean docker-build k8s-deploy k8s-delete-services k8s-delete-namespaces run-service build-service
 
 all: clean build docker-build k8s-deploy
 
@@ -114,7 +114,7 @@ k8s-deploy:
 	@echo "All services deployed to Kubernetes with configurations from deployments/kubernetes."
 	@echo
 
-k8s-delete:
+k8s-delete-services:
 	@echo 
 	@echo "Deleting Kubernetes deployments..."
 	@echo "--------------------------------"
@@ -133,4 +133,15 @@ k8s-delete:
 		echo "--------------------------------"; \
 	done
 	@echo "All services deleted from Kubernetes."
+	@echo
+
+k8s-delete-namespaces:
+	@echo 
+	@echo "Deleting Kubernetes namespaces..."
+	@echo "--------------------------------"
+	helm uninstall my-postgresql --namespace shopping
+	helm uninstall kafka --namespace kafka
+	kubectl delete namespace kafka
+	kubectl delete namespace shopping
+	@echo "All namespaces deleted from Kubernetes."
 	@echo

@@ -2,59 +2,35 @@ package event
 
 import (
 	"context"
+	"encoding/json"
 	"go-shopping-poc/pkg/logging"
 	"sync"
 
 	"github.com/segmentio/kafka-go"
-	"github.com/segmentio/kafka-go/sasl/plain"
 )
 
-// Handler is a function that handles an Event.
-type Handler func(Event)
+// Handler is a function that handles/processes an event.
+
+type Handler func(Event[any])
+
+// EventHandler defines the interface for handling events
+type EventHandler interface {
+	Handle(ctx context.Context, event Event[any]) error
+}
 
 // KafkaEventBus allows subscribing to and publishing events via Kafka.
 // It supports multiple topics for reading and writing.
-type KafkaEventBus struct {
+
+type EventBus struct {
 	writers  map[string]*kafka.Writer
 	readers  map[string]*kafka.Reader
-	handlers map[string][]Handler
+	handlers map[string][]EventHandler
 	mu       sync.RWMutex
 }
 
-// NewKafkaEventBus creates a new KafkaEventBus without authentication (PLAINTEXT).
-func NewKafkaEventBus(broker string, readTopics []string, writeTopics []string, groupID string) *KafkaEventBus {
-	return newKafkaEventBusInternal(broker, readTopics, writeTopics, groupID, nil)
-}
+// NewEventBus creates a Kafka event bus without authentication (PLAINTEXT).
 
-func (eb *KafkaEventBus) WriteTopics() []string {
-	var topics []string
-	for topic := range eb.writers {
-		topics = append(topics, topic)
-	}
-	return topics
-}
-
-// NewKafkaEventBusWithAuth creates a new KafkaEventBus with SASL/PLAIN authentication.
-func NewKafkaEventBusWithAuth(broker string, readTopics []string, writeTopics []string, groupID string, username, password string) *KafkaEventBus {
-	var dialer *kafka.Dialer
-	if username != "" && password != "" {
-		dialer = &kafka.Dialer{
-			SASLMechanism: plain.Mechanism{
-				Username: username,
-				Password: password,
-			},
-			// Uncomment if your broker requires TLS (SASL_SSL)
-			// TLS: &tls.Config{},
-		}
-	}
-	return newKafkaEventBusInternal(broker, readTopics, writeTopics, groupID, dialer)
-}
-
-// newKafkaEventBusInternal is a helper to create a KafkaEventBus with or without a custom dialer.
-func newKafkaEventBusInternal(broker string, readTopics []string, writeTopics []string, groupID string, dialer *kafka.Dialer) *KafkaEventBus {
-	if dialer == nil {
-		dialer = &kafka.Dialer{}
-	}
+func NewEventBus(broker string, readTopics []string, writeTopics []string, groupID string) *EventBus {
 
 	writers := make(map[string]*kafka.Writer)
 	for _, topic := range writeTopics {
@@ -63,11 +39,6 @@ func newKafkaEventBusInternal(broker string, readTopics []string, writeTopics []
 			Addr:     kafka.TCP(broker),
 			Topic:    topic,
 			Balancer: &kafka.LeastBytes{},
-			// Transport: &kafka.Transport{
-			// 	Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
-			// 		return dialer.DialContext(ctx, network, address)
-			// 	},
-			// },
 		}
 	}
 
@@ -78,52 +49,66 @@ func newKafkaEventBusInternal(broker string, readTopics []string, writeTopics []
 			Brokers: []string{broker},
 			Topic:   topic,
 			GroupID: groupID,
-			Dialer:  dialer,
+			Dialer:  &kafka.Dialer{},
 		})
 	}
 
-	return &KafkaEventBus{
+	return &EventBus{
 		writers:  writers,
 		readers:  readers,
-		handlers: make(map[string][]Handler),
+		handlers: make(map[string][]EventHandler),
 	}
 }
 
-// Subscribe adds a handler for a specific event name.
-func (eb *KafkaEventBus) Subscribe(eventName string, handler Handler) {
+func (eb *EventBus) WriteTopics() []string {
+	var topics []string
+	for topic := range eb.writers {
+		topics = append(topics, topic)
+	}
+	return topics
+}
+
+func (eb *EventBus) ReadTopics() []string {
+	var topics []string
+	for topic := range eb.readers {
+		topics = append(topics, topic)
+	}
+	return topics
+}
+
+// Subscribe adds a handler for a specific event type.
+
+func (eb *EventBus) Subscribe(eventType string, handler EventHandler) {
 	eb.mu.Lock()
 	defer eb.mu.Unlock()
-	eb.handlers[eventName] = append(eb.handlers[eventName], handler)
-	logging.Info("KafkaEventBus - subscribed to event: %s", eventName)
+	eb.handlers[eventType] = append(eb.handlers[eventType], handler)
+	logging.Info("EventBus - subscribed to event: %s", eventType)
 }
 
 // Publish sends an event to a specified Kafka topic.
-func (eb *KafkaEventBus) Publish(ctx context.Context, topic string, event Event) error {
-	logging.Debug("KafkaEventBus - Publishing event to topic: %s, event name: %s", topic, event.Name())
+
+func (eb *EventBus) Publish(ctx context.Context, topic string, event *Event[any]) error {
+	logging.Debug("EventBus - Publishing event to topic: %s, event type: %s", topic, event.Type)
 	writer, ok := eb.writers[topic]
 	if !ok {
-		logging.Debug("KafkaEventBus - No writer found for topic: %s", topic)
+		logging.Debug("EventBus - No writer found for topic: %s", topic)
 		return ErrUnknownTopic(topic)
 	}
 
-	// Handle payload conversion
-	var value []byte
-	switch payload := event.Payload().(type) {
-	case []byte:
-		value = payload
-	case string:
-		value = []byte(payload)
-	default:
-		return ErrInvalidPayloadType(event.Name())
+	value, err := event.ToJSON()
+	if err != nil {
+		logging.Error("EventBus - Failed to convert event to JSON: %v", err)
+		return err
 	}
 	return writer.WriteMessages(ctx, kafka.Message{
-		Key:   []byte(event.Name()),
+		Key:   []byte(event.Type),
 		Value: value,
 	})
 }
 
 // StartConsuming starts consuming messages from all configured Kafka topics and dispatches them to handlers.
-func (eb *KafkaEventBus) StartConsuming(ctx context.Context, eventFactory func(name string, payload []byte) (Event, error)) error {
+
+func (eb *EventBus) StartConsuming(ctx context.Context) error {
 	var wg sync.WaitGroup
 	errCh := make(chan error, len(eb.readers))
 
@@ -143,12 +128,26 @@ func (eb *KafkaEventBus) StartConsuming(ctx context.Context, eventFactory func(n
 				if len(handlers) == 0 {
 					continue
 				}
-				evt, err := eventFactory(string(m.Key), m.Value)
-				if err != nil {
+				// Transform the message into an Event
+
+				// evt, err := eventFactory(string(m.Key), m.Value)
+				// if err != nil {
+				// 	continue
+				// }
+
+				logging.Debug("EventBus - Atttempting to handle event of type: %s with payload: %s", string(m.Key), string(m.Value))
+
+				var event Event[any]
+				if err := json.Unmarshal(m.Value, &event); err != nil {
+					logging.Error("Failed to unmarshal event: %v", err)
 					continue
 				}
+
+				logging.Debug("EventBus - Received event of type: %s from topic: %s", event.Type, topic)
+
 				for _, handler := range handlers {
-					go handler(evt)
+					go handler.Handle(ctx, event) // Call handler in a goroutine
+					logging.Debug("EventBus - Dispatched event of type: %s to handler", event.Type)
 				}
 			}
 		}(topic, reader)

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
@@ -13,20 +14,25 @@ import (
 	"go-shopping-poc/pkg/logging"
 )
 
-// eventFactory creates an Event from Kafka message data.
-func eventFactory(name string, payload []byte) (event.Event, error) {
-	logging.Debug("eventFactory - received event of type %s", name)
-	switch name {
-	case "CustomerCreated":
-		return events.CustomerCreatedEventFactory(name, payload)
-	default:
-		logging.Error("Unknown event type: %s", name)
-		return nil, fmt.Errorf("unknown event type: %s", name)
-	}
-}
+// CustomerCreatedHandler handles CustomerCreatedEvent
+type CustomerCreatedHandler struct{}
 
-func customerCreatedHandler(e event.Event) {
-	logging.Debug("customerCreatedHandler - received event %s", e.Name())
+// Handle processes a CustomerCreatedEvent
+func (h *CustomerCreatedHandler) Handle(ctx context.Context, event event.Event[any]) error {
+	logging.Debug("CustomerCreatedHandler: Handling event of type: %s", event.Type)
+
+	payload, err := json.Marshal(event.Payload)
+	if err != nil {
+		return fmt.Errorf("failed to convert event to JSON: %w", err)
+	}
+
+	var customerPayload events.CustomerCreatedPayload
+	if err := json.Unmarshal(payload, &customerPayload); err != nil {
+		return err
+	}
+	logging.Info("CustomerCreatedHandler: Handling CustomerCreated with data: CustomerID=%s, UserName=%s, Email=%s",
+		customerPayload.Customer.CustomerID, customerPayload.Customer.Username, customerPayload.Customer.Email)
+	return nil
 }
 
 func main() {
@@ -49,9 +55,9 @@ func main() {
 
 	logging.Info("Kafka Broker: %s, ReadTopics: %v, Write Topics: %v, Group ID: %s", broker, readTopics, writeTopics, groupID)
 
-	bus := event.NewKafkaEventBus(broker, readTopics, writeTopics, groupID)
+	bus := event.NewEventBus(broker, readTopics, writeTopics, groupID)
 	var custEvent events.CustomerCreatedEvent
-	bus.Subscribe(custEvent.Name(), customerCreatedHandler)
+	bus.Subscribe(custEvent.GetType(), &CustomerCreatedHandler{})
 
 	// Subscribe to CustomerEvent events
 	//logging.Info("Subscribing to CustomerEvent on topics: %v", readTopics)
@@ -81,7 +87,7 @@ func main() {
 	// Start consuming in a goroutine
 	go func() {
 		logging.Debug("Kafka consumer started")
-		if err := bus.StartConsuming(ctx, eventFactory); err != nil {
+		if err := bus.StartConsuming(ctx); err != nil {
 			logging.Error("Kafka consumer stopped:", err)
 		}
 	}()

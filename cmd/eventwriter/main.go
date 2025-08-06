@@ -48,7 +48,7 @@ func main() {
 
 	logging.Info("Kafka Broker: %s, ReadTopics: %v, Write Topics: %v, Group ID: %s", broker, readTopics, writeTopics, groupID)
 
-	bus := event.NewKafkaEventBus(broker, readTopics, writeTopics, groupID)
+	bus := event.NewEventBus(broker, readTopics, writeTopics, groupID)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -73,7 +73,12 @@ loop:
 		default:
 			for _, topic := range writeTopics {
 				logging.Info("Publishing event to topic: %s", topic)
-				err := bus.Publish(ctx, topic, ExampleEvent{ExampleID: "123", ExampleData: "Example data"})
+				err := bus.Publish(ctx, topic, &event.Event[any]{
+					ID:        "example-id",
+					Type:      "ExampleEvent",
+					TimeStamp: time.Now(),
+					Payload:   ExampleEvent{ExampleID: "123", ExampleData: "Example Data"},
+				})
 				if err != nil {
 					logging.Error("Error publishing event to topic %s: %v", topic, err)
 					continue

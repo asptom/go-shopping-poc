@@ -5,7 +5,7 @@ import (
 	"time"
 
 	entity "go-shopping-poc/internal/entity/customer"
-	event "go-shopping-poc/internal/event/customer"
+	events "go-shopping-poc/internal/event/customer"
 	"go-shopping-poc/pkg/logging"
 	outbox "go-shopping-poc/pkg/outbox"
 
@@ -69,14 +69,9 @@ func (r *customerRepository) InsertCustomer(ctx context.Context, customer *entit
 		}
 	}
 
-	customerEvent := event.NewCustomerCreatedEvent(*customer)
-	outboxEvent := outbox.NewOutboxEvent(newID, customerEvent.Name(), customerEvent.Payload().([]byte))
+	customerEvent := events.NewCustomerCreatedEvent(*customer)
 
-	logging.Debug("customerEvent.Payload: %s", customerEvent.Payload())
-	logging.Debug("Outbox event created for customer creation: %s", outboxEvent.ID)
-	logging.Debug("Outbox event payload: %s:", outboxEvent.EventPayload)
-
-	if err := r.outboxWriter.WriteEvent(*outboxEvent); err != nil {
+	if err := r.outboxWriter.WriteEvent(ctx, *tx, customerEvent); err != nil {
 		return err
 	}
 	return tx.Commit()

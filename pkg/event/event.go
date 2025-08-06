@@ -1,28 +1,35 @@
 package event
 
-// Event is a generic interface for events with a payload.
+import (
+	"encoding/json"
+	"time"
+)
 
-type Event interface {
-	Name() string
-	Payload() any
+// Event represents a generic event structure with a type and payload.
+
+type Event[T any] struct {
+	ID        string    `json:"id"`        // Unique identifier for the event
+	Type      string    `json:"type"`      // Type of the event
+	TimeStamp time.Time `json:"timestamp"` // Unix timestamp of the event
+	Payload   T         `json:"payload"`   // Payload of the event
 }
 
-// Process Event is an implementation of the Event interface
-// that can be leveraged to process events
+// EventInterface defines methods for event type and topic
 
-type ProcessEvent struct {
-	EventType    string
-	EventPayload any
+type EventInterface interface {
+	GetType() string
+	GetTopic() string
+	ToJSON() ([]byte, error)
 }
 
-func NewProcessEvent(eventType string, eventPayload any) ProcessEvent {
-	return ProcessEvent{
-		EventType:    eventType,
-		EventPayload: eventPayload,
-	}
+// ToJSON serializes the event to JSON
+func (e Event[T]) ToJSON() ([]byte, error) {
+	return json.Marshal(e)
 }
 
-func (e ProcessEvent) Name() string { return e.EventType }
-func (e ProcessEvent) Payload() any {
-	return e.EventPayload
+// FromJSON deserializes JSON into an Event
+func FromJSON[T any](data []byte) (Event[T], error) {
+	var event Event[T]
+	err := json.Unmarshal(data, &event)
+	return event, err
 }
