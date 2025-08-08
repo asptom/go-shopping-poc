@@ -2,8 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -13,27 +11,6 @@ import (
 	"go-shopping-poc/pkg/event"
 	"go-shopping-poc/pkg/logging"
 )
-
-// CustomerCreatedHandler handles CustomerCreatedEvent
-type CustomerCreatedHandler struct{}
-
-// Handle processes a CustomerCreatedEvent
-func (h *CustomerCreatedHandler) Handle(ctx context.Context, event event.Event[any]) error {
-	logging.Debug("CustomerCreatedHandler: Handling event of type: %s", event.Type)
-
-	payload, err := json.Marshal(event.Payload)
-	if err != nil {
-		return fmt.Errorf("failed to convert event to JSON: %w", err)
-	}
-
-	var customerPayload events.CustomerCreatedPayload
-	if err := json.Unmarshal(payload, &customerPayload); err != nil {
-		return err
-	}
-	logging.Info("CustomerCreatedHandler: Handling CustomerCreated with data: CustomerID=%s, UserName=%s, Email=%s",
-		customerPayload.Customer.CustomerID, customerPayload.Customer.Username, customerPayload.Customer.Email)
-	return nil
-}
 
 func main() {
 
@@ -56,8 +33,17 @@ func main() {
 	logging.Info("Kafka Broker: %s, ReadTopics: %v, Write Topics: %v, Group ID: %s", broker, readTopics, writeTopics, groupID)
 
 	bus := event.NewEventBus(broker, readTopics, writeTopics, groupID)
+
+	handler := &events.CustomerCreatedHandler{
+		Callback: func(ctx context.Context, payload events.CustomerCreatedPayload) error {
+			logging.Debug("Hooray - the callback worked")
+			logging.Debug("Data in callback: %s, UserName: %s, Email: %s",
+				payload.Customer.CustomerID, payload.Customer.Username, payload.Customer.Email)
+			return nil
+		},
+	}
 	var custEvent events.CustomerCreatedEvent
-	bus.Subscribe(custEvent.GetType(), &CustomerCreatedHandler{})
+	bus.Subscribe(custEvent.GetType(), handler)
 
 	// Subscribe to CustomerEvent events
 	//logging.Info("Subscribing to CustomerEvent on topics: %v", readTopics)

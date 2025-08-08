@@ -106,7 +106,7 @@ func (eb *EventBus) Publish(ctx context.Context, topic string, event *Event[any]
 	})
 }
 
-// StartConsuming starts consuming messages from all configured Kafka topics and dispatches them to handlers.
+// StartConsuming starts consuming messages from all configured Kafka read topics and dispatches them to handlers.
 
 func (eb *EventBus) StartConsuming(ctx context.Context) error {
 	var wg sync.WaitGroup
@@ -128,12 +128,6 @@ func (eb *EventBus) StartConsuming(ctx context.Context) error {
 				if len(handlers) == 0 {
 					continue
 				}
-				// Transform the message into an Event
-
-				// evt, err := eventFactory(string(m.Key), m.Value)
-				// if err != nil {
-				// 	continue
-				// }
 
 				logging.Debug("EventBus - Atttempting to handle event of type: %s with payload: %s", string(m.Key), string(m.Value))
 
