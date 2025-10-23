@@ -1,16 +1,17 @@
 kind: Ingress
 apiVersion: networking.k8s.io/v1
 metadata:
-  name: store-customer
+  name: store-customer-ingress
   namespace: shopping
   labels:
-    app.kubernetes.io/name: store-customer
+    app.kubernetes.io/name: store-customer-ingress
     app.kubernetes.io/version: v1.0
   annotations:
-    #traefik.ingress.kubernetes.io/router.entrypoints: web
-    nginx.ingress.kubernetes.io/auth-tls-secret: "shopping/pocstorelocal-tls"
+    #nginx.ingress.kubernetes.io/auth-tls-secret: "shopping/pocstorelocal-tls"
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure,web
+    # If you need client TLS authentication you can define a TLSOption CRD and reference it:
+    #traefik.ingress.kubernetes.io/router.tls.options: pocstorelocal-client-auth@kubernetescrd
 spec:
-  ingressClassName: nginx
   rules:
     - host: pocstore.local
       http:
@@ -19,9 +20,9 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: store-customer
+                name: store-customer-svc
                 port:
-                  name: http
+                  number: 80
   tls:
   - hosts:
     - pocstore.local

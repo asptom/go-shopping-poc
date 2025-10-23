@@ -4,10 +4,7 @@ go 1.24.2
 
 require github.com/segmentio/kafka-go v0.4.48
 
-require (
-	github.com/golang-jwt/jwt/v5 v5.2.2
-	github.com/gorilla/websocket v1.5.3
-)
+require github.com/gorilla/websocket v1.5.3
 
 require (
 	github.com/jackc/pgpassfile v1.0.0 // indirect

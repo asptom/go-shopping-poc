@@ -23,6 +23,4 @@ spec:
           image: localhost:5000/go-shopping-poc/customer:1.0
           imagePullPolicy: Always
           ports:
-          - name: http
-            containerPort: 80
-            protocol: TCP
+          - containerPort: 8080

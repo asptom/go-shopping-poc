@@ -1,13 +1,17 @@
 #!/usr/bin/env bash
+set -euo pipefail
+
+PROJECT_HOME="$(cd "$(dirname "$0")/../../.." && pwd)"
+
+source "$PROJECT_HOME/scripts/common/load_env.sh"
+
+# Create namespace for our shopping poc application (if it does not already exist)
+kubectl get namespace | grep -q "^$PROJECT_NAMESPACE" || kubectl create namespace $PROJECT_NAMESPACE
 
 # This script will be used for the installation of the TLS certificates
 # and the creation of secrets in the Kubernetes cluster
 # for the application  
 # It assumes that the certificates are already generated and available in the specified directory 
-
-PROJECT_HOME="/Users/tom/Projects/Go/go-shopping-poc"
-
-source "$PROJECT_HOME/scripts/common/load_env.sh"
 
 cd $TLS_CERTIFICATES_DIR || {
     echo "Failed to change directory to $TLS_CERTIFICATES_DIR"

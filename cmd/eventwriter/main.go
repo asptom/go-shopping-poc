@@ -41,29 +41,29 @@ func main() {
 	logging.Info("Configuration loaded from %s", envFile)
 	logging.Info("Config: %v", cfg)
 
-	broker := cfg.KafkaBroker
-	readTopics := cfg.GetEventWriterKafkaReadTopics()
-	writeTopics := cfg.GetEventWriterKafkaWriteTopics()
-	groupID := cfg.GetKafkaGroupEventExample()
+	broker := cfg.GetEventBroker()
+	readTopics := cfg.GetEventWriterReadTopics()
+	writeTopic := cfg.GetEventWriterWriteTopic()
+	groupID := cfg.GetEventWriterGroup()
 
-	logging.Info("Kafka Broker: %s, ReadTopics: %v, Write Topics: %v, Group ID: %s", broker, readTopics, writeTopics, groupID)
+	logging.Info("Event Broker: %s, Read Topics: %v, Write Topic: %v, Group: %s", broker, readTopics, writeTopic, groupID)
 
-	bus := event.NewEventBus(broker, readTopics, writeTopics, groupID)
+	bus := event.NewEventBus(broker, readTopics, writeTopic, groupID)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if len(writeTopics) > 0 {
-		logging.Info("Configured topics: %v", writeTopics)
+	if len(writeTopic) > 0 {
+		logging.Info("Configured write topic: %v", writeTopic)
 	} else {
-		logging.Error("No write topics configured")
+		logging.Error("No write topic configured")
 		return
 	}
 
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 
-	// Start writing events to write topics
+	// Start writing events to write topic
 loop:
 	for {
 		select {
@@ -71,20 +71,20 @@ loop:
 			logging.Info("Received shutdown signal, shutting down...")
 			break loop
 		default:
-			for _, topic := range writeTopics {
-				logging.Info("Publishing event to topic: %s", topic)
-				err := bus.Publish(ctx, topic, &event.Event[any]{
-					ID:        "example-id",
-					Type:      "ExampleEvent",
-					TimeStamp: time.Now(),
-					Payload:   ExampleEvent{ExampleID: "123", ExampleData: "Example Data"},
-				})
-				if err != nil {
-					logging.Error("Error publishing event to topic %s: %v", topic, err)
-					continue
-				}
-				logging.Info("Event published to topic: %s", topic)
+
+			logging.Info("Publishing event to topic: %s", writeTopic)
+			err := bus.Publish(ctx, writeTopic, &event.Event[any]{
+				ID:        "example-id",
+				Type:      "ExampleEvent",
+				TimeStamp: time.Now(),
+				Payload:   ExampleEvent{ExampleID: "123", ExampleData: "Example Data"},
+			})
+			if err != nil {
+				logging.Error("Error publishing event to topic %s: %v", writeTopic, err)
+				continue
 			}
+			logging.Info("Event published to topic: %s", writeTopic)
+
 			logging.Info("Sleeping...")
 			time.Sleep(time.Second * 20)
 		}

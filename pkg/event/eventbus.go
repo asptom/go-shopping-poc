@@ -11,18 +11,18 @@ import (
 
 // Handler is a function that handles/processes an event.
 
-type Handler func(Event[any])
+// Handler func(Event[any])
 
 // EventHandler defines the interface for handling events
 type EventHandler interface {
 	Handle(ctx context.Context, event Event[any]) error
 }
 
-// KafkaEventBus allows subscribing to and publishing events via Kafka.
-// It supports multiple topics for reading and writing.
+// EventBus enables subscribing to and publishing events via Kafka.
+// It supports multiple topics for reading and one for writing.
 
 type EventBus struct {
-	writers  map[string]*kafka.Writer
+	writer   *kafka.Writer
 	readers  map[string]*kafka.Reader
 	handlers map[string][]EventHandler
 	mu       sync.RWMutex
@@ -30,42 +30,34 @@ type EventBus struct {
 
 // NewEventBus creates a Kafka event bus without authentication (PLAINTEXT).
 
-func NewEventBus(broker string, readTopics []string, writeTopics []string, groupID string) *EventBus {
+func NewEventBus(broker string, readTopics []string, writeTopic string, group string) *EventBus {
 
-	writers := make(map[string]*kafka.Writer)
-	for _, topic := range writeTopics {
-		logging.Info("Creating Kafka writer for topic: %s", topic)
-		writers[topic] = &kafka.Writer{
-			Addr:     kafka.TCP(broker),
-			Topic:    topic,
-			Balancer: &kafka.LeastBytes{},
-		}
+	writer := &kafka.Writer{
+		Addr:     kafka.TCP(broker),
+		Topic:    writeTopic,
+		Balancer: &kafka.LeastBytes{},
 	}
 
 	readers := make(map[string]*kafka.Reader)
 	for _, topic := range readTopics {
-		logging.Info("Creating Kafka reader for topic: %s", topic)
+		logging.Info("Eventbus - Creating Kafka reader for topic: %s", topic)
 		readers[topic] = kafka.NewReader(kafka.ReaderConfig{
 			Brokers: []string{broker},
 			Topic:   topic,
-			GroupID: groupID,
+			GroupID: group,
 			Dialer:  &kafka.Dialer{},
 		})
 	}
 
 	return &EventBus{
-		writers:  writers,
+		writer:   writer,
 		readers:  readers,
 		handlers: make(map[string][]EventHandler),
 	}
 }
 
-func (eb *EventBus) WriteTopics() []string {
-	var topics []string
-	for topic := range eb.writers {
-		topics = append(topics, topic)
-	}
-	return topics
+func (eb *EventBus) WriteTopic() string {
+	return eb.writer.Topic
 }
 
 func (eb *EventBus) ReadTopics() []string {
@@ -89,24 +81,19 @@ func (eb *EventBus) Subscribe(eventType string, handler EventHandler) {
 
 func (eb *EventBus) Publish(ctx context.Context, topic string, event *Event[any]) error {
 	logging.Debug("EventBus - Publishing event to topic: %s, event type: %s", topic, event.Type)
-	writer, ok := eb.writers[topic]
-	if !ok {
-		logging.Debug("EventBus - No writer found for topic: %s", topic)
-		return ErrUnknownTopic(topic)
-	}
 
 	value, err := event.ToJSON()
 	if err != nil {
 		logging.Error("EventBus - Failed to convert event to JSON: %v", err)
 		return err
 	}
-	return writer.WriteMessages(ctx, kafka.Message{
+	return eb.writer.WriteMessages(ctx, kafka.Message{
 		Key:   []byte(event.Type),
 		Value: value,
 	})
 }
 
-// StartConsuming starts consuming messages from all configured Kafka read topics and dispatches them to handlers.
+// StartConsuming reads messages from all configured Kafka read topics and dispatches them to handlers.
 
 func (eb *EventBus) StartConsuming(ctx context.Context) error {
 	var wg sync.WaitGroup
@@ -133,7 +120,7 @@ func (eb *EventBus) StartConsuming(ctx context.Context) error {
 
 				var event Event[any]
 				if err := json.Unmarshal(m.Value, &event); err != nil {
-					logging.Error("Failed to unmarshal event: %v", err)
+					logging.Error("Eventbus - Failed to unmarshal event: %v", err)
 					continue
 				}
 
@@ -160,12 +147,12 @@ func (eb *EventBus) StartConsuming(ctx context.Context) error {
 type ErrUnknownTopic string
 
 func (e ErrUnknownTopic) Error() string {
-	return "unknown topic: " + string(e)
+	return "Eventbus - Unknown topic: " + string(e)
 }
 
 // ErrInvalidPayloadType is returned when the event payload is not a []byte.
 type ErrInvalidPayloadType string
 
 func (e ErrInvalidPayloadType) Error() string {
-	return "invalid payload type for event: " + string(e)
+	return "Eventbus - Invalid payload type for event: " + string(e)
 }

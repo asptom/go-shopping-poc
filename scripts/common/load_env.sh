@@ -3,6 +3,10 @@
 #
 # Usage: source $PROJECT_HOME/scripts/common/load_env.sh
 
+# Provide safe defaults so scripts can be sourced under `set -u`
+APP_ENV="${APP_ENV:-development}"
+PROJECT_HOME="${PROJECT_HOME:-/Users/tom/Projects/Go/go-shopping-poc}"
+
 if [ -z "$PROJECT_HOME" ]; then
   echo "PROJECT_HOME is not set. Please set it before sourcing this script."
   exit 1

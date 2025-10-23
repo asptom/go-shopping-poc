@@ -1,0 +1,8 @@
+# This file is used by an installer script to create event broker topics
+# during the initial installation of the infrastructure.
+# This should be aligned with the topics defined in the .env files
+
+# name:partitions:replication
+CustomerEvents:3:1
+OrderEvents:3:1
+PaymentEvents:2:1

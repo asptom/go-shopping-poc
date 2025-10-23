@@ -1,8 +1,14 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
-PROJECT_HOME="/Users/tom/Projects/Go/go-shopping-poc"
+PROJECT_HOME="$(cd "$(dirname "$0")/../../.." && pwd)"
 
 source "$PROJECT_HOME/scripts/common/load_env.sh"
+
+if [ ! -d "$PSQL_DEPLOYMENT_DIR" ]; then
+    echo "PostgreSQL deployment directory does not exist: $PSQL_DEPLOYMENT_DIR"
+    exit 1
+fi
 
 if [ ! -d "$PSQL_MODELS_DIR" ]; then
     echo "PostgreSQL models directory does not exist: $PSQL_MODELS_DIR"
@@ -10,18 +16,14 @@ if [ ! -d "$PSQL_MODELS_DIR" ]; then
 fi
 
 # Create namespace for our PSQL databases (if it does not already exist)
-kubectl get namespace | grep -q "^$PROJECT_NAMESPACE" || kubectl create namespace $PROJECT_NAMESPACE
+kubectl get namespace | grep -q "^$PSQL_NAMESPACE" || kubectl create namespace $PSQL_NAMESPACE
 
-# PostgreSql version 17.50 deployed by bitnami helm chart version 16.7.8
-
-helm install my-postgresql \
-    --set primary.extendedConfiguration="wal_level=logical" \
-    --set global.postgresql.auth.postgresPassword="$PSQL_MASTER_PASSWORD" \
-      bitnami/postgresql --namespace $PROJECT_NAMESPACE --version 16.7.8
-
+# Ditching helm install from bitnami in favor of applying our own deployment yaml
+kubectl apply -f "$PSQL_DEPLOYMENT_DIR/psql-deploy.yaml"
+    
 # Wait for the postgresql pod to be available
 
-while [[ $(kubectl -n $PROJECT_NAMESPACE get pods -l app.kubernetes.io/name=postgresql -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}') != "True" ]]; do echo "Waiting for postgresql pod to be available..." && sleep 30; done
+while [[ $(kubectl -n $PSQL_NAMESPACE get pods -l app=postgres -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}') != "True" ]]; do echo "Waiting for postgresql pod to be available..." && sleep 10; done
 
 echo "-----------------------"
 echo "Postgresql is available"
@@ -79,10 +81,10 @@ find "$PSQL_MODELS_DIR" -type f -name '*_db.sql' | sort | while read -r template
     fi
 
     echo "Creating database..."
-    kubectl run psql-client --rm -i --restart='Never' --namespace "$PROJECT_NAMESPACE" \
-        --image docker.io/bitnami/postgresql:17.5.0-debian-12-r8 \
+    kubectl run psql-client --rm -i --restart='Never' --namespace "$PSQL_NAMESPACE" \
+        --image=docker.io/postgres:18.0\
         --env="PGPASSWORD=$PGPASSWORD" \
-        --command -- psql --host my-postgresql -U "$USER" -d "$DB" -p 5432 < "$outputdb"
+        --command -- psql --host postgres -U "$USER" -d "$DB" -p 5432 < "$outputdb"
 
     if [ $? -ne 0 ]; then
         echo "Failed to execute $outputdb"
@@ -118,10 +120,10 @@ find "$PSQL_MODELS_DIR" -type f -name '*_db.sql' | sort | while read -r template
     fi
 
     echo "Creating schema for database $DB as user $USER"
-    kubectl run psql-client --rm -i --restart='Never' --namespace "$PROJECT_NAMESPACE" \
-        --image docker.io/bitnami/postgresql:17.5.0-debian-12-r8 \
+    kubectl run psql-client --rm -i --restart='Never' --namespace "$PSQL_NAMESPACE" \
+        --image=docker.io/postgres:18.0\
         --env="PGPASSWORD=$PGPASSWORD" \
-        --command -- psql --host my-postgresql -U "$USER" -d "$DB" -p 5432 < "$outputsql"
+        --command -- psql --host postgres -U "$USER" -d "$DB" -p 5432 < "$outputsql"
 
     if [ $? -ne 0 ]; then
         echo "Failed to execute $outputsql"

@@ -21,6 +21,9 @@ COPY --from=builder /customer .
 COPY --from=builder /app/.env.development .
 COPY --from=builder /etc/passwd /etc/passwd
 
+# Note Be sure to expose ports that match your application just to ensure the container runtime allows them.
+EXPOSE 8080
+
 USER nobody
 
 CMD ["/customer"]

@@ -25,14 +25,14 @@ func main() {
 	logging.Info("Configuration loaded from %s", envFile)
 	logging.Info("Config: %v", cfg)
 
-	broker := cfg.KafkaBroker
-	readTopics := cfg.GetEventReaderKafkaReadTopics()
-	writeTopics := cfg.GetEventReaderKafkaWriteTopics()
-	groupID := cfg.GetKafkaGroupEventExample()
+	broker := cfg.GetEventBroker()
+	readTopics := cfg.GetEventReaderReadTopics()
+	writeTopic := cfg.GetEventReaderWriteTopic()
+	group := cfg.GetEventReaderGroup()
 
-	logging.Info("Kafka Broker: %s, ReadTopics: %v, Write Topics: %v, Group ID: %s", broker, readTopics, writeTopics, groupID)
+	logging.Info("Event Broker: %s, Read Topics: %v, Write Topic: %v, Group: %s", broker, readTopics, writeTopic, group)
 
-	bus := event.NewEventBus(broker, readTopics, writeTopics, groupID)
+	bus := event.NewEventBus(broker, readTopics, writeTopic, group)
 
 	handler := &events.CustomerCreatedHandler{
 		Callback: func(ctx context.Context, payload events.CustomerCreatedPayload) error {
@@ -45,36 +45,14 @@ func main() {
 	var custEvent events.CustomerCreatedEvent
 	bus.Subscribe(custEvent.GetType(), handler)
 
-	// Subscribe to CustomerEvent events
-	//logging.Info("Subscribing to CustomerEvent on topics: %v", readTopics)
-	// bus.Subscribe("CustomerEvent", func(e event.Event) {
-	// 	data, ok := e.Payload().([]byte)
-	// 	if !ok {
-	// 		logging.Error("Payload is not []byte")
-	// 		return
-	// 	}
-	// 	var payload events.CustomerCreatedEvent
-	// 	if err := json.Unmarshal(data, &payload); err != nil {
-	// 		logging.Error("Failed to unmarshal payload: %v", err)
-	// 		return
-	// 	}
-	// 	logging.Info("Received event: %s with payload: %s", e.Name(), string(data))
-	// })
-	//bus.Subscribe("CustomerCreated", eventFactory)
-	//logging.Debug("Subscribed and received CustomerCreated event: %s", e.Name())
-	// if _, err := eventFactory(e.Name(), e.Payload().([]byte)); err != nil {
-	// 	logging.Error("Failed to process event: %v", err)
-	// }
-	//})
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	logging.Info("Starting Kafka consumer...")
+	logging.Info("Starting event consumer...")
 	// Start consuming in a goroutine
 	go func() {
-		logging.Debug("Kafka consumer started")
+		logging.Debug("Event consumer started")
 		if err := bus.StartConsuming(ctx); err != nil {
-			logging.Error("Kafka consumer stopped:", err)
+			logging.Error("Event consumer stopped:", err)
 		}
 	}()
 

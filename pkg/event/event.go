@@ -23,11 +23,13 @@ type EventInterface interface {
 }
 
 // ToJSON serializes the event to JSON
+
 func (e Event[T]) ToJSON() ([]byte, error) {
 	return json.Marshal(e)
 }
 
 // FromJSON deserializes JSON into an Event
+
 func FromJSON[T any](data []byte) (Event[T], error) {
 	var event Event[T]
 	err := json.Unmarshal(data, &event)

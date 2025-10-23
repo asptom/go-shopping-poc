@@ -45,12 +45,13 @@ func main() {
 	defer db.Close()
 
 	// Connect to Kafka
-	broker := cfg.KafkaBroker
-	writeTopics := cfg.GetCustomerKafkaWriteTopics()
-	groupID := cfg.GetCustomerKafkaGroupID()
-	outboxInterval := cfg.GetCustomerOutboxProcessingInterval()
+	broker := cfg.GetEventBroker()
+	writeTopic := cfg.GetCustomerWriteTopic()
+	readTopics := cfg.GetCustomerReadTopics()
+	groupID := cfg.GetCustomerGroup()
+	outboxInterval := cfg.GetCustomerOutboxInterval()
 
-	bus := event.NewEventBus(broker, nil, writeTopics, groupID)
+	bus := event.NewEventBus(broker, readTopics, writeTopic, groupID)
 
 	// Initialize
 	logging.Debug("Initializing outbox reader and writer")
@@ -68,12 +69,12 @@ func main() {
 	router.Post("/customers", handler.CreateCustomer)
 	router.Get("/customers/{id}", handler.GetCustomerByID)
 
-	// Start HTTP server
+	// Start HTTP server (listen on 80; Traefik will terminate TLS)
 	serverAddr := cfg.GetCustomerServicePort()
 	if serverAddr == "" {
-		serverAddr = ":80"
+		serverAddr = ":8080"
 	}
-	logging.Info("Starting HTTP server on %s", serverAddr)
+	logging.Info("Starting HTTP server on %s (Traefik will handle TLS)", serverAddr)
 	if err := http.ListenAndServe(serverAddr, router); err != nil {
 		logging.Error("Failed to start HTTP server: %v", err)
 	}

@@ -1,20 +1,17 @@
 kind: Service
 apiVersion: v1
 metadata:
-  name: store-customer
+  name: store-customer-svc
   namespace: shopping
   labels:
-    app.kubernetes.io/name: store-customer
+    app.kubernetes.io/name: store-customer-svc
     app.kubernetes.io/version: v1.0
 spec:
-  ports:
-    - name: http
-      protocol: TCP
-      port: 80
-      targetPort: http
-    - name: https
-      protocol: TCP
-      port: 443
-      targetPort: https
+  type: ClusterIP
   selector:
     app.kubernetes.io/name: store-customer
+    app.kubernetes.io/version: v1.0
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
