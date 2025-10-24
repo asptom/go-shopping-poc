@@ -1,32 +1,92 @@
-# Default environment
-ENV ?= development
-ENV_FILE = .env.$(ENV)
+# Makefile for Go Shopping POC Application
+# ------------------------------------------------------------------
 
-# compute project root as the directory that contains this Makefile
-PROJECT_HOME := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
-
-# run each recipe body in one shell (avoids multiline if/for problems)
+SHELL := /usr/bin/env bash
+.SHELLFLAGS := -euo pipefail -c
 .ONESHELL:
-SHELL := /bin/bash
 
-# include kafka makefile using PROJECT_HOME (was using PROJECT_ROOT which is undefined)
-include $(PROJECT_HOME)/scripts/Makefile/kafka-topics.mk
+# ------------------------------------------------------------------
+# --- Load environment variables from .env and .env.local ---
+# ------------------------------------------------------------------
 
-SERVICES = customer eventreader
-MODELS = $(shell find resources/postgresql/models/ -mindepth 1 -maxdepth 1 -type d -exec basename {} \;)
+# Verify the helper exists and is executable
+ifeq (,$(wildcard ./scripts/Makefile/export_env.sh))
+$(error scripts/Makefile/export_env.sh not found — please create it and make it executable)
+endif
 
-.PHONY: all build sqlc run test lint clean docker-build k8s-deploy-postgresql k8s-deploy-kafka k8s-deploy-app k8s-delete-kafka k8s-delete-postgresql k8s-delete-app run-service build-service
+# Path for the Make-friendly export file (stable path; not ephemeral)
+ENV_TMP := $(abspath .make_env_exports.mk)
 
-all: clean build docker-build k8s-deploy-postgresql k8s-deploy-kafka k8s-deploy-app
+# Synchronously generate the export file now (runs during parse time).
+# This runs the helper and writes its output into ENV_TMP before we include it.
+$(shell ./scripts/Makefile/export_env.sh > $(ENV_TMP))
 
-build:
+# Include the generated file — it must exist because of the line above.
+include $(ENV_TMP)
+
+# Keep the generated file around so subsequent make runs can reuse it;
+# if you want to force regeneration, run `make clean-env` (see target below).
+.PHONY: clean-env
+clean-env:
+	@rm -f $(ENV_TMP)
+
+# ------------------------------------------------------------------
+# --- Debug info ---
+# ------------------------------------------------------------------
+$(info PROJECT_HOME after env load: $(PROJECT_HOME))
+
+# ------------------------------------------------------------------
+# --- Include sub-makefiles (use real paths under PROJECT_HOME) ---
+# ------------------------------------------------------------------
+ifneq ($(strip $(PROJECT_HOME)),)
+	ifneq ($(wildcard $(PROJECT_HOME)/scripts/Makefile/postgres.mk),)
+		include $(PROJECT_HOME)/scripts/Makefile/postgres.mk
+	else
+		$(warning $(PROJECT_HOME)/scripts/Makefile/postgres.mk not found — postgres targets not loaded)
+	endif
+
+	ifneq ($(wildcard $(PROJECT_HOME)/scripts/Makefile/kafka.mk),)
+		include $(PROJECT_HOME)/scripts/Makefile/kafka.mk
+	else
+		$(warning $(PROJECT_HOME)/scripts/Makefile/kafka.mk not found — kafka targets not loaded)
+	endif
+else
+	$(warning PROJECT_HOME not defined after loading env files)
+endif
+# ------------------------------------------------------------------
+
+SERVICES := customer eventreader
+MODELS := $(shell find resources/postgresql/models/ -mindepth 1 -maxdepth 1 -type d -exec basename {} \;)
+
+# ------------------------------------------------------------------
+# --- Targets ---
+# ------------------------------------------------------------------
+
+.PHONY: info all services-build services-run test lint clean \
+        services-docker-build services-install services-uninstall
+
+info: ## Show project configuration details
+	@echo
+	@echo "Makefile for Go Shopping POC Application"
+	@echo "----------------------------------------"
+	@echo "Environment: $(ENV)"
+	@echo "Project Home: $(PROJECT_HOME)"
+	@echo "Services: $(SERVICES)"
+	@echo "Database Models: $(MODELS)"
+	@echo "----------------------------------------"
+
+all: clean services-build services-docker-build postgres-install kafka-install services-install
+
+uninstall: services-uninstall kafka-uninstall postgres-uninstall
+
+services-build: ## Build all services defined in SERVICES variable
 	@echo "Building all services..."
 	@for svc in $(SERVICES); do \
 	    echo "Building $$svc..."; \
 	    GOOS=linux GOARCH=amd64 go build -o bin/$$svc ./cmd/$$svc; \
 	done
 
-run:
+services-run: ## Run (locallyall services defined in SERVICES variable
 	@echo "Running all services (in background)..."
 	@for svc in $(SERVICES); do \
 	    echo "Running $$svc with $(ENV_FILE)..."; \
@@ -45,17 +105,8 @@ clean:
 	@echo "Cleaning binaries..."
 	rm -rf bin/*
 
-# Example: make run-service SERVICE=eventreader ENV=development
-run-service:
-	@echo "Running $(SERVICE) with $(ENV_FILE)..."
-	APP_ENV=$(ENV) go run ./cmd/$(SERVICE)
-
-# Example: make build-service SERVICE=eventreader
-build-service:
-	@echo "Building $(SERVICE)..."
-	GOOS=linux GOARCH=amd64 go build -o bin/$(SERVICE) ./cmd/$(SERVICE)
-
-docker-build:
+services-docker-build: ## Build and push Docker images for all services
+	@echo "Building and pushing Docker images for all services..."
 	@for svc in $(SERVICES); do \
 	    echo "Building Docker image for $$svc..."; \
 	    docker build -t localhost:5000/go-shopping-poc/$$svc:1.0 -f cmd/$$svc/Dockerfile . ; \
@@ -63,36 +114,14 @@ docker-build:
 	    echo "Docker image for $$svc built and pushed."; \
 	done
 
-k8s-deploy-kafka:
+services-install: ## Deploy all services to Kubernetes
+	@echo "Creating namespace for services..."
+	kubectl create namespace "$${PROJECT_NAMESPACE}" || echo "Namespace $${PROJECT_NAMESPACE} already exists"
 	@echo
-	@echo "Deploying Kafka to Kubernetes..."
-	@echo "--------------------------------"
-	@if [ ! -f deployments/kubernetes/kafka/kafka-deploy.yaml ]; then \
-	    echo "--> Deployment file for kafka not found, skipping..."; \
-	else \
-	    kubectl apply -f deployments/kubernetes/kafka/kafka-deploy.yaml; \
-	fi
-	@echo "--> kafka deployed to Kubernetes."
-	@echo "--------------------------------"
-
-k8s-deploy-postgresql:
-	@echo
-	@echo "Deploying PostgreSQL to Kubernetes..."
-	@echo "--------------------------------"			
-	@if [ ! -f deployments/kubernetes/postgresql/postgresql-deploy.yaml ]; then \
-	    echo "--> Deployment file for postgresql not found, skipping..."; \
-	else \
-	    kubectl apply -f deployments/kubernetes/postgresql/postgresql-deploy.yaml; \
-	fi
-	@echo "--> postgresql deployed to Kubernetes."
-	@echo "--------------------------------"
-
-k8s-deploy-app:
-	@echo
-	@echo "Deploying application to Kubernetes..."
+	@echo "Deploying services to Kubernetes..."
 	@echo "--------------------------------------"
 	@for svc in $(SERVICES); do \
-	    echo "-> Deploying $$svc... as StatefulSets"; \
+	    echo "-> Deploying $$svc... as StatefulSet"; \
 	    if [ ! -f deployments/kubernetes/$$svc/$$svc-deploy.yaml ]; then \
 	        echo "--> Deployment file for $$svc not found, skipping..."; \
 	    else \
@@ -104,42 +133,46 @@ k8s-deploy-app:
 	@echo "All services deployed to Kubernetes with configurations from deployments/kubernetes."
 	@echo
 
-k8s-delete-kafka:
-	@echo
-	@echo "Deleting Kafka from Kubernetes..."
-	@echo "--------------------------------"
-	@if [ ! -f deployments/kubernetes/kafka/kafka-deploy.yaml ]; then \
-	    echo "--> Deployment file for kafka not found, skipping..."; \
-	else \
-	    kubectl delete -f deployments/kubernetes/kafka/kafka-deploy.yaml; \
-	fi
-	@echo "--> kafka deleted from Kubernetes."
-	@echo "--------------------------------"
-
-k8s-delete-postgresql:
-	@echo
-	@echo "Deleting PostgreSQL from Kubernetes..."
-	@echo "--------------------------------"			
-	@if [ ! -f deployments/kubernetes/postgresql/postgresql-deploy.yaml ]; then \
-	    echo "--> Deployment file for postgresql not found, skipping..."; \
-	else \
-	    kubectl delete -f deployments/kubernetes/postgresql/postgresql-deploy.yaml; \
-	fi
-	@echo "--> postgresql deleted from Kubernetes."
-	@echo "--------------------------------"
-
-k8s-delete-app:
+services-uninstall: ## Uninstall all services from Kubernetes
 	@echo 
-	@echo "Deleting Kubernetes deployments..."
-	@echo "--------------------------------"
+	@echo "Uninstalling services from Kubernetes..."
+	@echo "----------------------------------------"
 	@for svc in $(SERVICES); do \
 	    echo "--> Deleting $$svc..."; \
 	    if [ -f deployments/kubernetes/$$svc/$$svc-deploy.yaml ]; then \
 	        kubectl delete -f deployments/kubernetes/$$svc/$$svc-deploy.yaml; \
 	    fi; \
-	    echo "--> Deleted $$svc from kubernetes."; \
-	    echo "--------------------------------"; \
+	    echo "--> Uninstalled $$svc from kubernetes."; \
+	    echo "-------------------------------------"; \
 	done
-	kubectl delete namespace shopping
-	@echo "All services deleted from Kubernetes."
-	@echo "--------------------------------"
+	@echo "Deleting namespace for services..."
+	@kubectl delete namespace "$${PROJECT_NAMESPACE}" || echo "Namespace $${PROJECT_NAMESPACE} does not exist"
+	@echo "All services uninstalled from Kubernetes."
+	@echo "----------------------------------------"
+
+# ------------------------------------------------------------------
+# --- Enhanced Help System (Grouped and Clean)
+# ------------------------------------------------------------------
+.PHONY: help
+help:
+	@echo
+	@echo "📘 Go Shopping POC — Make Targets"
+	@echo "=================================="
+	@grep -h '^[a-zA-Z0-9_.-]*:.*##' $(MAKEFILE_LIST) | \
+	awk 'BEGIN { FS=": *## *"; last="" } \
+	{ \
+		t=$$1; d=$$2; \
+		sub(/^[[:space:]]+/, "", t); sub(/[[:space:]]+$$/, "", t); \
+		sub(/^[[:space:]]+/, "", d); sub(/[[:space:]]+$$/, "", d); \
+		split(t, parts, "-"); group=toupper(parts[1]); \
+		if (group != last) { \
+			if (last != "") print ""; \
+			printf "[%s]\n", group; \
+			last = group; \
+		} \
+		printf "  %-25s %s\n", t, d; \
+	}'
+	@echo
+	@echo "Usage: make <target>"
+	@echo "Example: make postgres-install"
+	@echo
