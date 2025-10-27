@@ -13,7 +13,7 @@ SHELL := /usr/bin/env bash
 # Info target
 # ------------------------------------------------------------------
 postgres-info: ## Show PostgreSQL configuration details
-	@echo
+	@$(MAKE) separator
 	@echo "PostgreSQL Configuration:"
 	@echo "-------------------------"
 	@echo "Project Home: $$PROJECT_HOME"
@@ -41,6 +41,7 @@ postgres-wait:
 # Create DBs
 # ------------------------------------------------------------------
 postgres-create-dbs:
+	@$(MAKE) separator
 	@echo "Creating databases..."
 	@cd "$$PSQL_MODELS_DIR"
 	@if ! command -v envsubst &>/dev/null; then \
@@ -70,6 +71,7 @@ postgres-create-dbs:
 # Create Schemas
 # ------------------------------------------------------------------
 postgres-create-schemas:
+	@$(MAKE) separator
 	@echo "Creating schemas..."
 	@cd "$$PSQL_MODELS_DIR"
 	@for template in $(shell find . -type f -name '*_db.sql' | sort); do \
@@ -96,6 +98,7 @@ postgres-create-schemas:
 # Install (calls the above sequentially, inlined)
 # ------------------------------------------------------------------
 postgres-install: ## Deploy PostgreSQL and initialize databases
+	@$(MAKE) separator
 	@echo "Starting PostgreSQL install..."
 	@[ -d "$$PSQL_DEPLOYMENT_DIR" ] || { echo "Deployment dir missing: $$PSQL_DEPLOYMENT_DIR"; exit 1; }
 	@[ -d "$$PSQL_MODELS_DIR" ] || { echo "Models dir missing: $$PSQL_MODELS_DIR"; exit 1; }
@@ -109,6 +112,7 @@ postgres-install: ## Deploy PostgreSQL and initialize databases
 # Uninstall PostgreSQL
 # ------------------------------------------------------------------
 postgres-uninstall: ## Remove PostgreSQL deployment and PVCs
+	@$(MAKE) separator
 	@echo "Deleting PostgreSQL deployment and PVCs (namespace: $$PSQL_NAMESPACE)..."
 	@kubectl -n $$PSQL_NAMESPACE delete -f "$$PSQL_DEPLOYMENT_DIR/postgresql-deploy.yaml" || true
 	@kubectl -n $$PSQL_NAMESPACE delete pvc -l app=postgres || true

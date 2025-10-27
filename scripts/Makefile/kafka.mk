@@ -13,7 +13,7 @@ SHELL := /usr/bin/env bash
 # Info target
 # ------------------------------------------------------------------
 kafka-info: ## Show Kafka configuration details
-	@echo
+	@$(MAKE) separator
 	@echo "Kafka Configuration:"
 	@echo "-------------------------"
 	@echo "Project Home: $$PROJECT_HOME"
@@ -43,6 +43,7 @@ kafka-wait:
 # Create Topics
 # ------------------------------------------------------------------
 kafka-create-topics:
+	@$(MAKE) separator
 	@bash -euo pipefail -c '\
 		if [ ! -f "$$KAFKA_TOPICS_FILE" ]; then \
 			echo "Missing topics file: $$KAFKA_TOPICS_FILE"; \
@@ -77,6 +78,7 @@ kafka-create-topics:
 # Install (calls the above sequentially, inlined)
 # ------------------------------------------------------------------
 kafka-install: ## Deploy Kafka and create topics
+	@$(MAKE) separator
 	@echo "Starting Kafka install..."
 	@[ -d "$$KAFKA_DEPLOYMENT_DIR" ] || { echo "Deployment dir missing: $$KAFKA_DEPLOYMENT_DIR"; exit 1; }
 	@[ -d "$$KAFKA_RESOURCES_DIR" ] || { echo "Resources dir missing: $$KAFKA_RESOURCES_DIR"; exit 1; }
@@ -90,6 +92,7 @@ kafka-install: ## Deploy Kafka and create topics
 # Uninstall Kafka
 # ------------------------------------------------------------------
 kafka-uninstall: ## Remove Kafka deployment
+	@$(MAKE) separator
 	@echo "Deleting Kafka deployment(namespace: $$KAFKA_CLUSTER_NAMESPACE)..."
 	@kubectl -n $$KAFKA_CLUSTER_NAMESPACE delete -f "$$KAFKA_DEPLOYMENT_DIR/kafka-deploy.yaml" || true
 	@echo "Uninstall complete."

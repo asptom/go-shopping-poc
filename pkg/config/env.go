@@ -17,6 +17,6 @@ func ResolveEnvFile() string {
 	case "test":
 		return ".env.test"
 	default:
-		return ".env.development"
+		return ".env.local"
 	}
 }

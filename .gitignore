@@ -23,8 +23,13 @@ go.work
 go.work.sum
 
 # env file
+.env
 .env.development
-.env.production
+.env.local
+
+# Makefile generated files
+*.mk.env.tmp
+.make_env_exports.mk
 
 # IDEs
 .vscode/

@@ -30,10 +30,13 @@ include $(ENV_TMP)
 clean-env:
 	@rm -f $(ENV_TMP)
 
-# ------------------------------------------------------------------
-# --- Debug info ---
-# ------------------------------------------------------------------
-$(info PROJECT_HOME after env load: $(PROJECT_HOME))
+# ----------------------------------------------------------------------
+# --- This force PROJECT_HOME so that the sub-makefiles are included ---
+# ----------------------------------------------------------------------
+#$(info PROJECT_HOME after env load: $(PROJECT_HOME))
+# Force immediate expansion so conditionals/includes see the value at parse time
+# Timing issue with GNU Make: we need PROJECT_HOME to be expanded/set before we do the includes below.
+PROJECT_HOME := $(PROJECT_HOME)
 
 # ------------------------------------------------------------------
 # --- Include sub-makefiles (use real paths under PROJECT_HOME) ---
@@ -50,6 +53,18 @@ ifneq ($(strip $(PROJECT_HOME)),)
 	else
 		$(warning $(PROJECT_HOME)/scripts/Makefile/kafka.mk not found — kafka targets not loaded)
 	endif
+	
+	ifneq ($(wildcard $(PROJECT_HOME)/scripts/Makefile/certificates.mk),)
+		include $(PROJECT_HOME)/scripts/Makefile/certificates.mk
+	else
+		$(warning $(PROJECT_HOME)/scripts/Makefile/certificates.mk not found — certificates targets not loaded)
+	endif
+
+	ifneq ($(wildcard $(PROJECT_HOME)/scripts/Makefile/namespaces.mk),)
+		include $(PROJECT_HOME)/scripts/Makefile/namespaces.mk
+	else
+		$(warning $(PROJECT_HOME)/scripts/Makefile/namespaces.mk not found — namespaces targets not loaded)
+	endif
 else
 	$(warning PROJECT_HOME not defined after loading env files)
 endif
@@ -63,9 +78,11 @@ MODELS := $(shell find resources/postgresql/models/ -mindepth 1 -maxdepth 1 -typ
 # ------------------------------------------------------------------
 
 .PHONY: info all services-build services-run test lint clean \
-        services-docker-build services-install services-uninstall
+        services-docker-build services-install services-uninstall \
+		separator
 
 info: ## Show project configuration details
+	@$(MAKE) separator
 	@echo
 	@echo "Makefile for Go Shopping POC Application"
 	@echo "----------------------------------------"
@@ -75,11 +92,17 @@ info: ## Show project configuration details
 	@echo "Database Models: $(MODELS)"
 	@echo "----------------------------------------"
 
-all: clean services-build services-docker-build postgres-install kafka-install services-install
+separator:
+	@echo
+	@echo "**************************************************************"
+	@echo
+	
+all: clean services-build services-docker-build namespaces-create postgres-install kafka-install certificates-install services-install
 
-uninstall: services-uninstall kafka-uninstall postgres-uninstall
+uninstall: services-uninstall kafka-uninstall postgres-uninstall certificates-uninstall namespaces-delete
 
 services-build: ## Build all services defined in SERVICES variable
+	@$(MAKE) separator
 	@echo "Building all services..."
 	@for svc in $(SERVICES); do \
 	    echo "Building $$svc..."; \
@@ -87,6 +110,7 @@ services-build: ## Build all services defined in SERVICES variable
 	done
 
 services-run: ## Run (locallyall services defined in SERVICES variable
+	@$(MAKE) separator
 	@echo "Running all services (in background)..."
 	@for svc in $(SERVICES); do \
 	    echo "Running $$svc with $(ENV_FILE)..."; \
@@ -106,6 +130,7 @@ clean:
 	rm -rf bin/*
 
 services-docker-build: ## Build and push Docker images for all services
+	@$(MAKE) separator
 	@echo "Building and pushing Docker images for all services..."
 	@for svc in $(SERVICES); do \
 	    echo "Building Docker image for $$svc..."; \
@@ -115,9 +140,7 @@ services-docker-build: ## Build and push Docker images for all services
 	done
 
 services-install: ## Deploy all services to Kubernetes
-	@echo "Creating namespace for services..."
-	kubectl create namespace "$${PROJECT_NAMESPACE}" || echo "Namespace $${PROJECT_NAMESPACE} already exists"
-	@echo
+	@$(MAKE) separator
 	@echo "Deploying services to Kubernetes..."
 	@echo "--------------------------------------"
 	@for svc in $(SERVICES); do \
@@ -134,6 +157,7 @@ services-install: ## Deploy all services to Kubernetes
 	@echo
 
 services-uninstall: ## Uninstall all services from Kubernetes
+	@$(MAKE) separator
 	@echo 
 	@echo "Uninstalling services from Kubernetes..."
 	@echo "----------------------------------------"
@@ -145,8 +169,6 @@ services-uninstall: ## Uninstall all services from Kubernetes
 	    echo "--> Uninstalled $$svc from kubernetes."; \
 	    echo "-------------------------------------"; \
 	done
-	@echo "Deleting namespace for services..."
-	@kubectl delete namespace "$${PROJECT_NAMESPACE}" || echo "Namespace $${PROJECT_NAMESPACE} does not exist"
 	@echo "All services uninstalled from Kubernetes."
 	@echo "----------------------------------------"
 
@@ -155,7 +177,7 @@ services-uninstall: ## Uninstall all services from Kubernetes
 # ------------------------------------------------------------------
 .PHONY: help
 help:
-	@echo
+	@$(MAKE) separator
 	@echo "📘 Go Shopping POC — Make Targets"
 	@echo "=================================="
 	@grep -h '^[a-zA-Z0-9_.-]*:.*##' $(MAKEFILE_LIST) | \

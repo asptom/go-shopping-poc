@@ -18,7 +18,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /eventreader
 FROM scratch
 WORKDIR /
 COPY --from=builder /eventreader .
-COPY --from=builder /app/.env.development .
+COPY --from=builder /app/.env.local .
 COPY --from=builder /etc/passwd /etc/passwd
 
 USER nobody

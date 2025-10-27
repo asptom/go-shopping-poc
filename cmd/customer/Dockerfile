@@ -18,7 +18,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /customer
 FROM scratch
 WORKDIR /
 COPY --from=builder /customer .
-COPY --from=builder /app/.env.development .
+COPY --from=builder /app/.env.local .
 COPY --from=builder /etc/passwd /etc/passwd
 
 # Note Be sure to expose ports that match your application just to ensure the container runtime allows them.
