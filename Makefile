@@ -10,25 +10,56 @@ SHELL := /usr/bin/env bash
 # ------------------------------------------------------------------
 
 # Verify the helper exists and is executable
-ifeq (,$(wildcard ./scripts/Makefile/export_env.sh))
-$(error scripts/Makefile/export_env.sh not found — please create it and make it executable)
+ifeq (,$(wildcard ./resources/make/export_env.sh))
+$(error ./resources/make/export_env.sh not found — please create it and make it executable)
 endif
 
 # Path for the Make-friendly export file (stable path; not ephemeral)
-ENV_TMP := $(abspath .make_env_exports.mk)
+ENV_TMP := $(abspath ./resources/make/.make_env_exports.mk)
 
 # Synchronously generate the export file now (runs during parse time).
 # This runs the helper and writes its output into ENV_TMP before we include it.
-$(shell ./scripts/Makefile/export_env.sh > $(ENV_TMP))
+$(shell ./resources/make/export_env.sh > $(ENV_TMP))
 
 # Include the generated file — it must exist because of the line above.
 include $(ENV_TMP)
 
 # Keep the generated file around so subsequent make runs can reuse it;
-# if you want to force regeneration, run `make clean-env` (see target below).
-.PHONY: clean-env
-clean-env:
+# if you want to force regeneration, run `make env-clean` (see target below).
+.PHONY: env-clean
+env-clean:  ## Remove the temporary environment export file to force regeneration on next make run
+	@echo "Removing temporary environment export file: $(ENV_TMP)"
 	@rm -f $(ENV_TMP)
+
+# Compare env files
+.PHONY: env-diff
+env-diff:  ## Compare .env and .env.local for differences
+	@echo ""
+	@bash -euo pipefail -c '\
+		echo "----------------------------------------------"; \
+		echo "Comparing .env and .env.local..."; \
+		ENV_SORTED=$$(mktemp); \
+		ENV_LOCAL_SORTED=$$(mktemp); \
+		grep -v "^\s*#" .env | grep -v "^\s*$$" | sort > $$ENV_SORTED; \
+		grep -v "^\s*#" .env.local | grep -v "^\s*$$" | sort > $$ENV_LOCAL_SORTED; \
+		\
+		echo ""; \
+		echo "Keys only in .env:"; \
+		comm -23 <(cut -d= -f1 $$ENV_SORTED) <(cut -d= -f1 $$ENV_LOCAL_SORTED) || true; \
+		\
+		echo ""; \
+		echo "Keys only in .env.local:"; \
+		comm -13 <(cut -d= -f1 $$ENV_SORTED) <(cut -d= -f1 $$ENV_LOCAL_SORTED) || true; \
+		\
+		echo ""; \
+		echo "Keys with different values:"; \
+		awk -F= '\''NR==FNR { env[$$1] = $$2; next } \
+			{ if ($$1 in env && env[$$1] != $$2) \
+				printf "%s\n.env: %s\n.env.local: %s\n\n", $$1, env[$$1], $$2 }'\'' \
+			$$ENV_SORTED $$ENV_LOCAL_SORTED || true; \
+		rm -f $$ENV_SORTED $$ENV_LOCAL_SORTED; \
+	'
+	@echo ""
 
 # ----------------------------------------------------------------------
 # --- This force PROJECT_HOME so that the sub-makefiles are included ---
@@ -42,28 +73,28 @@ PROJECT_HOME := $(PROJECT_HOME)
 # --- Include sub-makefiles (use real paths under PROJECT_HOME) ---
 # ------------------------------------------------------------------
 ifneq ($(strip $(PROJECT_HOME)),)
-	ifneq ($(wildcard $(PROJECT_HOME)/scripts/Makefile/postgres.mk),)
-		include $(PROJECT_HOME)/scripts/Makefile/postgres.mk
+	ifneq ($(wildcard $(PROJECT_HOME)/resources/make/postgres.mk),)
+		include $(PROJECT_HOME)/resources/make/postgres.mk
 	else
-		$(warning $(PROJECT_HOME)/scripts/Makefile/postgres.mk not found — postgres targets not loaded)
+		$(warning $(PROJECT_HOME)/resources/make/postgres.mk not found — postgres targets not loaded)
 	endif
 
-	ifneq ($(wildcard $(PROJECT_HOME)/scripts/Makefile/kafka.mk),)
-		include $(PROJECT_HOME)/scripts/Makefile/kafka.mk
+	ifneq ($(wildcard $(PROJECT_HOME)/resources/make/kafka.mk),)
+		include $(PROJECT_HOME)/resources/make/kafka.mk
 	else
-		$(warning $(PROJECT_HOME)/scripts/Makefile/kafka.mk not found — kafka targets not loaded)
+		$(warning $(PROJECT_HOME)/resources/make/kafka.mk not found — kafka targets not loaded)
 	endif
 	
-	ifneq ($(wildcard $(PROJECT_HOME)/scripts/Makefile/certificates.mk),)
-		include $(PROJECT_HOME)/scripts/Makefile/certificates.mk
+	ifneq ($(wildcard $(PROJECT_HOME)/resources/make/certificates.mk),)
+		include $(PROJECT_HOME)/resources/make/certificates.mk
 	else
-		$(warning $(PROJECT_HOME)/scripts/Makefile/certificates.mk not found — certificates targets not loaded)
+		$(warning $(PROJECT_HOME)/resources/make/certificates.mk not found — certificates targets not loaded)
 	endif
 
-	ifneq ($(wildcard $(PROJECT_HOME)/scripts/Makefile/namespaces.mk),)
-		include $(PROJECT_HOME)/scripts/Makefile/namespaces.mk
+	ifneq ($(wildcard $(PROJECT_HOME)/resources/make/namespaces.mk),)
+		include $(PROJECT_HOME)/resources/make/namespaces.mk
 	else
-		$(warning $(PROJECT_HOME)/scripts/Makefile/namespaces.mk not found — namespaces targets not loaded)
+		$(warning $(PROJECT_HOME)/resources/make/namespaces.mk not found — namespaces targets not loaded)
 	endif
 else
 	$(warning PROJECT_HOME not defined after loading env files)
@@ -77,7 +108,7 @@ MODELS := $(shell find resources/postgresql/models/ -mindepth 1 -maxdepth 1 -typ
 # --- Targets ---
 # ------------------------------------------------------------------
 
-.PHONY: info all services-build services-run test lint clean \
+.PHONY: info all services-build services-run services-test services-lint services-clean \
         services-docker-build services-install services-uninstall \
 		separator
 
@@ -97,9 +128,11 @@ separator:
 	@echo "**************************************************************"
 	@echo
 	
-all: clean services-build services-docker-build namespaces-create postgres-install kafka-install certificates-install services-install
+all: clean services-build services-docker-build namespaces-create postgres-install kafka-install certificates-install services-install \
+	## Full setup: clean, build, docker-build, create namespaces, install postgres, kafka, certificates, and services
 
-uninstall: services-uninstall kafka-uninstall postgres-uninstall certificates-uninstall namespaces-delete
+uninstall: services-uninstall kafka-uninstall postgres-uninstall certificates-uninstall namespaces-delete \
+  ## Uninstall all services and all supporting components
 
 services-build: ## Build all services defined in SERVICES variable
 	@$(MAKE) separator
@@ -109,7 +142,7 @@ services-build: ## Build all services defined in SERVICES variable
 	    GOOS=linux GOARCH=amd64 go build -o bin/$$svc ./cmd/$$svc; \
 	done
 
-services-run: ## Run (locallyall services defined in SERVICES variable
+services-run: ## Run (locally) all services defined in SERVICES variable
 	@$(MAKE) separator
 	@echo "Running all services (in background)..."
 	@for svc in $(SERVICES); do \
@@ -117,17 +150,30 @@ services-run: ## Run (locallyall services defined in SERVICES variable
 	    APP_ENV=$(ENV) go run ./cmd/$$svc & \
 	done
 
-test:
-	@echo "Running tests..."
-	go test ./...
+services-test: ## Run tests for all services defined in SERVICES variable
+	@$(MAKE) separator
+	@echo "Running tests for all services..."
+	@for svc in $(SERVICES); do \
+	    echo "Running tests for $$svc..."; \
+	    go test ./cmd/$$svc/...; \
+	done
 
-lint:
-	@echo "Linting..."
+services-lint: ## Run linters for all services defined in SERVICES variable
+	@$(MAKE) separator
+	@echo "Running linters for all services..."
+	@for svc in $(SERVICES); do \
+	    echo "Running linters for $$svc..."; \
+	    golangci-lint run ./cmd/$$svc/...; \
+	done
 	golangci-lint run ./...
 
-clean:
-	@echo "Cleaning binaries..."
-	rm -rf bin/*
+services-clean: ## Clean up all services defined in SERVICES variable
+	@$(MAKE) separator
+	@echo "Cleaning up all services..."
+	@for svc in $(SERVICES); do \
+	    echo "Cleaning up $$svc..."; \
+	    go clean ./cmd/$$svc/...; \
+	done
 
 services-docker-build: ## Build and push Docker images for all services
 	@$(MAKE) separator
@@ -180,6 +226,10 @@ help:
 	@$(MAKE) separator
 	@echo "📘 Go Shopping POC — Make Targets"
 	@echo "=================================="
+	@echo
+	@echo "all			Full setup: clean, build, docker-build, create namespaces, install postgres, kafka, certificates, and services"
+	@echo "uninstall		Uninstall all services and all supporting components"
+	@echo
 	@grep -h '^[a-zA-Z0-9_.-]*:.*##' $(MAKEFILE_LIST) | \
 	awk 'BEGIN { FS=": *## *"; last="" } \
 	{ \
@@ -197,4 +247,4 @@ help:
 	@echo
 	@echo "Usage: make <target>"
 	@echo "Example: make postgres-install"
-	@echo
+	@$(MAKE) separator
