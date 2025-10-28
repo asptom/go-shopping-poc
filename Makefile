@@ -128,11 +128,11 @@ separator:
 	@echo "**************************************************************"
 	@echo
 	
-all: clean services-build services-docker-build namespaces-create postgres-install kafka-install certificates-install services-install \
-	## Full setup: clean, build, docker-build, create namespaces, install postgres, kafka, certificates, and services
+all: services-clean services-build services-docker-build namespaces-create postgres-install kafka-install certificates-install services-install
+## Full setup: clean, build, docker-build, create namespaces, install postgres, kafka, certificates, and services
 
-uninstall: services-uninstall kafka-uninstall postgres-uninstall certificates-uninstall namespaces-delete \
-  ## Uninstall all services and all supporting components
+uninstall: services-uninstall kafka-uninstall postgres-uninstall certificates-uninstall namespaces-delete
+## Uninstall all services and all supporting components
 
 services-build: ## Build all services defined in SERVICES variable
 	@$(MAKE) separator
