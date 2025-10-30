@@ -17,7 +17,8 @@ certificates-info: ## Show certificate configuration details
 	@echo "Certificate Configuration:"
 	@echo "-------------------------"
 	@echo "Project Home: $$PROJECT_HOME"
-	@echo "Namespace: $$PROJECT_NAMESPACE"
+	@echo "Project Namespace: $$PROJECT_NAMESPACE"
+	@echo "Keycloak Namespace: $$KEYCLOAK_NAMESPACE"
 	@echo "Deployment Dir: $$TLS_CERTIFICATES_DIR"
 	@echo "Configuration Dir: $$TLS_CONFIGURATION_DIR"
 	@echo "-------------------------"
@@ -79,14 +80,14 @@ certificates-install: ## Install the generated certificates as secrets in the Ku
 	@bash -euo pipefail -c '\
 		cd "$$TLS_CERTIFICATES_DIR"; \
 		echo ""; \
-		echo "Installing tls certificates for pocstore.local..."; \
+		echo "Installing secret holding tls certificates for pocstore.local..."; \
 		echo ""; \
 		kubectl create secret -n $$PROJECT_NAMESPACE generic pocstorelocal-tls --from-file=tls.crt=./pocstore.crt --from-file=tls.key=./pocstore.key; \
 		echo ""; \
-		echo "Installing tls certificates for keycloak.local..."; \
+		echo "Installing secret holding tls certificates for keycloak.local..."; \
 		echo ""; \
-		kubectl create secret -n $$PROJECT_NAMESPACE generic keycloak-tls --from-file=tls.crt=./keycloak.crt --from-file=tls.key=./keycloak.key; \
-		echo "Certificates installed in Kubernetes namespace $${PROJECT_NAMESPACE}"; \
+		kubectl create secret -n $$KEYCLOAK_NAMESPACE generic keycloaklocal-tls --from-file=tls.crt=./keycloak.crt --from-file=tls.key=./keycloak.key; \
+		echo "Secrets holding certificates installed"; \
 	'
 
 # ------------------------------------------------------------------
@@ -100,5 +101,5 @@ certificates-uninstall: ## Uninstall the generated certificates from the Kuberne
 		kubectl -n "$${PROJECT_NAMESPACE}" delete secret pocstorelocal-tls || echo "Secret pocstorelocal-tls not found"; \
 		echo ""; \
 		echo "Removing tls certificates for keycloak.local..."; \
-		kubectl -n "$${PROJECT_NAMESPACE}" delete secret keycloak-tls || echo "Secret keycloak-tls not found"; \
+		kubectl -n "$${KEYCLOAK_NAMESPACE}" delete secret keycloaklocal-tls || echo "Secret keycloaklocal-tls not found"; \
 	'

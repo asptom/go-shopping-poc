@@ -96,6 +96,12 @@ ifneq ($(strip $(PROJECT_HOME)),)
 	else
 		$(warning $(PROJECT_HOME)/resources/make/namespaces.mk not found — namespaces targets not loaded)
 	endif
+	
+	ifneq ($(wildcard $(PROJECT_HOME)/resources/make/keycloak.mk),)
+		include $(PROJECT_HOME)/resources/make/keycloak.mk
+	else
+		$(warning $(PROJECT_HOME)/resources/make/keycloak.mk not found — keycloak targets not loaded)
+	endif	
 else
 	$(warning PROJECT_HOME not defined after loading env files)
 endif
@@ -128,10 +134,11 @@ separator:
 	@echo "**************************************************************"
 	@echo
 	
-all: services-clean services-build services-docker-build namespaces-create postgres-install kafka-install certificates-install services-install
+all: services-clean services-build services-docker-build namespaces-create postgres-install kafka-install \
+certificates-install keycloak-install services-install
 ## Full setup: clean, build, docker-build, create namespaces, install postgres, kafka, certificates, and services
 
-uninstall: services-uninstall kafka-uninstall postgres-uninstall certificates-uninstall namespaces-delete
+uninstall: services-uninstall keycloak-uninstall kafka-uninstall postgres-uninstall certificates-uninstall namespaces-delete
 ## Uninstall all services and all supporting components
 
 services-build: ## Build all services defined in SERVICES variable
