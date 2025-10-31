@@ -3,8 +3,6 @@ package customer
 import (
 	"context"
 	entity "go-shopping-poc/internal/entity/customer"
-
-	"github.com/google/uuid"
 )
 
 type CustomerService struct {
@@ -18,10 +16,6 @@ func NewCustomerService(repo CustomerRepository) *CustomerService {
 func (s *CustomerService) CreateCustomer(ctx context.Context, customer *entity.Customer) error {
 	return s.repo.InsertCustomer(ctx, customer)
 }
-func (s *CustomerService) GetCustomerByID(ctx context.Context, id string) (*entity.Customer, error) {
-	customerID, err := uuid.Parse(id)
-	if err != nil {
-		return nil, err
-	}
-	return s.repo.GetCustomerByID(ctx, customerID)
+func (s *CustomerService) GetCustomerByEmail(ctx context.Context, email string) (*entity.Customer, error) {
+	return s.repo.GetCustomerByEmail(ctx, email)
 }

@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"go-shopping-poc/pkg/config"
+	"go-shopping-poc/pkg/cors"
 	"go-shopping-poc/pkg/event"
 	"go-shopping-poc/pkg/logging"
 	"go-shopping-poc/pkg/outbox"
@@ -66,8 +67,12 @@ func main() {
 
 	// Set up router
 	router := chi.NewRouter()
+	// Apply CORS middleware
+	router.Use(cors.New(cfg))
+
+	// Define routes
 	router.Post("/customers", handler.CreateCustomer)
-	router.Get("/customers/{id}", handler.GetCustomerByID)
+	router.Get("/customers/{email}", handler.GetCustomerByEmailPath)
 
 	// Start HTTP server (listen on 80; Traefik will terminate TLS)
 	serverAddr := cfg.GetCustomerServicePort()

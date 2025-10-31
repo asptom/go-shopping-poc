@@ -15,7 +15,7 @@ import (
 
 type CustomerRepository interface {
 	InsertCustomer(ctx context.Context, customer *entity.Customer) error
-	GetCustomerByID(ctx context.Context, id uuid.UUID) (*entity.Customer, error)
+	GetCustomerByEmail(ctx context.Context, email string) (*entity.Customer, error)
 	//UpdateCustomer(ctx context.Context, customer *entity.Customer) error
 	//DeleteCustomer(ctx context.Context, id uuid.UUID) error
 }
@@ -77,10 +77,18 @@ func (r *customerRepository) InsertCustomer(ctx context.Context, customer *entit
 	return tx.Commit()
 }
 
-func (r *customerRepository) GetCustomerByID(ctx context.Context, id uuid.UUID) (*entity.Customer, error) {
-	query := `SELECT * FROM customers.Customer WHERE customer_id = $1`
+func (r *customerRepository) GetCustomerByEmail(ctx context.Context, email string) (*entity.Customer, error) {
+	logging.Info("Fetching customer by email...")
+	query := `select * from customers.customer where customers.customer.email = $1`
 	var customer entity.Customer
-	if err := r.db.GetContext(ctx, &customer, query, id); err != nil {
+	if err := r.db.GetContext(ctx, &customer, query, email); err != nil {
+		logging.Error("Error fetching customer by email: %v", err)
+		logging.Error("email: %v", email)
+		return nil, err
+	}
+
+	id, err := uuid.Parse(customer.CustomerID)
+	if err != nil {
 		return nil, err
 	}
 

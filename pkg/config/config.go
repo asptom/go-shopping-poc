@@ -33,6 +33,13 @@ type Config struct {
 	Customer_Read_Topics     []string
 	Customer_Group           string
 	Customer_Outbox_Interval time.Duration
+
+	// CORS configuration
+	CORSAllowedOrigins   string
+	CORSAllowedMethods   string
+	CORSAllowedHeaders   string
+	CORSAllowCredentials bool
+	CORSMaxAge           string
 }
 
 func Load(envFile string) *Config {
@@ -61,6 +68,13 @@ func Load(envFile string) *Config {
 		Customer_Read_Topics:     getEnvArray("CUSTOMER_READ_TOPICS", []string{}),
 		Customer_Group:           getEnv("CUSTOMER_GROUP", "CustomerEventGroup"),
 		Customer_Outbox_Interval: getEnvTimeDuration("CUSTOMER_OUTBOX_INTERVAL", (5 * time.Second)),
+
+		// Populate CORS fields from env
+		CORSAllowedOrigins:   getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:4200"),
+		CORSAllowedMethods:   getEnv("CORS_ALLOWED_METHODS", "GET,POST,PUT,DELETE,OPTIONS"),
+		CORSAllowedHeaders:   getEnv("CORS_ALLOWED_HEADERS", "Content-Type,Authorization"),
+		CORSAllowCredentials: getEnvBool("CORS_ALLOW_CREDENTIALS", true),
+		CORSMaxAge:           getEnv("CORS_MAX_AGE", "3600"),
 	}
 }
 
@@ -127,6 +141,14 @@ func getEnvTimeDuration(key string, fallback time.Duration) time.Duration {
 	return fallback
 }
 
+func getEnvBool(key string, fallback bool) bool {
+	if value := os.Getenv(key); value != "" {
+		l := strings.ToLower(value)
+		return l == "1" || l == "true" || l == "yes"
+	}
+	return fallback
+}
+
 // Getters for the Websocket configuration
 
 func (c *Config) WebSocketEnabled() bool {
@@ -146,6 +168,28 @@ func (c *Config) WebSocketWriteBufferSize() int {
 }
 func (c *Config) WebSocketPort() string {
 	return c.webSocket_Port
+}
+
+// Getters for CORS configuration
+
+func (c *Config) GetCORSAllowedOrigins() string {
+	return c.CORSAllowedOrigins
+}
+
+func (c *Config) GetCORSAllowedMethods() string {
+	return c.CORSAllowedMethods
+}
+
+func (c *Config) GetCORSAllowedHeaders() string {
+	return c.CORSAllowedHeaders
+}
+
+func (c *Config) GetCORSAllowCredentials() bool {
+	return c.CORSAllowCredentials
+}
+
+func (c *Config) GetCORSMaxAge() string {
+	return c.CORSMaxAge
 }
 
 // Getters for the Kafka configuration
