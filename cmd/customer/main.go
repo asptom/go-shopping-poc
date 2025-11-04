@@ -60,7 +60,7 @@ func main() {
 	outboxPublisher.Start()
 	logging.Debug("Outbox publisher started")
 	defer outboxPublisher.Stop()
-	outboxWriter := outbox.NewWriter(db)
+	outboxWriter := *outbox.NewWriter(db)
 	repo := customer.NewCustomerRepository(db, outboxWriter)
 	service := customer.NewCustomerService(repo)
 	handler := customer.NewCustomerHandler(service)
@@ -73,6 +73,17 @@ func main() {
 	// Define routes
 	router.Post("/customers", handler.CreateCustomer)
 	router.Get("/customers/{email}", handler.GetCustomerByEmailPath)
+	router.Put("/customers", handler.UpdateCustomer)
+
+	// Address endpoints
+	router.Post("/customers/{id}/addresses", handler.AddAddress)
+	router.Put("/customers/addresses/{addressId}", handler.UpdateAddress)
+	router.Delete("/customers/addresses/{addressId}", handler.DeleteAddress)
+
+	// Credit card endpoints
+	router.Post("/customers/{id}/credit-cards", handler.AddCreditCard)
+	router.Put("/customers/credit-cards/{cardId}", handler.UpdateCreditCard)
+	router.Delete("/customers/credit-cards/{cardId}", handler.DeleteCreditCard)
 
 	// Start HTTP server (listen on 80; Traefik will terminate TLS)
 	serverAddr := cfg.GetCustomerServicePort()

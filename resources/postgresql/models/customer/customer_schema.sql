@@ -32,7 +32,7 @@ CREATE TABLE customers.Customer (
 
 DROP TABLE IF EXISTS customers.Address;
 CREATE TABLE customers.Address (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    address_id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     customer_id uuid not null,
     address_type text not null,
     first_name text,
@@ -47,7 +47,7 @@ CREATE TABLE customers.Address (
 
 DROP TABLE IF EXISTS customers.CreditCard;
 CREATE TABLE customers.CreditCard (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    card_id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     customer_id uuid not null,
     card_type text,
     card_number text,

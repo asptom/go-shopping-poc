@@ -30,8 +30,8 @@ type CustomerBase struct {
 }
 
 type Address struct {
-	ID          int64     `json:"-" db:"id"`
-	CustomerID  uuid.UUID `json:"-" db:"customer_id"`
+	AddressID   uuid.UUID `json:"address_id" db:"address_id"`
+	CustomerID  uuid.UUID `json:"customer_id" db:"customer_id"`
 	AddressType string    `json:"address_type" db:"address_type"`
 	FirstName   string    `json:"first_name" db:"first_name"`
 	LastName    string    `json:"last_name" db:"last_name"`
@@ -40,18 +40,18 @@ type Address struct {
 	City        string    `json:"city" db:"city"`
 	State       string    `json:"state" db:"state"`
 	Zip         string    `json:"zip" db:"zip"`
-	Isdefault   bool      `json:"is_default" db:"is_default"`
+	IsDefault   bool      `json:"is_default" db:"is_default"`
 }
 
 type CreditCard struct {
-	ID             int64     `json:"-" db:"id"`
-	CustomerID     uuid.UUID `json:"-" db:"customer_id"`
+	CardID         uuid.UUID `json:"card_id" db:"card_id"`
+	CustomerID     uuid.UUID `json:"customer_id" db:"customer_id"`
 	CardType       string    `json:"card_type" db:"card_type"`
 	CardNumber     string    `json:"card_number" db:"card_number"`
 	CardHolderName string    `json:"card_holder_name" db:"card_holder_name"`
 	CardExpires    string    `json:"card_expires" db:"card_expires"`
 	CardCVV        string    `json:"card_cvv" db:"card_cvv"`
-	Isdefault      bool      `json:"is_default" db:"is_default"`
+	IsDefault      bool      `json:"is_default" db:"is_default"`
 }
 
 type CustomerStatus struct {

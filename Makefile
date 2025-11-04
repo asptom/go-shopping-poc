@@ -114,7 +114,7 @@ MODELS := $(shell find resources/postgresql/models/ -mindepth 1 -maxdepth 1 -typ
 # --- Targets ---
 # ------------------------------------------------------------------
 
-.PHONY: info all services-build services-run services-test services-lint services-clean \
+.PHONY: info install services-build services-run services-test services-lint services-clean \
         services-docker-build services-install services-uninstall \
 		separator
 
@@ -134,7 +134,7 @@ separator:
 	@echo "**************************************************************"
 	@echo
 	
-all: services-clean services-build services-docker-build namespaces-create postgres-install kafka-install \
+install: services-clean services-build services-docker-build namespaces-create postgres-install kafka-install \
 certificates-install keycloak-install services-install
 ## Full setup: clean, build, docker-build, create namespaces, install postgres, kafka, certificates, and services
 
@@ -234,7 +234,7 @@ help:
 	@echo "📘 Go Shopping POC — Make Targets"
 	@echo "=================================="
 	@echo
-	@echo "all			Full setup: clean, build, docker-build, create namespaces, install postgres, kafka, certificates, and services"
+	@echo "install			Full setup: clean, build, docker-build, create namespaces, install postgres, kafka, certificates, and services"
 	@echo "uninstall		Uninstall all services and all supporting components"
 	@echo
 	@grep -h '^[a-zA-Z0-9_.-]*:.*##' $(MAKEFILE_LIST) | \
