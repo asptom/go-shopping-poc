@@ -5,6 +5,7 @@ import (
 	"time"
 )
 
+// OutboxEvent represents an event stored in the outbox table.
 type OutboxEvent struct {
 	ID             int64        `json:"event_id" db:"id"`
 	EventType      string       `json:"event_type" db:"event_type"`

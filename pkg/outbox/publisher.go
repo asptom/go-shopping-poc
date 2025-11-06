@@ -3,11 +3,12 @@ package outbox
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
-	event "go-shopping-poc/pkg/event"
+	bus "go-shopping-poc/pkg/eventbus"
 	"go-shopping-poc/pkg/logging"
 	"sync"
 	"time"
+
+	evpkg "go-shopping-poc/pkg/event"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -19,13 +20,13 @@ type Publisher struct {
 	cancel          context.CancelFunc
 	wg              sync.WaitGroup
 	db              *sqlx.DB
-	publisher       *event.EventBus
+	publisher       *bus.EventBus
 	batchSize       int           // Number of events to process in a single batch
 	deleteBatchSize int           // Number of events to delete as a batch after processing
 	processInterval time.Duration // Time between outbox scans
 }
 
-func NewPublisher(db *sqlx.DB, publisher *event.EventBus, batchSize int, deleteBatchSize int, processInterval time.Duration) *Publisher {
+func NewPublisher(db *sqlx.DB, publisher *bus.EventBus, batchSize int, deleteBatchSize int, processInterval time.Duration) *Publisher {
 	ctx, cancel := context.WithCancel(context.Background())
 	p := &Publisher{
 		ctx:             ctx,
@@ -71,43 +72,41 @@ func (p *Publisher) Stop() {
 // processOutbox reads events from the outbox and publishes them.
 
 func (p *Publisher) processOutbox() {
-	logging.Info("Processing outbox events...")
+	logging.Debug("Outbox Publisher: Processing outbox events...")
 
 	query := `SELECT * FROM outbox.outbox WHERE published_at IS NULL LIMIT $1`
 	outboxEvents := []OutboxEvent{}
 
 	if err := p.db.Select(&outboxEvents, query, p.batchSize); err != nil {
-		logging.Error("Failed to read outbox events: %v", err)
+		logging.Error("Outbox Publisher: Failed to read outbox events: %v", err)
 		return
 	}
 
 	if len(outboxEvents) == 0 {
-		logging.Info("No new outbox events to process")
+		logging.Debug("Outbox Publisher: No new outbox events to process")
 		return
 	}
 
 	for _, outboxEvent := range outboxEvents {
-		logging.Info("Will publish outbox event to topic: %s", outboxEvent.Topic)
+		logging.Debug("Outbox Publisher: Will publish outbox event to topic: %s", outboxEvent.Topic)
 
-		var evt event.Event[any]
-
-		if err := json.Unmarshal(outboxEvent.EventPayload, &evt); err != nil {
-			logging.Error("Failed to unmarshal event payload for event %s: %v", outboxEvent.ID, err)
-			// Increment times attempted
+		evt, err := evpkg.UnmarshalEvent(outboxEvent.EventType, []byte(outboxEvent.EventPayload))
+		if err != nil {
+			logging.Error("Outbox Publisher: Failed to unmarshal event payload for event %v: %v", outboxEvent.ID, err)
+			// increment times attempted / update DB as before
 			outboxEvent.TimesAttempted++
 			if _, err := p.db.Exec("UPDATE outbox.outbox SET times_attempted = $1 WHERE id = $2", outboxEvent.TimesAttempted, outboxEvent.ID); err != nil {
-				logging.Error("Failed to update times attempted for event %s: %v", outboxEvent.ID, err)
+				logging.Error("Outbox Publisher: Failed to update times attempted for event %v: %v", outboxEvent.ID, err)
 			}
 			continue
 		}
 
-		if err := p.publisher.Publish(p.ctx, outboxEvent.Topic, &evt); err != nil {
-			logging.Error("Failed to publish event %s: %v", outboxEvent.ID, err)
-			// Increment times attempted
+		if err := p.publisher.Publish(p.ctx, outboxEvent.Topic, evt); err != nil {
+			// handle publish failure exactly as before
+			logging.Error("Outbox Publisher: Failed to publish event %v: %v", outboxEvent.ID, err)
 			outboxEvent.TimesAttempted++
-			// Update the event in the database
 			if _, err := p.db.Exec("UPDATE outbox.outbox SET times_attempted = $1 WHERE id = $2", outboxEvent.TimesAttempted, outboxEvent.ID); err != nil {
-				logging.Error("Failed to update times attempted for event %s: %v", outboxEvent.ID, err)
+				logging.Error("Outbox Publisher: Failed to update times attempted for event %v: %v", outboxEvent.ID, err)
 			}
 			continue
 		}
@@ -115,12 +114,12 @@ func (p *Publisher) processOutbox() {
 		outboxEvent.TimesAttempted++
 		outboxEvent.PublishedAt = sql.NullTime{Time: time.Now(), Valid: true}
 		if _, err := p.db.Exec("UPDATE outbox.outbox SET published_at = $1, times_attempted = $2 WHERE id = $3", outboxEvent.PublishedAt, outboxEvent.TimesAttempted, outboxEvent.ID); err != nil {
-			logging.Error("Failed to mark event %s as published: %v", outboxEvent.ID, err)
+			logging.Error("Outbox Publisher: Failed to mark event %s as published: %v", outboxEvent.ID, err)
 			continue
 		}
 
-		logging.Debug("Published event ID: %v to topic: %s with payload: %s", outboxEvent.ID, outboxEvent.Topic, outboxEvent.EventPayload)
+		logging.Info("Outbox Publisher: Published event ID: %v to topic: %s with payload: %s", outboxEvent.ID, outboxEvent.Topic, outboxEvent.EventPayload)
 	}
 
-	logging.Info("Processed %d outbox events", len(outboxEvents))
+	logging.Debug("Outbox Publisher: Processed %d outbox events", len(outboxEvents))
 }

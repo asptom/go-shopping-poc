@@ -98,7 +98,7 @@ func getEnvArray(key string, fallback []string) []string {
 				parts = append(parts, v)
 			}
 		}
-		logging.Info("Config: %s=%v", key, parts)
+		logging.Debug("Config: %s=%v", key, parts)
 		return parts
 	}
 	return fallback

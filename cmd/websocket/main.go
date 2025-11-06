@@ -17,13 +17,13 @@ func echoHandler(conn *websocket.Conn) {
 	for {
 		mt, msg, err := conn.ReadMessage()
 		if err != nil {
-			logging.Error("Read error: %v", err)
+			logging.Error("Websocket: Read error: %v", err)
 			break
 		}
-		logging.Info("Received: %s", msg)
+		logging.Info("Websocket: Received: %s", msg)
 		// Example business logic: echo back
 		if err := conn.WriteMessage(mt, msg); err != nil {
-			logging.Error("Write error: %v", err)
+			logging.Error("Websocket: Write error: %v", err)
 			break
 		}
 	}
@@ -44,15 +44,15 @@ func main() {
 
 	http.HandleFunc("/ws", server.Handle(echoHandler))
 
-	logging.Info("The WebSocket server is starting...")
+	logging.Debug("Websocket: The WebSocket server is starting...")
 	//addr := ":80"
 	addr := cfg.WebSocketPort()
-	logging.Info("WebSocket server listening on %s/ws", addr)
+	logging.Debug("Websocket: server listening on %s/ws", addr)
 
 	// Start server in a goroutine
 	go func() {
 		if err := http.ListenAndServe(addr, nil); err != nil {
-			logging.Error("ListenAndServe: %v", err)
+			logging.Error("Websocket: ListenAndServe: %v", err)
 		}
 	}()
 
@@ -60,5 +60,5 @@ func main() {
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 	<-sig
-	logging.Info("Shutting down WebSocket server...")
+	logging.Info("Websocket: Shutting down WebSocket server...")
 }

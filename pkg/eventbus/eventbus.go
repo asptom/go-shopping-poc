@@ -1,8 +1,9 @@
-package event
+package eventbus
 
 import (
 	"context"
 	"encoding/json"
+	event "go-shopping-poc/pkg/event"
 	"go-shopping-poc/pkg/logging"
 	"sync"
 
@@ -15,7 +16,7 @@ import (
 
 // EventHandler defines the interface for handling events
 type EventHandler interface {
-	Handle(ctx context.Context, event Event[any]) error
+	Handle(ctx context.Context, event event.Event) error
 }
 
 // EventBus enables subscribing to and publishing events via Kafka.
@@ -40,7 +41,7 @@ func NewEventBus(broker string, readTopics []string, writeTopic string, group st
 
 	readers := make(map[string]*kafka.Reader)
 	for _, topic := range readTopics {
-		logging.Info("Eventbus - Creating Kafka reader for topic: %s", topic)
+		logging.Debug("Eventbus - Creating Kafka reader for topic: %s", topic)
 		readers[topic] = kafka.NewReader(kafka.ReaderConfig{
 			Brokers: []string{broker},
 			Topic:   topic,
@@ -74,21 +75,21 @@ func (eb *EventBus) Subscribe(eventType string, handler EventHandler) {
 	eb.mu.Lock()
 	defer eb.mu.Unlock()
 	eb.handlers[eventType] = append(eb.handlers[eventType], handler)
-	logging.Info("EventBus - subscribed to event: %s", eventType)
+	logging.Info("Eventbus: subscribed to event: %s", eventType)
 }
 
 // Publish sends an event to a specified Kafka topic.
 
-func (eb *EventBus) Publish(ctx context.Context, topic string, event *Event[any]) error {
-	logging.Debug("EventBus - Publishing event to topic: %s, event type: %s", topic, event.Type)
+func (eb *EventBus) Publish(ctx context.Context, topic string, event event.Event) error {
+	logging.Debug("Eventbus: Publishing event to topic: %s, event type: %s", topic, event.Type())
 
-	value, err := event.ToJSON()
+	value, err := json.Marshal(event)
 	if err != nil {
-		logging.Error("EventBus - Failed to convert event to JSON: %v", err)
+		logging.Error("Eventbus: Failed to convert event to JSON: %v", err)
 		return err
 	}
 	return eb.writer.WriteMessages(ctx, kafka.Message{
-		Key:   []byte(event.Type),
+		Key:   []byte(event.Type()),
 		Value: value,
 	})
 }
@@ -116,19 +117,26 @@ func (eb *EventBus) StartConsuming(ctx context.Context) error {
 					continue
 				}
 
-				logging.Debug("EventBus - Atttempting to handle event of type: %s with payload: %s", string(m.Key), string(m.Value))
+				logging.Debug("Eventbus: Atttempting to handle event of type: %s with payload: %s", string(m.Key), string(m.Value))
 
-				var event Event[any]
-				if err := json.Unmarshal(m.Value, &event); err != nil {
-					logging.Error("Eventbus - Failed to unmarshal event: %v", err)
+				// Use the event registry to obtain a concrete event.Event from stored payload
+				evt, err := event.UnmarshalEvent(string(m.Key), m.Value)
+				if err != nil {
+					logging.Error("Eventbus - Failed to unmarshal event payload for key %s: %v", string(m.Key), err)
 					continue
 				}
-
-				logging.Debug("EventBus - Received event of type: %s from topic: %s", event.Type, topic)
+				logging.Info("Eventbus: Received event of type: %s from topic: %s", evt.Type(), topic)
 
 				for _, handler := range handlers {
-					go handler.Handle(ctx, event) // Call handler in a goroutine
-					logging.Debug("EventBus - Dispatched event of type: %s to handler", event.Type)
+					// capture handler and evt for the goroutine
+					h := handler
+					e := evt
+					go func() {
+						if err := h.Handle(ctx, e); err != nil {
+							logging.Error("Eventbus: handler error for event %s: %v", e.Type(), err)
+						}
+					}()
+					logging.Debug("Eventbus: Dispatched event of type: %s to handler", evt.Type())
 				}
 			}
 		}(topic, reader)

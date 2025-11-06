@@ -6,7 +6,7 @@ import (
 
 	"go-shopping-poc/pkg/config"
 	"go-shopping-poc/pkg/cors"
-	"go-shopping-poc/pkg/event"
+	bus "go-shopping-poc/pkg/eventbus"
 	"go-shopping-poc/pkg/logging"
 	"go-shopping-poc/pkg/outbox"
 
@@ -18,16 +18,16 @@ import (
 )
 
 func main() {
-	logging.SetLevel("DEBUG")
-	logging.Info("Customer service started...")
+	logging.SetLevel("INFO")
+	logging.Info("Customer:  Customer service started...")
 
 	// Load configuration
 
 	envFile := config.ResolveEnvFile()
 	cfg := config.Load(envFile)
 
-	logging.Info("Configuration loaded from %s", envFile)
-	logging.Info("Config: %v", cfg)
+	logging.Debug("Customer:  Configuration loaded from %s", envFile)
+	logging.Debug("Customer:  Config: %v", cfg)
 
 	// Connect to Postgres
 	dbURL := os.Getenv("DATABASE_URL")
@@ -35,13 +35,13 @@ func main() {
 		dbURL = cfg.GetCustomerDBURL()
 	}
 	if dbURL == "" {
-		logging.Error("DATABASE_URL not set")
+		logging.Error("Customer:  DATABASE_URL not set")
 	}
 
-	logging.Info("Connecting to database at %s", dbURL)
+	logging.Debug("Customer: Connecting to database at %s", dbURL)
 	db, err := sqlx.Connect("pgx", dbURL)
 	if err != nil {
-		logging.Error("Failed to connect to DB: %v", err)
+		logging.Error("Customer:  Failed to connect to DB: %v", err)
 	}
 	defer db.Close()
 
@@ -52,13 +52,13 @@ func main() {
 	groupID := cfg.GetCustomerGroup()
 	outboxInterval := cfg.GetCustomerOutboxInterval()
 
-	bus := event.NewEventBus(broker, readTopics, writeTopic, groupID)
+	bus := bus.NewEventBus(broker, readTopics, writeTopic, groupID)
 
 	// Initialize
-	logging.Debug("Initializing outbox reader and writer")
+	logging.Debug("Customer:  Initializing outbox reader and writer")
 	outboxPublisher := outbox.NewPublisher(db, bus, 1, 1, outboxInterval)
 	outboxPublisher.Start()
-	logging.Debug("Outbox publisher started")
+	logging.Debug("Customer:  Outbox publisher started")
 	defer outboxPublisher.Stop()
 	outboxWriter := *outbox.NewWriter(db)
 	repo := customer.NewCustomerRepository(db, outboxWriter)
@@ -90,9 +90,9 @@ func main() {
 	if serverAddr == "" {
 		serverAddr = ":8080"
 	}
-	logging.Info("Starting HTTP server on %s (Traefik will handle TLS)", serverAddr)
+	logging.Info("Customer:  Starting HTTP server on %s (Traefik will handle TLS)", serverAddr)
 	if err := http.ListenAndServe(serverAddr, router); err != nil {
-		logging.Error("Failed to start HTTP server: %v", err)
+		logging.Error("Customer:  Failed to start HTTP server: %v", err)
 	}
-	logging.Info("Customer service stopped")
+	logging.Info("Customer:  Customer service stopped")
 }

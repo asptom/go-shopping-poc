@@ -19,9 +19,11 @@ type CustomerRepository interface {
 	InsertCustomer(ctx context.Context, customer *entity.Customer) error
 	GetCustomerByEmail(ctx context.Context, email string) (*entity.Customer, error)
 	UpdateCustomer(ctx context.Context, customer *entity.Customer) error
+
 	AddAddress(ctx context.Context, customerID string, addr *entity.Address) (*entity.Address, error)
 	UpdateAddress(ctx context.Context, addressID string, addr *entity.Address) error
 	DeleteAddress(ctx context.Context, addressID string) error
+
 	AddCreditCard(ctx context.Context, customerID string, card *entity.CreditCard) (*entity.CreditCard, error)
 	UpdateCreditCard(ctx context.Context, cardID string, card *entity.CreditCard) error
 	DeleteCreditCard(ctx context.Context, cardID string) error
@@ -29,7 +31,7 @@ type CustomerRepository interface {
 }
 type customerRepository struct {
 	db           *sqlx.DB
-	outboxWriter outbox.Writer // keep existing field type
+	outboxWriter outbox.Writer // existing outbox writer
 }
 
 func NewCustomerRepository(db *sqlx.DB, outbox outbox.Writer) *customerRepository {
@@ -37,13 +39,12 @@ func NewCustomerRepository(db *sqlx.DB, outbox outbox.Writer) *customerRepositor
 }
 
 func (r *customerRepository) InsertCustomer(ctx context.Context, customer *entity.Customer) error {
-
-	logging.SetLevel("DEBUG")
-	logging.Info("Inserting new customer...")
+	logging.Debug("Repository: Inserting new customer...")
 
 	newID := uuid.New()
-	customer.CustomerID = newID.String() // Set the new UUID as string in customer
+	customer.CustomerID = newID.String()
 	query := `INSERT INTO customers.Customer (customer_id, user_name, email, first_name, last_name, phone) VALUES (:customer_id, :user_name, :email, :first_name, :last_name, :phone)`
+
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
 		return err
@@ -53,7 +54,7 @@ func (r *customerRepository) InsertCustomer(ctx context.Context, customer *entit
 	if _, err := tx.NamedExecContext(ctx, query, customer); err != nil {
 		return err
 	}
-	// Insert addresses, credit cards, and statuses if they exist
+
 	address_query := `INSERT INTO customers.Address (customer_id, address_type, first_name, last_name, address_1, address_2, city, state, zip, is_default) VALUES (:customer_id, :address_type, :first_name, :last_name, :address_1, :address_2, :city, :state, :zip, :is_default)`
 	for _, address := range customer.Addresses {
 		address.CustomerID = newID
@@ -71,22 +72,22 @@ func (r *customerRepository) InsertCustomer(ctx context.Context, customer *entit
 	status_query := `INSERT INTO customers.CustomerStatus (customer_id, customer_status, status_date_time) VALUES (:customer_id, :customer_status, :status_date_time)`
 	for _, status := range customer.Statuses {
 		status.CustomerID = newID
-		status.StatusDateTime = time.Now() // Set current time for status
+		status.StatusDateTime = time.Now()
 		if _, err := tx.NamedExecContext(ctx, status_query, status); err != nil {
 			return err
 		}
 	}
 
-	customerEvent := events.NewCustomerCreatedEvent(*customer)
-
-	if err := r.outboxWriter.WriteEvent(ctx, *tx, customerEvent); err != nil {
+	customerEvent := events.NewCustomerCreatedEvent(newID.String(), nil)
+	if err := r.outboxWriter.WriteEvent(ctx, tx, customerEvent); err != nil {
 		return err
 	}
 	return tx.Commit()
 }
 
 func (r *customerRepository) GetCustomerByEmail(ctx context.Context, email string) (*entity.Customer, error) {
-	logging.Info("Fetching customer by email...")
+	logging.Debug("Repository: Fetching customer by email...")
+
 	query := `select * from customers.customer where customers.customer.email = $1`
 	var customer entity.Customer
 	if err := r.db.GetContext(ctx, &customer, query, email); err != nil {
@@ -104,7 +105,6 @@ func (r *customerRepository) GetCustomerByEmail(ctx context.Context, email strin
 		return nil, err
 	}
 
-	// Fetch related addresses, credit cards, and statuses
 	addresses, err := r.getAddressesByCustomerID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -154,7 +154,7 @@ func (r *customerRepository) getStatusesByCustomerID(ctx context.Context, custom
 }
 
 func (r *customerRepository) UpdateCustomer(ctx context.Context, customer *entity.Customer) error {
-	logging.Info("Updating customer...")
+	logging.Debug("Repository: Updating customer...")
 
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
@@ -162,7 +162,6 @@ func (r *customerRepository) UpdateCustomer(ctx context.Context, customer *entit
 	}
 	defer tx.Rollback()
 
-	// Update main customer record
 	query := `
         UPDATE customers.Customer 
         SET user_name = :user_name,
@@ -184,7 +183,6 @@ func (r *customerRepository) UpdateCustomer(ctx context.Context, customer *entit
 		return fmt.Errorf("customer not found: %s", customer.CustomerID)
 	}
 
-	// Delete existing related records to replace with new ones
 	id, err := uuid.Parse(customer.CustomerID)
 	if err != nil {
 		return err
@@ -202,7 +200,6 @@ func (r *customerRepository) UpdateCustomer(ctx context.Context, customer *entit
 		}
 	}
 
-	// Insert new addresses
 	if len(customer.Addresses) > 0 {
 		addressQuery := `
             INSERT INTO customers.Address (
@@ -220,7 +217,6 @@ func (r *customerRepository) UpdateCustomer(ctx context.Context, customer *entit
 		}
 	}
 
-	// Insert new credit cards
 	if len(customer.CreditCards) > 0 {
 		cardQuery := `
             INSERT INTO customers.CreditCard (
@@ -238,7 +234,6 @@ func (r *customerRepository) UpdateCustomer(ctx context.Context, customer *entit
 		}
 	}
 
-	// Insert new statuses
 	if len(customer.Statuses) > 0 {
 		statusQuery := `
             INSERT INTO customers.CustomerStatus (
@@ -248,32 +243,36 @@ func (r *customerRepository) UpdateCustomer(ctx context.Context, customer *entit
             )`
 		for _, status := range customer.Statuses {
 			status.CustomerID = id
-			status.StatusDateTime = time.Now() // Set current time for new status
+			status.StatusDateTime = time.Now()
 			if _, err := tx.NamedExecContext(ctx, statusQuery, status); err != nil {
 				return err
 			}
 		}
 	}
 
-	// Create and write CustomerUpdated event
-	customerEvent := events.NewCustomerUpdatedEvent(*customer)
-	if err := r.outboxWriter.WriteEvent(ctx, *tx, customerEvent); err != nil {
+	customerEvent := events.NewCustomerUpdatedEvent(customer.CustomerID, nil)
+	if err := r.outboxWriter.WriteEvent(ctx, tx, customerEvent); err != nil {
 		return err
 	}
-
 	return tx.Commit()
 }
 
 func (r *customerRepository) AddAddress(ctx context.Context, customerID string, addr *entity.Address) (*entity.Address, error) {
-	logging.Info("Adding address for customer %s", customerID)
-	id, err := uuid.Parse(customerID)
+	logging.Debug("Repository: Adding address for customer %s", customerID)
+
+	custUUID, err := uuid.Parse(customerID)
 	if err != nil {
 		return nil, err
 	}
 
-	// ensure IDs are set
-	addr.CustomerID = id
+	addr.CustomerID = custUUID
 	addr.AddressID = uuid.New()
+
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
 
 	query := `
         INSERT INTO customers.Address (
@@ -284,7 +283,6 @@ func (r *customerRepository) AddAddress(ctx context.Context, customerID string, 
             :address_1, :address_2, :city, :state, :zip, :is_default
         )`
 
-	// use the struct for named parameter binding; include created_at via a small wrapper map
 	params := map[string]interface{}{
 		"address_id":   addr.AddressID,
 		"customer_id":  addr.CustomerID,
@@ -299,18 +297,36 @@ func (r *customerRepository) AddAddress(ctx context.Context, customerID string, 
 		"is_default":   addr.IsDefault,
 	}
 
-	if _, err := r.db.NamedExecContext(ctx, query, params); err != nil {
+	if _, err := tx.NamedExecContext(ctx, query, params); err != nil {
+		return nil, err
+	}
+
+	// emit outbox event inside same transaction
+
+	evt := events.NewAddressAddedEvent(customerID, addr.AddressID.String(), map[string]string{"address_type": addr.AddressType})
+	if err := r.outboxWriter.WriteEvent(ctx, tx, evt); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
 	return addr, nil
 }
 
 func (r *customerRepository) UpdateAddress(ctx context.Context, addressID string, addr *entity.Address) error {
-	logging.Info("Updating address for customer %s", addr.CustomerID)
+	logging.Debug("Repository: Updating address %s", addressID)
+
 	id, err := uuid.Parse(addressID)
 	if err != nil {
 		return err
 	}
+	addr.AddressID = id
+
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
 
 	query := `
         UPDATE customers.Address
@@ -324,50 +340,76 @@ func (r *customerRepository) UpdateAddress(ctx context.Context, addressID string
             is_default = :is_default
         WHERE address_id = :address_id`
 
-	addr.AddressID = id
-	result, err := r.db.NamedExecContext(ctx, query, addr)
+	res, err := tx.NamedExecContext(ctx, query, addr)
 	if err != nil {
 		return err
 	}
-	rows, err := result.RowsAffected()
+	rows, err := res.RowsAffected()
 	if err != nil {
 		return err
 	}
 	if rows == 0 {
-		return fmt.Errorf("address not found for customer %s", addressID)
+		return fmt.Errorf("address not found: %s", addressID)
 	}
-	return nil
+
+	evt := events.NewAddressUpdatedEvent(addr.CustomerID.String(), addr.AddressID.String(), nil)
+	if err := r.outboxWriter.WriteEvent(ctx, tx, evt); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 func (r *customerRepository) DeleteAddress(ctx context.Context, addressID string) error {
-	logging.Info("Deleting address with ID %s", addressID)
+	logging.Debug("Repository: Deleting address with ID %s", addressID)
+
 	id, err := uuid.Parse(addressID)
 	if err != nil {
 		return err
 	}
-	result, err := r.db.ExecContext(ctx, `DELETE FROM customers.Address WHERE address_id = $1`, id)
+
+	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
 		return err
 	}
-	rows, err := result.RowsAffected()
+	defer tx.Rollback()
+
+	res, err := tx.ExecContext(ctx, `DELETE FROM customers.Address WHERE address_id = $1`, id)
+	if err != nil {
+		return err
+	}
+	rows, err := res.RowsAffected()
 	if err != nil {
 		return err
 	}
 	if rows == 0 {
-		return fmt.Errorf("address not found for customer %s", addressID)
+		return fmt.Errorf("address not found: %s", addressID)
 	}
-	return nil
+
+	evt := events.NewAddressDeletedEvent("", addressID, nil)
+	if err := r.outboxWriter.WriteEvent(ctx, tx, evt); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 func (r *customerRepository) AddCreditCard(ctx context.Context, customerID string, card *entity.CreditCard) (*entity.CreditCard, error) {
-	logging.Info("Adding credit card for customer %s", customerID)
-	id, err := uuid.Parse(customerID)
+	logging.Debug("Repository: Adding credit card for customer %s", customerID)
+
+	custUUID, err := uuid.Parse(customerID)
 	if err != nil {
 		return nil, err
 	}
 
-	card.CustomerID = id
+	card.CustomerID = custUUID
 	card.CardID = uuid.New()
+
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
 
 	query := `
         INSERT INTO customers.CreditCard (
@@ -389,18 +431,37 @@ func (r *customerRepository) AddCreditCard(ctx context.Context, customerID strin
 		"is_default":       card.IsDefault,
 	}
 
-	if _, err := r.db.NamedExecContext(ctx, query, params); err != nil {
+	if _, err := tx.NamedExecContext(ctx, query, params); err != nil {
+		return nil, err
+	}
+
+	evt := events.NewCardAddedEvent(card.CustomerID.String(), card.CardID.String(), map[string]string{
+		"card_number": card.CardNumber,
+	})
+	if err := r.outboxWriter.WriteEvent(ctx, tx, evt); err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
 	return card, nil
 }
 
 func (r *customerRepository) UpdateCreditCard(ctx context.Context, cardID string, card *entity.CreditCard) error {
-	logging.Info("Updating credit card for customer %s", card.CustomerID)
+	logging.Debug("Repository: Updating credit card %s", cardID)
+
 	id, err := uuid.Parse(cardID)
 	if err != nil {
 		return err
 	}
+	card.CardID = id
+
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
 
 	query := `
         UPDATE customers.CreditCard
@@ -411,37 +472,56 @@ func (r *customerRepository) UpdateCreditCard(ctx context.Context, cardID string
             is_default = :is_default
         WHERE card_id = :card_id`
 
-	card.CardID = id
-	result, err := r.db.NamedExecContext(ctx, query, card)
+	res, err := tx.NamedExecContext(ctx, query, card)
 	if err != nil {
 		return err
 	}
-	rows, err := result.RowsAffected()
+	rows, err := res.RowsAffected()
 	if err != nil {
 		return err
 	}
 	if rows == 0 {
-		return fmt.Errorf("credit card not found for customer %s", card.CustomerID)
+		return fmt.Errorf("credit card not found: %s", cardID)
 	}
-	return nil
+
+	evt := events.NewCardUpdatedEvent(card.CustomerID.String(), card.CardID.String(), nil)
+	if err := r.outboxWriter.WriteEvent(ctx, tx, evt); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 func (r *customerRepository) DeleteCreditCard(ctx context.Context, cardID string) error {
-	logging.Info("Deleting credit card with ID %s", cardID)
+	logging.Debug("Repository: Deleting credit card with ID %s", cardID)
+
 	id, err := uuid.Parse(cardID)
 	if err != nil {
 		return err
 	}
-	result, err := r.db.ExecContext(ctx, `DELETE FROM customers.CreditCard WHERE card_id = $1`, id)
+
+	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
 		return err
 	}
-	rows, err := result.RowsAffected()
+	defer tx.Rollback()
+
+	res, err := tx.ExecContext(ctx, `DELETE FROM customers.CreditCard WHERE card_id = $1`, id)
+	if err != nil {
+		return err
+	}
+	rows, err := res.RowsAffected()
 	if err != nil {
 		return err
 	}
 	if rows == 0 {
-		return fmt.Errorf("credit card not found")
+		return fmt.Errorf("credit card not found: %s", cardID)
 	}
-	return nil
+
+	evt := events.NewCardDeletedEvent("", cardID, nil)
+	if err := r.outboxWriter.WriteEvent(ctx, tx, evt); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
