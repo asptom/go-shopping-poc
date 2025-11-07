@@ -26,7 +26,9 @@ type EventBus struct {
 	writer   *kafka.Writer
 	readers  map[string]*kafka.Reader
 	handlers map[string][]EventHandler
-	mu       sync.RWMutex
+	// New: typed handlers for backward compatibility during migration
+	typedHandlers map[string][]func(ctx context.Context, data []byte) error
+	mu            sync.RWMutex
 }
 
 // NewEventBus creates a Kafka event bus without authentication (PLAINTEXT).
@@ -51,9 +53,10 @@ func NewEventBus(broker string, readTopics []string, writeTopic string, group st
 	}
 
 	return &EventBus{
-		writer:   writer,
-		readers:  readers,
-		handlers: make(map[string][]EventHandler),
+		writer:        writer,
+		readers:       readers,
+		handlers:      make(map[string][]EventHandler),
+		typedHandlers: make(map[string][]func(ctx context.Context, data []byte) error),
 	}
 }
 
@@ -70,12 +73,29 @@ func (eb *EventBus) ReadTopics() []string {
 }
 
 // Subscribe adds a handler for a specific event type.
+// Maintains backward compatibility with existing code.
 
 func (eb *EventBus) Subscribe(eventType string, handler EventHandler) {
 	eb.mu.Lock()
 	defer eb.mu.Unlock()
 	eb.handlers[eventType] = append(eb.handlers[eventType], handler)
 	logging.Info("Eventbus: subscribed to event: %s", eventType)
+}
+
+// SubscribeTyped adds a type-safe handler for events of type T.
+// The topic is automatically determined from the event's Topic() method.
+
+func SubscribeTyped[T event.Event](eb *EventBus, factory event.EventFactory[T], handler HandlerFunc[T]) {
+	// Create a dummy event to get the topic
+	dummy := *new(T)
+	topic := dummy.Topic()
+
+	typedHandler := NewTypedHandler(factory, handler)
+
+	eb.mu.Lock()
+	defer eb.mu.Unlock()
+	eb.typedHandlers[topic] = append(eb.typedHandlers[topic], typedHandler.Handle)
+	logging.Info("Eventbus: subscribed to topic: %s with typed handler", topic)
 }
 
 // Publish sends an event to a specified Kafka topic.
@@ -91,6 +111,18 @@ func (eb *EventBus) Publish(ctx context.Context, topic string, event event.Event
 	return eb.writer.WriteMessages(ctx, kafka.Message{
 		Key:   []byte(event.Type()),
 		Value: value,
+	})
+}
+
+// PublishRaw sends raw JSON data to a specified Kafka topic.
+// Used by the outbox publisher to avoid double marshaling.
+
+func (eb *EventBus) PublishRaw(ctx context.Context, topic string, eventType string, data []byte) error {
+	logging.Debug("Eventbus: Publishing raw event to topic: %s, event type: %s", topic, eventType)
+
+	return eb.writer.WriteMessages(ctx, kafka.Message{
+		Key:   []byte(eventType),
+		Value: data,
 	})
 }
 
@@ -110,33 +142,58 @@ func (eb *EventBus) StartConsuming(ctx context.Context) error {
 					errCh <- err
 					return
 				}
+
+				logging.Debug("Eventbus: Received message from topic: %s, key: %s", topic, string(m.Key))
+
+				// Handle legacy handlers (backward compatibility)
 				eb.mu.RLock()
-				handlers := eb.handlers[string(m.Key)]
+				legacyHandlers := eb.handlers[string(m.Key)]
 				eb.mu.RUnlock()
-				if len(handlers) == 0 {
-					continue
-				}
 
-				logging.Debug("Eventbus: Atttempting to handle event of type: %s with payload: %s", string(m.Key), string(m.Value))
+				if len(legacyHandlers) > 0 {
+					logging.Debug("Eventbus: Processing with legacy handlers for event type: %s", string(m.Key))
 
-				// Use the event registry to obtain a concrete event.Event from stored payload
-				evt, err := event.UnmarshalEvent(string(m.Key), m.Value)
-				if err != nil {
-					logging.Error("Eventbus - Failed to unmarshal event payload for key %s: %v", string(m.Key), err)
-					continue
-				}
-				logging.Info("Eventbus: Received event of type: %s from topic: %s", evt.Type(), topic)
+					// Use the event registry to obtain a concrete event.Event from stored payload
+					evt, err := event.UnmarshalEvent(string(m.Key), m.Value)
+					if err != nil {
+						logging.Error("Eventbus - Failed to unmarshal event payload for key %s: %v", string(m.Key), err)
+					} else {
+						logging.Info("Eventbus: Received event of type: %s from topic: %s", evt.Type(), topic)
 
-				for _, handler := range handlers {
-					// capture handler and evt for the goroutine
-					h := handler
-					e := evt
-					go func() {
-						if err := h.Handle(ctx, e); err != nil {
-							logging.Error("Eventbus: handler error for event %s: %v", e.Type(), err)
+						for _, handler := range legacyHandlers {
+							h := handler
+							e := evt
+							go func() {
+								if err := h.Handle(ctx, e); err != nil {
+									logging.Error("Eventbus: legacy handler error for event %s: %v", e.Type(), err)
+								}
+							}()
 						}
-					}()
-					logging.Debug("Eventbus: Dispatched event of type: %s to handler", evt.Type())
+					}
+				}
+
+				// Handle new typed handlers
+				eb.mu.RLock()
+				typedHandlers := eb.typedHandlers[topic]
+				eb.mu.RUnlock()
+
+				if len(typedHandlers) > 0 {
+					logging.Debug("Eventbus: Processing with typed handlers for topic: %s", topic)
+
+					for _, handler := range typedHandlers {
+						h := handler
+						data := m.Value // Raw JSON bytes
+						go func() {
+							if err := h(ctx, data); err != nil {
+								logging.Error("Eventbus: typed handler error for topic %s: %v", topic, err)
+							}
+						}()
+					}
+				}
+
+				// If no handlers found, log and continue
+				if len(legacyHandlers) == 0 && len(typedHandlers) == 0 {
+					logging.Debug("Eventbus: No handlers found for topic: %s, key: %s", topic, string(m.Key))
 				}
 			}
 		}(topic, reader)

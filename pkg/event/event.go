@@ -16,7 +16,11 @@ type Event interface {
 	Topic() string
 	Payload() any
 	ToJSON() ([]byte, error)
-	FromJSON(data []byte) error
+}
+
+// EventFactory defines interface for reconstructing events from JSON
+type EventFactory[T Event] interface {
+	FromJSON([]byte) (T, error)
 }
 
 // // ToJSON serializes the event to JSON

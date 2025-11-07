@@ -2,15 +2,13 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
 
 	events "go-shopping-poc/internal/event/customer"
 	"go-shopping-poc/pkg/config"
-	evpkg "go-shopping-poc/pkg/event"
-	bus "go-shopping-poc/pkg/eventbus"
+	"go-shopping-poc/pkg/eventbus"
 	"go-shopping-poc/pkg/logging"
 )
 
@@ -34,20 +32,19 @@ func main() {
 
 	logging.Debug("Eventreader: Event Broker: %s, Read Topics: %v, Write Topic: %v, Group: %s", broker, readTopics, writeTopic, group)
 
-	bus := bus.NewEventBus(broker, readTopics, writeTopic, group)
-	handler := events.CustomerEventHandler{
-		Callback: events.CustomerEventCallback(func(ctx context.Context, payload events.CustomerEventPayload) error {
-			logging.Debug("Eventreader: Hooray - the callback worked")
-			logging.Debug("Eventreader: Data in callback: CustomerID=%s, EventType=%s, ResourceID=%s",
-				payload.CustomerID, payload.EventType, payload.ResourceID)
-			return nil
-		}),
-	}
+	eventBus := eventbus.NewEventBus(broker, readTopics, writeTopic, group)
 
-	// subscribe adapter (not the typed handler directly)
-	bus.Subscribe(string(events.CustomerCreated), &customerHandlerAdapter{inner: &handler})
-	bus.Subscribe(string(events.CustomerUpdated), &customerHandlerAdapter{inner: &handler})
-	bus.Subscribe(string(events.AddressAdded), &customerHandlerAdapter{inner: &handler})
+	// Create factory and handler using the new typed system
+	factory := events.CustomerEventFactory{}
+	handler := eventbus.HandlerFunc[events.CustomerEvent](func(ctx context.Context, evt events.CustomerEvent) error {
+		logging.Info("Eventreader: Processing customer event: %s", evt.Type())
+		logging.Info("Eventreader: Data in event: CustomerID=%s, EventType=%s, ResourceID=%s",
+			evt.EventPayload.CustomerID, evt.EventPayload.EventType, evt.EventPayload.ResourceID)
+		return nil
+	})
+
+	// Subscribe using the new typed system - no adapter needed!
+	eventbus.SubscribeTyped(eventBus, factory, handler)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -55,7 +52,7 @@ func main() {
 	// Start consuming in a goroutine
 	go func() {
 		logging.Debug("Eventreader: Event consumer started")
-		if err := bus.StartConsuming(ctx); err != nil {
+		if err := eventBus.StartConsuming(ctx); err != nil {
 			logging.Error("Eventreader: Event consumer stopped:", err)
 		}
 	}()
@@ -64,19 +61,4 @@ func main() {
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 	<-sig
 	logging.Debug("Eventreader: Received shutdown signal, shutting down...")
-}
-
-// adapter to convert generic event.Event into events.CustomerEvent and delegate
-type customerHandlerAdapter struct {
-	inner *events.CustomerEventHandler
-}
-
-func (a *customerHandlerAdapter) Handle(ctx context.Context, ev evpkg.Event) error {
-	// try concrete types: value or pointer
-	switch v := ev.(type) {
-	case *events.CustomerEvent:
-		return a.inner.Handle(ctx, *v)
-	default:
-		return fmt.Errorf("unexpected event type: %T", ev)
-	}
 }

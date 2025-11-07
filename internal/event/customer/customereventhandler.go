@@ -19,11 +19,11 @@ func (h *CustomerEventHandler) Handle(ctx context.Context, event CustomerEvent) 
 	logging.Debug("CustomerEventHandler: Handling event of type: %s", event.Type())
 
 	logging.Debug("CustomerEventHandler: Payload information: CustomerId=%s, EventType=%s, ResourceID=%s",
-		event.Event_Payload.CustomerID, event.Event_Payload.EventType, event.Event_Payload.ResourceID)
+		event.EventPayload.CustomerID, event.EventPayload.EventType, event.EventPayload.ResourceID)
 
 	// Call the custom callback if set
 	if h.Callback != nil {
-		return h.Callback(ctx, event.Event_Payload)
+		return h.Callback(ctx, event.EventPayload)
 	}
 	return nil
 }

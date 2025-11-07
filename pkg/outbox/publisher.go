@@ -8,8 +8,6 @@ import (
 	"sync"
 	"time"
 
-	evpkg "go-shopping-poc/pkg/event"
-
 	"github.com/jmoiron/sqlx"
 )
 
@@ -90,18 +88,8 @@ func (p *Publisher) processOutbox() {
 	for _, outboxEvent := range outboxEvents {
 		logging.Debug("Outbox Publisher: Will publish outbox event to topic: %s", outboxEvent.Topic)
 
-		evt, err := evpkg.UnmarshalEvent(outboxEvent.EventType, []byte(outboxEvent.EventPayload))
-		if err != nil {
-			logging.Error("Outbox Publisher: Failed to unmarshal event payload for event %v: %v", outboxEvent.ID, err)
-			// increment times attempted / update DB as before
-			outboxEvent.TimesAttempted++
-			if _, err := p.db.Exec("UPDATE outbox.outbox SET times_attempted = $1 WHERE id = $2", outboxEvent.TimesAttempted, outboxEvent.ID); err != nil {
-				logging.Error("Outbox Publisher: Failed to update times attempted for event %v: %v", outboxEvent.ID, err)
-			}
-			continue
-		}
-
-		if err := p.publisher.Publish(p.ctx, outboxEvent.Topic, evt); err != nil {
+		// Use PublishRaw to avoid double marshaling and support both legacy and typed handlers
+		if err := p.publisher.PublishRaw(p.ctx, outboxEvent.Topic, outboxEvent.EventType, []byte(outboxEvent.EventPayload)); err != nil {
 			// handle publish failure exactly as before
 			logging.Error("Outbox Publisher: Failed to publish event %v: %v", outboxEvent.ID, err)
 			outboxEvent.TimesAttempted++

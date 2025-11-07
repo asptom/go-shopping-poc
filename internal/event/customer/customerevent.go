@@ -4,36 +4,16 @@ import (
 	"encoding/json"
 	"time"
 
-	ev "go-shopping-poc/pkg/event"
-
 	"github.com/google/uuid"
 )
 
-// register both topic and explicit change-type keys so payloads can be unmarshaled
-// regardless of whether the outbox stored the topic or the change-type string.
-func init() {
-	unmarshal := func(b []byte) (ev.Event, error) {
-		var e CustomerEvent
-		if err := json.Unmarshal(b, &e); err != nil {
-			return nil, err
-		}
-		return &e, nil
-	}
+// CustomerEventFactory implements EventFactory for CustomerEvent
+type CustomerEventFactory struct{}
 
-	// topic-based registration
-	ev.Register("customer.changes", unmarshal)
-
-	// register individual change type strings for compatibility
-	ev.Register(string(CustomerCreated), unmarshal)
-	ev.Register(string(CustomerUpdated), unmarshal)
-
-	ev.Register(string(AddressAdded), unmarshal)
-	ev.Register(string(AddressUpdated), unmarshal)
-	ev.Register(string(AddressDeleted), unmarshal)
-
-	ev.Register(string(CardAdded), unmarshal)
-	ev.Register(string(CardUpdated), unmarshal)
-	ev.Register(string(CardDeleted), unmarshal)
+func (f CustomerEventFactory) FromJSON(data []byte) (CustomerEvent, error) {
+	var event CustomerEvent
+	err := json.Unmarshal(data, &event)
+	return event, err
 }
 
 // EventType is a typed alias for well-known customer events
@@ -60,12 +40,12 @@ type CustomerEventPayload struct {
 	Details    map[string]string `json:"details,omitempty"`
 }
 
-// CustomerEvent wraps the generic Event type with our specific payload
+// CustomerEvent represents a customer-related event
 type CustomerEvent struct {
-	Event_ID        string
-	Event_Type      string
-	Event_TimeStamp time.Time
-	Event_Payload   CustomerEventPayload
+	ID           string               `json:"id"`
+	EventType    EventType            `json:"type"`
+	Timestamp    time.Time            `json:"timestamp"`
+	EventPayload CustomerEventPayload `json:"payload"`
 }
 
 // Convenience constructor for CustomerEvent
@@ -78,32 +58,28 @@ func NewCustomerEvent(customerID string, t EventType, resourceID string, details
 	}
 
 	return &CustomerEvent{
-		Event_ID:        uuid.New().String(),
-		Event_Type:      string(t),
-		Event_TimeStamp: time.Now(),
-		Event_Payload:   payload,
+		ID:           uuid.New().String(),
+		EventType:    t,
+		Timestamp:    time.Now(),
+		EventPayload: payload,
 	}
 }
 
 // Implement Event Interface
-func (e *CustomerEvent) Type() string {
-	return e.Event_Type
+func (e CustomerEvent) Type() string {
+	return string(e.EventType)
 }
 
-func (e *CustomerEvent) Topic() string {
+func (e CustomerEvent) Topic() string {
 	return "CustomerEvents"
 }
 
-func (e *CustomerEvent) Payload() any {
-	return e.Event_Payload
+func (e CustomerEvent) Payload() any {
+	return e.EventPayload
 }
 
-func (e *CustomerEvent) ToJSON() ([]byte, error) {
+func (e CustomerEvent) ToJSON() ([]byte, error) {
 	return json.Marshal(e)
-}
-
-func (e *CustomerEvent) FromJSON(data []byte) error {
-	return json.Unmarshal(data, e)
 }
 
 // Convenience constructors
