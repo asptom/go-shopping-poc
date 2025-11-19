@@ -1,15 +1,47 @@
 # Customer Service API Specification
 
 ## Base URL
-`https://pocstore.local` (Traefik handles TLS termination)
+`https://pocstore.local`
 
 ## Customer Management Endpoints
 
 ### Create Customer
 - **POST** `/customers`
-- **Request Body**: Customer object (without IDs - backend generates UUIDs)
-- **Response**: 201 Created with full customer object including generated IDs
+- **Request Body**: Customer object with optional addresses and credit_cards arrays
+- **Response**: 201 Created with complete customer object including all generated IDs
+- **Validation**: Customer entity, addresses, and credit cards are validated
+- **Transaction**: All data created atomically in single transaction
 - **Note**: Do not send customer_id, address_id, or card_id - backend generates these
+- **Example Request**:
+```json
+{
+  "user_name": "johndoe",
+  "email": "john.doe@example.com",
+  "first_name": "John",
+  "last_name": "Doe",
+  "phone": "555-123-4567",
+  "addresses": [
+    {
+      "address_type": "shipping",
+      "first_name": "John",
+      "last_name": "Doe",
+      "address_1": "123 Main St",
+      "city": "New York",
+      "state": "NY",
+      "zip": "10001"
+    }
+  ],
+  "credit_cards": [
+    {
+      "card_type": "visa",
+      "card_number": "4111111111111111",
+      "card_holder_name": "John Doe",
+      "card_expires": "12/25",
+      "card_cvv": "123"
+    }
+  ]
+}
+```
 
 ### Get Customer by Email  
 - **GET** `/customers/{email}`
@@ -26,14 +58,14 @@
   - **All Fields**: Must include addresses, credit cards, and status history
 
 ### Patch Customer (NEW)
-- **PATCH** `/customers/{id}` 
+- **PATCH** `/customers/{id}`
 - **Request Body**: Partial update object with only fields to change
-- **Response**: 200 OK with updated customer
+- **Response**: 200 OK with complete updated customer object
 - **Behavior**: Field-level partial updates
   - **Basic Info**: `"user_name"`, `"email"`, `"first_name"`, `"last_name"`, `"phone"`, `"customer_status"`
-  - **Default Fields**: `"default_shipping_address_id"`, `"default_billing_address_id"`, `"default_credit_card_id"` (UUID strings or null)
-  - **Addresses**: `"addresses"` - Array of address objects (replace only)
-  - **Credit Cards**: `"credit_cards"` - Array of credit card objects (replace only)
+  - **Default Fields**: `"default_shipping_address_id"`, `"default_billing_address_id"`, `"default_credit_card_id"` (UUID strings or null to clear)
+  - **Addresses**: `"addresses"` - Array of address objects (replaces all addresses)
+  - **Credit Cards**: `"credit_cards"` - Array of credit card objects (replaces all credit cards)
   - **Use Case**: When you need to update specific fields without affecting others
   - **Preservation**: Unspecified fields are preserved automatically
 
@@ -248,9 +280,44 @@ The customer service emits these events that your frontend can subscribe to via 
 - `default.credit_card.changed` - Default credit card changed or cleared
 
 ## Error Handling
-- **400 Bad Request**: Invalid input data, missing required fields, invalid UUID format
-- **404 Not Found**: Customer/address/card not found  
-- **500 Internal Server Error**: Backend processing error, database errors
+
+All errors return structured JSON responses:
+
+```json
+{
+  "error": "error_type",
+  "message": "Human-readable error message",
+  "code": "optional_error_code"
+}
+```
+
+### Error Types
+- `"invalid_request"`: Malformed JSON, missing parameters
+- `"validation_error"`: Business rule violations, invalid data
+- `"internal_error"`: Server/database errors
+- `"not_found"`: Resource not found
+
+### HTTP Status Codes
+- **400 Bad Request**: `invalid_request`, `validation_error`
+- **404 Not Found**: `not_found`
+- **500 Internal Server Error**: `internal_error`
+
+## Input Validation
+
+### Customer Validation
+- `username`: Required, minimum 3 characters
+- `email`: Required, must contain '@' symbol
+- `customer_status`: Must be 'active', 'inactive', or 'suspended'
+
+### Address Validation
+- `address_type`: Required, must be 'shipping' or 'billing'
+- `address_1`, `city`, `state`, `zip`: All required fields
+
+### Credit Card Validation
+- `card_type`: Required, must be 'visa', 'mastercard', 'amex', or 'discover'
+- `card_number`, `card_holder_name`, `card_expires`, `card_cvv`: All required
+
+All validation occurs at multiple layers: HTTP handler, service layer, and entity level.
 
 ## Important Notes
 
@@ -264,6 +331,12 @@ The customer service emits these events that your frontend can subscribe to via 
 - Foreign key constraints ensure referential integrity
 - All operations are transactional for data consistency
 
+### Data Consistency
+- **Transactional Operations**: All customer creation and updates happen in database transactions
+- **Atomicity**: Either all related data is created/updated, or none is
+- **Referential Integrity**: Foreign key constraints ensure data consistency
+- **Rollback**: Failed operations automatically rollback all changes
+
 ### Performance Considerations
 - Use dedicated default-setting endpoints instead of full customer updates
 - Default-setting operations are efficient single-field updates
@@ -275,6 +348,76 @@ The customer service emits these events that your frontend can subscribe to via 
 - Customer data is protected by privacy regulations
 
 ## Example API Calls
+
+### Create Customer with Addresses and Credit Cards
+```bash
+curl -X POST https://pocstore.local/customers \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_name": "johndoe",
+    "email": "john.doe@example.com",
+    "first_name": "John",
+    "last_name": "Doe",
+    "phone": "555-123-4567",
+    "addresses": [
+      {
+        "address_type": "shipping",
+        "first_name": "John",
+        "last_name": "Doe",
+        "address_1": "123 Main St",
+        "city": "New York",
+        "state": "NY",
+        "zip": "10001"
+      }
+    ],
+    "credit_cards": [
+      {
+        "card_type": "visa",
+        "card_number": "4111111111111111",
+        "card_holder_name": "John Doe",
+        "card_expires": "12/25",
+        "card_cvv": "123"
+      }
+    ]
+  }'
+
+# Response includes all generated IDs and complete data:
+{
+  "customer_id": "1b3beb15-fa81-46a1-9286-7b7c6c8c4f08",
+  "user_name": "johndoe",
+  "email": "john.doe@example.com",
+  "first_name": "John",
+  "last_name": "Doe",
+  "phone": "555-123-4567",
+  "customer_since": "2025-11-19T20:29:15.265133431Z",
+  "customer_status": "active",
+  "status_date_time": "2025-11-19T20:29:15.265133514Z",
+  "addresses": [
+    {
+      "address_id": "generated-uuid-1",
+      "customer_id": "1b3beb15-fa81-46a1-9286-7b7c6c8c4f08",
+      "address_type": "shipping",
+      "first_name": "John",
+      "last_name": "Doe",
+      "address_1": "123 Main St",
+      "city": "New York",
+      "state": "NY",
+      "zip": "10001"
+    }
+  ],
+  "credit_cards": [
+    {
+      "card_id": "generated-uuid-2",
+      "customer_id": "1b3beb15-fa81-46a1-9286-7b7c6c8c4f08",
+      "card_type": "visa",
+      "card_number": "4111111111111111",
+      "card_holder_name": "John Doe",
+      "card_expires": "12/25",
+      "card_cvv": "123"
+    }
+  ]
+}
+```
 
 ### Add Address and Set as Default
 ```bash

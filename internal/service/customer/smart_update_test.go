@@ -2,30 +2,20 @@ package customer
 
 import (
 	"context"
-	"os"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
-	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
 
 	entity "go-shopping-poc/internal/entity/customer"
 	outbox "go-shopping-poc/pkg/outbox"
+	"go-shopping-poc/pkg/testutils"
 )
 
 // setupSmartUpdateTestDB creates a test database connection
 func setupSmartUpdateTestDB(t *testing.T) *sqlx.DB {
-	cfg := initConfig()
-	dbURL := os.Getenv("DATABASE_URL")
-	if dbURL == "" && cfg.GetCustomerDBURLLocal() != "" {
-		dbURL = cfg.GetCustomerDBURLLocal()
-	}
-	db, err := sqlx.Connect("pgx", dbURL)
-	if err != nil {
-		t.Skipf("Skipping test, database not available: %v", err)
-	}
-	return db
+	return testutils.SetupTestDB(t)
 }
 
 // createTestCustomerWithFullData creates a test customer with addresses and credit cards
@@ -171,13 +161,20 @@ func TestPatchCustomer_BasicInfoOnly(t *testing.T) {
 	existing := createTestCustomerWithFullData(t, db)
 
 	// Patch only basic info
-	patchData := map[string]interface{}{
-		"user_name":       "updateduser",
-		"email":           "updated@example.com",
-		"first_name":      "Updated",
-		"last_name":       "User",
-		"phone":           "555-9999",
-		"customer_status": "inactive",
+	userName := "updateduser"
+	email := "updated@example.com"
+	firstName := "Updated"
+	lastName := "User"
+	phone := "555-9999"
+	status := "inactive"
+
+	patchData := &PatchCustomerRequest{
+		UserName:       &userName,
+		Email:          &email,
+		FirstName:      &firstName,
+		LastName:       &lastName,
+		Phone:          &phone,
+		CustomerStatus: &status,
 	}
 
 	err := repo.PatchCustomer(ctx, existing.CustomerID, patchData)

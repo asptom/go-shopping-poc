@@ -1,8 +1,13 @@
 package main
 
 import (
+	"context"
+	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"go-shopping-poc/pkg/config"
 	"go-shopping-poc/pkg/cors"
@@ -22,7 +27,6 @@ func main() {
 	logging.Info("Customer:  Customer service started...")
 
 	// Load configuration
-
 	envFile := config.ResolveEnvFile()
 	cfg := config.Load(envFile)
 
@@ -35,13 +39,13 @@ func main() {
 		dbURL = cfg.GetCustomerDBURL()
 	}
 	if dbURL == "" {
-		logging.Error("Customer:  DATABASE_URL not set")
+		log.Fatal("Customer: DATABASE_URL not set")
 	}
 
 	logging.Debug("Customer: Connecting to database at %s", dbURL)
 	db, err := sqlx.Connect("pgx", dbURL)
 	if err != nil {
-		logging.Error("Customer:  Failed to connect to DB: %v", err)
+		log.Fatalf("Customer: Failed to connect to DB: %v", err)
 	}
 	defer db.Close()
 
@@ -96,14 +100,45 @@ func main() {
 	router.Put("/customers/{id}/default-credit-card/{cardId}", handler.SetDefaultCreditCard)
 	router.Delete("/customers/{id}/default-credit-card", handler.ClearDefaultCreditCard)
 
-	// Start HTTP server (listen on 80; Traefik will terminate TLS)
+	// Start HTTP server with graceful shutdown
 	serverAddr := cfg.GetCustomerServicePort()
 	if serverAddr == "" {
 		serverAddr = ":8080"
 	}
-	logging.Info("Customer:  Starting HTTP server on %s (Traefik will handle TLS)", serverAddr)
-	if err := http.ListenAndServe(serverAddr, router); err != nil {
-		logging.Error("Customer:  Failed to start HTTP server: %v", err)
+
+	server := &http.Server{
+		Addr:    serverAddr,
+		Handler: router,
 	}
-	logging.Info("Customer:  Customer service stopped")
+
+	// Channel to listen for interrupt signal
+	done := make(chan bool, 1)
+	quit := make(chan os.Signal, 1)
+
+	// Register interrupt signals
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+
+	// Start server in a goroutine
+	go func() {
+		logging.Info("Customer: Starting HTTP server on %s (Traefik will handle TLS)", serverAddr)
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Customer: Failed to start HTTP server: %v", err)
+		}
+	}()
+
+	// Wait for interrupt signal
+	<-quit
+	logging.Info("Customer: Shutting down server...")
+
+	// Create a deadline for shutdown
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Attempt graceful shutdown
+	if err := server.Shutdown(ctx); err != nil {
+		log.Fatalf("Customer: Server forced to shutdown: %v", err)
+	}
+
+	close(done)
+	logging.Info("Customer: Server exited")
 }

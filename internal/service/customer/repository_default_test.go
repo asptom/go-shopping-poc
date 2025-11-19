@@ -2,71 +2,30 @@ package customer
 
 import (
 	"context"
-	"os"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
-	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
 
-	"go-shopping-poc/pkg/config"
+	entity "go-shopping-poc/internal/entity/customer"
 	outbox "go-shopping-poc/pkg/outbox"
+	"go-shopping-poc/pkg/testutils"
 )
-
-// Load configuration
-func initConfig() *config.Config {
-	envFile := config.ResolveEnvFile()
-	cfg := config.Load(envFile)
-	return cfg
-}
 
 // setupTestDB creates a test database connection
 func setupTestDB(t *testing.T) *sqlx.DB {
-	// Use environment variable or default test database
-	cfg := initConfig()
-	dbURL := os.Getenv("DATABASE_URL")
-	if dbURL == "" && cfg.GetCustomerDBURLLocal() != "" {
-		dbURL = cfg.GetCustomerDBURLLocal()
-	}
-	db, err := sqlx.Connect("pgx", dbURL)
-	if err != nil {
-		t.Skipf("Skipping test, database not available: %v", err)
-	}
-	return db
+	return testutils.SetupTestDB(t)
 }
 
 // createTestCustomer creates a test customer in the database
 func createTestCustomer(t *testing.T, db *sqlx.DB) string {
-	customerID := uuid.New()
-	query := `INSERT INTO customers.Customer (customer_id, user_name, email, first_name, last_name, phone, customer_since, customer_status, status_date_time) 
-	          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
-
-	_, err := db.Exec(query, customerID, "testuser", "test@example.com", "Test", "User", "555-1234", time.Now(), "active", time.Now())
-	if err != nil {
-		t.Fatalf("Failed to create test customer: %v", err)
-	}
-
-	return customerID.String()
+	return testutils.CreateTestCustomer(t, db)
 }
 
 // createTestAddress creates a test address for a customer
 func createTestAddress(t *testing.T, db *sqlx.DB, customerID string) string {
-	addressID := uuid.New()
-	custUUID, err := uuid.Parse(customerID)
-	if err != nil {
-		t.Fatalf("Invalid customer ID: %v", err)
-	}
-
-	query := `INSERT INTO customers.Address (address_id, customer_id, address_type, first_name, last_name, address_1, city, state, zip) 
-	          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
-
-	_, err = db.Exec(query, addressID, custUUID, "shipping", "Test", "User", "123 Main St", "Test City", "TS", "12345")
-	if err != nil {
-		t.Fatalf("Failed to create test address: %v", err)
-	}
-
-	return addressID.String()
+	return testutils.CreateTestAddress(t, db, customerID)
 }
 
 // createTestCreditCard creates a test credit card for a customer
@@ -395,6 +354,92 @@ func TestGetCustomerByEmail(t *testing.T) {
 	if nonExistentCustomer != nil {
 		t.Error("Expected nil for non-existent email, got customer")
 	}
+}
+
+func TestInsertCustomerWithRelations(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	repo := NewCustomerRepository(db, outbox.Writer{})
+	ctx := context.Background()
+
+	// Create customer with addresses and credit cards
+	customer := &entity.Customer{
+		Username:  "testuser",
+		Email:     "test@example.com",
+		FirstName: "Test",
+		LastName:  "User",
+		Phone:     "555-1234",
+		Addresses: []entity.Address{
+			{
+				AddressType: "shipping",
+				FirstName:   "Test",
+				LastName:    "User",
+				Address1:    "123 Main St",
+				City:        "Test City",
+				State:       "TS",
+				Zip:         "12345",
+			},
+		},
+		CreditCards: []entity.CreditCard{
+			{
+				CardType:       "visa",
+				CardNumber:     "4111111111111111",
+				CardHolderName: "Test User",
+				CardExpires:    "12/25",
+				CardCVV:        "123",
+			},
+		},
+	}
+
+	// Insert customer
+	err := repo.InsertCustomer(ctx, customer)
+	if err != nil {
+		t.Fatalf("Failed to insert customer with relations: %v", err)
+	}
+
+	// Verify customer was created
+	if customer.CustomerID == "" {
+		t.Error("Customer ID should be set")
+	}
+
+	// Verify addresses were created
+	if len(customer.Addresses) != 1 {
+		t.Errorf("Expected 1 address, got %d", len(customer.Addresses))
+	}
+	if customer.Addresses[0].AddressID == uuid.Nil {
+		t.Error("Address ID should be set")
+	}
+	if customer.Addresses[0].CustomerID.String() != customer.CustomerID {
+		t.Error("Address customer ID should match customer ID")
+	}
+
+	// Verify credit cards were created
+	if len(customer.CreditCards) != 1 {
+		t.Errorf("Expected 1 credit card, got %d", len(customer.CreditCards))
+	}
+	if customer.CreditCards[0].CardID == uuid.Nil {
+		t.Error("Credit card ID should be set")
+	}
+	if customer.CreditCards[0].CustomerID.String() != customer.CustomerID {
+		t.Error("Credit card customer ID should match customer ID")
+	}
+
+	// Verify status history was created
+	if len(customer.StatusHistory) != 1 {
+		t.Errorf("Expected 1 status history record, got %d", len(customer.StatusHistory))
+	}
+	if customer.StatusHistory[0].NewStatus != "active" {
+		t.Errorf("Expected status 'active', got '%s'", customer.StatusHistory[0].NewStatus)
+	}
+
+	// Cleanup
+	cleanupTestData(t, db, customer.CustomerID)
+}
+
+// cleanupTestData removes test data from the database
+func cleanupTestData(t *testing.T, db *sqlx.DB, customerID string) {
+	testutils.CleanupTestData(t, db, customerID)
 }
 
 func TestNonExistentCustomer(t *testing.T) {

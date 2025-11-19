@@ -19,7 +19,7 @@ func NewWebSocketClient(cfg *config.Config) (*WebSocketClient, error) {
 	dialer := websocket.Dialer{
 		HandshakeTimeout: cfg.WebSocketTimeout(),
 	}
-	conn, _, err := dialer.Dial(cfg.WebSocketURL(), nil)
+	conn, _, err := dialer.Dial(cfg.GetWebSocketURL(), nil)
 	if err != nil {
 		return nil, err
 	}

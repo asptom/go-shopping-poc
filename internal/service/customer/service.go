@@ -1,3 +1,8 @@
+// Package customer provides business logic for customer management operations.
+//
+// This package implements the service layer for customer domain operations including
+// CRUD operations, validation, and business rule enforcement. It acts as an
+// intermediary between HTTP handlers and the data repository layer.
 package customer
 
 import (
@@ -8,10 +13,52 @@ import (
 	"github.com/google/uuid"
 )
 
+// PatchCustomerRequest represents a typed request for patching customer data
+type PatchCustomerRequest struct {
+	UserName                 *string                  `json:"user_name,omitempty"`
+	Email                    *string                  `json:"email,omitempty"`
+	FirstName                *string                  `json:"first_name,omitempty"`
+	LastName                 *string                  `json:"last_name,omitempty"`
+	Phone                    *string                  `json:"phone,omitempty"`
+	CustomerStatus           *string                  `json:"customer_status,omitempty"`
+	DefaultShippingAddressID *string                  `json:"default_shipping_address_id,omitempty"`
+	DefaultBillingAddressID  *string                  `json:"default_billing_address_id,omitempty"`
+	DefaultCreditCardID      *string                  `json:"default_credit_card_id,omitempty"`
+	Addresses                []PatchAddressRequest    `json:"addresses,omitempty"`
+	CreditCards              []PatchCreditCardRequest `json:"credit_cards,omitempty"`
+}
+
+// PatchAddressRequest represents a typed request for patching address data
+type PatchAddressRequest struct {
+	AddressType string `json:"address_type"`
+	FirstName   string `json:"first_name"`
+	LastName    string `json:"last_name"`
+	Address1    string `json:"address_1"`
+	Address2    string `json:"address_2"`
+	City        string `json:"city"`
+	State       string `json:"state"`
+	Zip         string `json:"zip"`
+}
+
+// PatchCreditCardRequest represents a typed request for patching credit card data
+type PatchCreditCardRequest struct {
+	CardType       string `json:"card_type"`
+	CardNumber     string `json:"card_number"`
+	CardHolderName string `json:"card_holder_name"`
+	CardExpires    string `json:"card_expires"`
+	CardCVV        string `json:"card_cvv"`
+}
+
+// CustomerService orchestrates customer business operations.
+//
+// CustomerService acts as the service layer, coordinating between
+// the HTTP handlers and the repository layer. It contains business
+// logic, validation, and data transformation.
 type CustomerService struct {
 	repo CustomerRepository
 }
 
+// NewCustomerService creates a new customer service instance.
 func NewCustomerService(repo CustomerRepository) *CustomerService {
 	return &CustomerService{repo: repo}
 }
@@ -25,6 +72,25 @@ func (s *CustomerService) GetCustomerByID(ctx context.Context, customerID string
 }
 
 func (s *CustomerService) CreateCustomer(ctx context.Context, customer *entity.Customer) error {
+	// Validate the customer entity
+	if err := customer.Validate(); err != nil {
+		return fmt.Errorf("customer validation failed: %w", err)
+	}
+
+	// Validate addresses if provided
+	for i, addr := range customer.Addresses {
+		if err := addr.Validate(); err != nil {
+			return fmt.Errorf("address %d validation failed: %w", i, err)
+		}
+	}
+
+	// Validate credit cards if provided
+	for i, card := range customer.CreditCards {
+		if err := card.Validate(); err != nil {
+			return fmt.Errorf("credit card %d validation failed: %w", i, err)
+		}
+	}
+
 	return s.repo.InsertCustomer(ctx, customer)
 }
 
@@ -32,7 +98,18 @@ func (s *CustomerService) UpdateCustomer(ctx context.Context, customer *entity.C
 	return s.repo.UpdateCustomer(ctx, customer)
 }
 
-func (s *CustomerService) PatchCustomer(ctx context.Context, customerID string, patchData map[string]interface{}) error {
+// PatchCustomer applies partial updates to an existing customer.
+//
+// This method supports PATCH operations, allowing clients to update
+// specific fields of a customer without replacing the entire record.
+// It validates the patch data, retrieves the existing customer,
+// applies the changes, and persists the updates.
+func (s *CustomerService) PatchCustomer(ctx context.Context, customerID string, patchData *PatchCustomerRequest) error {
+	// Validate patch data
+	if err := s.ValidatePatchData(patchData); err != nil {
+		return fmt.Errorf("invalid patch data: %w", err)
+	}
+
 	// Get existing customer first
 	existing, err := s.repo.GetCustomerByID(ctx, customerID)
 	if err != nil {
@@ -45,107 +122,132 @@ func (s *CustomerService) PatchCustomer(ctx context.Context, customerID string, 
 	// Apply patch data to existing customer
 	updated := *existing // Copy existing customer
 
-	for field, value := range patchData {
-		switch field {
-		case "user_name":
-			if str, ok := value.(string); ok {
-				updated.Username = str
-			}
-		case "email":
-			if str, ok := value.(string); ok {
-				updated.Email = str
-			}
-		case "first_name":
-			if str, ok := value.(string); ok {
-				updated.FirstName = str
-			}
-		case "last_name":
-			if str, ok := value.(string); ok {
-				updated.LastName = str
-			}
-		case "phone":
-			if str, ok := value.(string); ok {
-				updated.Phone = str
-			}
-		case "customer_status":
-			if str, ok := value.(string); ok {
-				updated.CustomerStatus = str
-			}
-		case "default_shipping_address_id":
-			if str, ok := value.(string); ok && str != "" {
-				if uuid, err := uuid.Parse(str); err == nil {
-					updated.DefaultShippingAddressID = &uuid
-				}
-			} else if str == "" {
-				updated.DefaultShippingAddressID = nil
-			}
-		case "default_billing_address_id":
-			if str, ok := value.(string); ok && str != "" {
-				if uuid, err := uuid.Parse(str); err == nil {
-					updated.DefaultBillingAddressID = &uuid
-				}
-			} else if str == "" {
-				updated.DefaultBillingAddressID = nil
-			}
-		case "default_credit_card_id":
-			if str, ok := value.(string); ok && str != "" {
-				if uuid, err := uuid.Parse(str); err == nil {
-					updated.DefaultCreditCardID = &uuid
-				}
-			} else if str == "" {
-				updated.DefaultCreditCardID = nil
-			}
-		case "addresses":
-			if addresses, ok := value.([]interface{}); ok {
-				var addrList []entity.Address
-				for _, addrInterface := range addresses {
-					if addrMap, ok := addrInterface.(map[string]interface{}); ok {
-						addr := entity.Address{
-							AddressType: getString(addrMap, "address_type"),
-							FirstName:   getString(addrMap, "first_name"),
-							LastName:    getString(addrMap, "last_name"),
-							Address1:    getString(addrMap, "address_1"),
-							Address2:    getString(addrMap, "address_2"),
-							City:        getString(addrMap, "city"),
-							State:       getString(addrMap, "state"),
-							Zip:         getString(addrMap, "zip"),
-						}
-						addrList = append(addrList, addr)
-					}
-				}
-				updated.Addresses = addrList
-			}
-		case "credit_cards":
-			if cards, ok := value.([]interface{}); ok {
-				var cardList []entity.CreditCard
-				for _, cardInterface := range cards {
-					if cardMap, ok := cardInterface.(map[string]interface{}); ok {
-						card := entity.CreditCard{
-							CardType:       getString(cardMap, "card_type"),
-							CardNumber:     getString(cardMap, "card_number"),
-							CardHolderName: getString(cardMap, "card_holder_name"),
-							CardExpires:    getString(cardMap, "card_expires"),
-							CardCVV:        getString(cardMap, "card_cvv"),
-						}
-						cardList = append(cardList, card)
-					}
-				}
-				updated.CreditCards = cardList
-			}
-		}
+	// Apply field updates
+	s.ApplyFieldUpdates(&updated, patchData)
+
+	// Transform and apply addresses if provided
+	if patchData.Addresses != nil {
+		updated.Addresses = s.TransformAddressesFromPatch(patchData.Addresses)
+	}
+
+	// Transform and apply credit cards if provided
+	if patchData.CreditCards != nil {
+		updated.CreditCards = s.TransformCreditCardsFromPatch(patchData.CreditCards)
 	}
 
 	return s.repo.UpdateCustomer(ctx, &updated)
 }
 
-// Helper function to safely extract string from interface
-func getString(m map[string]interface{}, key string) string {
-	if val, ok := m[key]; ok {
-		if str, ok := val.(string); ok {
-			return str
+// ValidatePatchData validates the patch request data
+func (s *CustomerService) ValidatePatchData(patchData *PatchCustomerRequest) error {
+	if patchData == nil {
+		return fmt.Errorf("patch data cannot be nil")
+	}
+
+	// Validate UUID fields if provided
+	if patchData.DefaultShippingAddressID != nil && *patchData.DefaultShippingAddressID != "" {
+		if _, err := uuid.Parse(*patchData.DefaultShippingAddressID); err != nil {
+			return fmt.Errorf("invalid default_shipping_address_id: %w", err)
 		}
 	}
-	return ""
+	if patchData.DefaultBillingAddressID != nil && *patchData.DefaultBillingAddressID != "" {
+		if _, err := uuid.Parse(*patchData.DefaultBillingAddressID); err != nil {
+			return fmt.Errorf("invalid default_billing_address_id: %w", err)
+		}
+	}
+	if patchData.DefaultCreditCardID != nil && *patchData.DefaultCreditCardID != "" {
+		if _, err := uuid.Parse(*patchData.DefaultCreditCardID); err != nil {
+			return fmt.Errorf("invalid default_credit_card_id: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// ApplyFieldUpdates applies basic field updates to the customer
+func (s *CustomerService) ApplyFieldUpdates(customer *entity.Customer, patchData *PatchCustomerRequest) {
+	if patchData.UserName != nil {
+		customer.Username = *patchData.UserName
+	}
+	if patchData.Email != nil {
+		customer.Email = *patchData.Email
+	}
+	if patchData.FirstName != nil {
+		customer.FirstName = *patchData.FirstName
+	}
+	if patchData.LastName != nil {
+		customer.LastName = *patchData.LastName
+	}
+	if patchData.Phone != nil {
+		customer.Phone = *patchData.Phone
+	}
+	if patchData.CustomerStatus != nil {
+		customer.CustomerStatus = *patchData.CustomerStatus
+	}
+
+	// Handle UUID pointer fields
+	if patchData.DefaultShippingAddressID != nil {
+		if *patchData.DefaultShippingAddressID == "" {
+			customer.DefaultShippingAddressID = nil
+		} else {
+			if uuid, err := uuid.Parse(*patchData.DefaultShippingAddressID); err == nil {
+				customer.DefaultShippingAddressID = &uuid
+			}
+		}
+	}
+	if patchData.DefaultBillingAddressID != nil {
+		if *patchData.DefaultBillingAddressID == "" {
+			customer.DefaultBillingAddressID = nil
+		} else {
+			if uuid, err := uuid.Parse(*patchData.DefaultBillingAddressID); err == nil {
+				customer.DefaultBillingAddressID = &uuid
+			}
+		}
+	}
+	if patchData.DefaultCreditCardID != nil {
+		if *patchData.DefaultCreditCardID == "" {
+			customer.DefaultCreditCardID = nil
+		} else {
+			if uuid, err := uuid.Parse(*patchData.DefaultCreditCardID); err == nil {
+				customer.DefaultCreditCardID = &uuid
+			}
+		}
+	}
+}
+
+// TransformAddressesFromPatch converts patch address requests to entity addresses
+func (s *CustomerService) TransformAddressesFromPatch(patchAddresses []PatchAddressRequest) []entity.Address {
+	var addresses []entity.Address
+	for _, patchAddr := range patchAddresses {
+		addr := entity.Address{
+			AddressType: patchAddr.AddressType,
+			FirstName:   patchAddr.FirstName,
+			LastName:    patchAddr.LastName,
+			Address1:    patchAddr.Address1,
+			Address2:    patchAddr.Address2,
+			City:        patchAddr.City,
+			State:       patchAddr.State,
+			Zip:         patchAddr.Zip,
+		}
+		addresses = append(addresses, addr)
+	}
+	return addresses
+}
+
+// TransformCreditCardsFromPatch converts patch credit card requests to entity credit cards
+func (s *CustomerService) TransformCreditCardsFromPatch(patchCards []PatchCreditCardRequest) []entity.CreditCard {
+	var cards []entity.CreditCard
+	for _, patchCard := range patchCards {
+		card := entity.CreditCard{
+			CardType:       patchCard.CardType,
+			CardNumber:     patchCard.CardNumber,
+			CardHolderName: patchCard.CardHolderName,
+			CardExpires:    patchCard.CardExpires,
+			CardCVV:        patchCard.CardCVV,
+		}
+		cards = append(cards, card)
+	}
+	return cards
 }
 
 func (s *CustomerService) AddAddress(ctx context.Context, customerID string, addr *entity.Address) (*entity.Address, error) {

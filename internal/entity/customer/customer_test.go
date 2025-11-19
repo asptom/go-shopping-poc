@@ -2,171 +2,299 @@ package entity
 
 import (
 	"testing"
-	"time"
-
-	"github.com/google/uuid"
 )
 
-func TestCustomerEntityMatchesSchema(t *testing.T) {
-	// Test that Customer entity has all required fields from schema
-	customerID := uuid.New().String()
-	now := time.Now()
-	shippingAddrID := uuid.New()
-	billingAddrID := uuid.New()
-	cardID := uuid.New()
-
-	customer := &Customer{
-		CustomerID:               customerID,
-		Username:                 "testuser",
-		Email:                    "test@example.com",
-		FirstName:                "Test",
-		LastName:                 "User",
-		Phone:                    "555-1234",
-		DefaultShippingAddressID: &shippingAddrID,
-		DefaultBillingAddressID:  &billingAddrID,
-		DefaultCreditCardID:      &cardID,
-		CustomerSince:            now,
-		CustomerStatus:           "active",
-		StatusDateTime:           now,
-		Addresses:                []Address{},
-		CreditCards:              []CreditCard{},
-		StatusHistory:            []CustomerStatus{},
+func TestCustomer_Validate(t *testing.T) {
+	tests := []struct {
+		name     string
+		customer *Customer
+		wantErr  bool
+	}{
+		{
+			name: "valid customer",
+			customer: &Customer{
+				Username:       "testuser",
+				Email:          "test@example.com",
+				CustomerStatus: "active",
+			},
+			wantErr: false,
+		},
+		{
+			name: "missing username",
+			customer: &Customer{
+				Email:          "test@example.com",
+				CustomerStatus: "active",
+			},
+			wantErr: true,
+		},
+		{
+			name: "username too short",
+			customer: &Customer{
+				Username:       "ab",
+				Email:          "test@example.com",
+				CustomerStatus: "active",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid email",
+			customer: &Customer{
+				Username:       "testuser",
+				Email:          "invalid-email",
+				CustomerStatus: "active",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid status",
+			customer: &Customer{
+				Username:       "testuser",
+				Email:          "test@example.com",
+				CustomerStatus: "invalid",
+			},
+			wantErr: true,
+		},
 	}
 
-	// Verify all fields are set correctly
-	if customer.CustomerID != customerID {
-		t.Errorf("Expected CustomerID %s, got %s", customerID, customer.CustomerID)
-	}
-	if customer.CustomerStatus != "active" {
-		t.Errorf("Expected CustomerStatus 'active', got %s", customer.CustomerStatus)
-	}
-	if customer.DefaultShippingAddressID == nil {
-		t.Error("DefaultShippingAddressID should not be nil")
-	} else if *customer.DefaultShippingAddressID != shippingAddrID {
-		t.Errorf("Expected DefaultShippingAddressID %s, got %s", shippingAddrID, *customer.DefaultShippingAddressID)
-	}
-	if customer.DefaultBillingAddressID == nil {
-		t.Error("DefaultBillingAddressID should not be nil")
-	} else if *customer.DefaultBillingAddressID != billingAddrID {
-		t.Errorf("Expected DefaultBillingAddressID %s, got %s", billingAddrID, *customer.DefaultBillingAddressID)
-	}
-	if customer.DefaultCreditCardID == nil {
-		t.Error("DefaultCreditCardID should not be nil")
-	} else if *customer.DefaultCreditCardID != cardID {
-		t.Errorf("Expected DefaultCreditCardID %s, got %s", cardID, *customer.DefaultCreditCardID)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.customer.Validate()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Customer.Validate() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
 	}
 }
 
-func TestCustomerEntityNullableFields(t *testing.T) {
-	// Test that nullable UUID fields can be nil (representing NULL in database)
-	customerID := uuid.New().String()
-	now := time.Now()
-
-	customer := &Customer{
-		CustomerID: customerID,
-		Username:   "testuser",
-		Email:      "test@example.com",
-		FirstName:  "Test",
-		LastName:   "User",
-		Phone:      "555-1234",
-		// Nullable fields set to nil to represent NULL values
-		DefaultShippingAddressID: nil,
-		DefaultBillingAddressID:  nil,
-		DefaultCreditCardID:      nil,
-		CustomerSince:            now,
-		CustomerStatus:           "active",
-		StatusDateTime:           now,
-		Addresses:                []Address{},
-		CreditCards:              []CreditCard{},
-		StatusHistory:            []CustomerStatus{},
+func TestCustomer_IsActive(t *testing.T) {
+	tests := []struct {
+		name     string
+		status   string
+		expected bool
+	}{
+		{"active customer", "active", true},
+		{"inactive customer", "inactive", false},
+		{"suspended customer", "suspended", false},
+		{"empty status", "", false},
 	}
 
-	// Verify nullable fields can be nil
-	if customer.DefaultShippingAddressID != nil {
-		t.Error("DefaultShippingAddressID should be nil")
-	}
-	if customer.DefaultBillingAddressID != nil {
-		t.Error("DefaultBillingAddressID should be nil")
-	}
-	if customer.DefaultCreditCardID != nil {
-		t.Error("DefaultCreditCardID should be nil")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &Customer{CustomerStatus: tt.status}
+			if got := c.IsActive(); got != tt.expected {
+				t.Errorf("Customer.IsActive() = %v, want %v", got, tt.expected)
+			}
+		})
 	}
 }
 
-func TestAddressEntityMatchesSchema(t *testing.T) {
-	customerID := uuid.New()
-	addressID := uuid.New()
-
-	address := &Address{
-		AddressID:   addressID,
-		CustomerID:  customerID,
-		AddressType: "shipping",
-		FirstName:   "Test",
-		LastName:    "User",
-		Address1:    "123 Main St",
-		Address2:    "Apt 4",
-		City:        "Test City",
-		State:       "TS",
-		Zip:         "12345",
+func TestCustomer_FullName(t *testing.T) {
+	tests := []struct {
+		name      string
+		firstName string
+		lastName  string
+		expected  string
+	}{
+		{"both names", "John", "Doe", "John Doe"},
+		{"first name only", "John", "", "John"},
+		{"last name only", "", "Doe", "Doe"},
+		{"no names", "", "", ""},
 	}
 
-	// Verify all fields are set correctly
-	if address.AddressID != addressID {
-		t.Errorf("Expected AddressID %s, got %s", addressID, address.AddressID)
-	}
-	if address.AddressType != "shipping" {
-		t.Errorf("Expected AddressType 'shipping', got %s", address.AddressType)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &Customer{FirstName: tt.firstName, LastName: tt.lastName}
+			if got := c.FullName(); got != tt.expected {
+				t.Errorf("Customer.FullName() = %v, want %v", got, tt.expected)
+			}
+		})
 	}
 }
 
-func TestCreditCardEntityMatchesSchema(t *testing.T) {
-	customerID := uuid.New()
-	cardID := uuid.New()
-
-	card := &CreditCard{
-		CardID:         cardID,
-		CustomerID:     customerID,
-		CardType:       "visa",
-		CardNumber:     "4111111111111111",
-		CardHolderName: "Test User",
-		CardExpires:    "12/25",
-		CardCVV:        "123",
+func TestAddress_Validate(t *testing.T) {
+	tests := []struct {
+		name    string
+		address *Address
+		wantErr bool
+	}{
+		{
+			name: "valid address",
+			address: &Address{
+				AddressType: "shipping",
+				Address1:    "123 Main St",
+				City:        "Test City",
+				State:       "TS",
+				Zip:         "12345",
+			},
+			wantErr: false,
+		},
+		{
+			name: "missing address type",
+			address: &Address{
+				Address1: "123 Main St",
+				City:     "Test City",
+				State:    "TS",
+				Zip:      "12345",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid address type",
+			address: &Address{
+				AddressType: "invalid",
+				Address1:    "123 Main St",
+				City:        "Test City",
+				State:       "TS",
+				Zip:         "12345",
+			},
+			wantErr: true,
+		},
+		{
+			name: "missing address1",
+			address: &Address{
+				AddressType: "shipping",
+				City:        "Test City",
+				State:       "TS",
+				Zip:         "12345",
+			},
+			wantErr: true,
+		},
 	}
 
-	// Verify all fields are set correctly
-	if card.CardID != cardID {
-		t.Errorf("Expected CardID %s, got %s", cardID, card.CardID)
-	}
-	if card.CardType != "visa" {
-		t.Errorf("Expected CardType 'visa', got %s", card.CardType)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.address.Validate()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Address.Validate() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
 	}
 }
 
-func TestCustomerStatusEntityMatchesSchema(t *testing.T) {
-	customerID := uuid.New()
-	now := time.Now()
-
-	status := &CustomerStatus{
-		ID:         1,
-		CustomerID: customerID,
-		OldStatus:  "inactive",
-		NewStatus:  "active",
-		ChangedAt:  now,
+func TestAddress_FullAddress(t *testing.T) {
+	addr := &Address{
+		Address1: "123 Main St",
+		Address2: "Apt 4B",
+		City:     "Test City",
+		State:    "TS",
+		Zip:      "12345",
 	}
 
-	// Verify all fields are set correctly
-	if status.CustomerID != customerID {
-		t.Errorf("Expected CustomerID %s, got %s", customerID, status.CustomerID)
-	}
-	if status.OldStatus != "inactive" {
-		t.Errorf("Expected OldStatus 'inactive', got %s", status.OldStatus)
-	}
-	if status.NewStatus != "active" {
-		t.Errorf("Expected NewStatus 'active', got %s", status.NewStatus)
+	expected := "123 Main St Apt 4B Test City, TS 12345"
+	if got := addr.FullAddress(); got != expected {
+		t.Errorf("Address.FullAddress() = %v, want %v", got, expected)
 	}
 }
 
-// Helper function for UUID pointers
-func uuidPtr(u uuid.UUID) *uuid.UUID {
-	return &u
+func TestCreditCard_Validate(t *testing.T) {
+	tests := []struct {
+		name       string
+		creditCard *CreditCard
+		wantErr    bool
+	}{
+		{
+			name: "valid credit card",
+			creditCard: &CreditCard{
+				CardType:       "visa",
+				CardNumber:     "4111111111111111",
+				CardHolderName: "John Doe",
+				CardExpires:    "12/25",
+				CardCVV:        "123",
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid card type",
+			creditCard: &CreditCard{
+				CardType:       "invalid",
+				CardNumber:     "4111111111111111",
+				CardHolderName: "John Doe",
+				CardExpires:    "12/25",
+				CardCVV:        "123",
+			},
+			wantErr: true,
+		},
+		{
+			name: "missing card number",
+			creditCard: &CreditCard{
+				CardType:       "visa",
+				CardHolderName: "John Doe",
+				CardExpires:    "12/25",
+				CardCVV:        "123",
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.creditCard.Validate()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("CreditCard.Validate() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestCreditCard_MaskedNumber(t *testing.T) {
+	tests := []struct {
+		name     string
+		number   string
+		expected string
+	}{
+		{"full card number", "4111111111111111", "****-****-****-1111"},
+		{"short number", "123", "123"},
+		{"empty", "", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cc := &CreditCard{CardNumber: tt.number}
+			if got := cc.MaskedNumber(); got != tt.expected {
+				t.Errorf("CreditCard.MaskedNumber() = %v, want %v", got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestCustomerStatus_Validate(t *testing.T) {
+	tests := []struct {
+		name           string
+		customerStatus *CustomerStatus
+		wantErr        bool
+	}{
+		{
+			name: "valid status change",
+			customerStatus: &CustomerStatus{
+				OldStatus: "active",
+				NewStatus: "inactive",
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid old status",
+			customerStatus: &CustomerStatus{
+				OldStatus: "invalid",
+				NewStatus: "active",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid new status",
+			customerStatus: &CustomerStatus{
+				OldStatus: "active",
+				NewStatus: "invalid",
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.customerStatus.Validate()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("CustomerStatus.Validate() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
 }

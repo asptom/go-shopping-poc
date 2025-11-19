@@ -46,7 +46,7 @@ func main() {
 
 	logging.Debug("Websocket: The WebSocket server is starting...")
 	//addr := ":80"
-	addr := cfg.WebSocketPort()
+	addr := cfg.GetWebSocketPort()
 	logging.Debug("Websocket: server listening on %s/ws", addr)
 
 	// Start server in a goroutine

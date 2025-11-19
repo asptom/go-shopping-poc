@@ -11,29 +11,30 @@ import (
 )
 
 type Config struct {
-	EventBroker string
+	// Kafka configuration
+	EventBroker           string
+	EventWriterWriteTopic string
+	EventWriterReadTopics []string
+	EventWriterGroup      string
+	EventReaderWriteTopic string
+	EventReaderReadTopics []string
+	EventReaderGroup      string
 
-	EventWriter_Write_Topic string
-	EventWriter_Read_Topics []string
-	EventWriter_Group       string
+	// WebSocket configuration
+	WebSocketURL         string
+	WebSocketTimeoutMs   int
+	WebSocketReadBuffer  int
+	WebSocketWriteBuffer int
+	WebSocketPort        string
 
-	EventReader_Write_Topic string
-	EventReader_Read_Topics []string
-	EventReader_Group       string
-
-	webSocket_URL         string
-	WebSocket_TimeoutMs   int
-	WebSocket_ReadBuffer  int
-	WebSocket_WriteBuffer int
-	webSocket_Port        string
-
-	Customer_DB_URL          string
-	Customer_DB_URL_Local    string
-	Customer_Service_Port    string
-	Customer_Write_Topic     string
-	Customer_Read_Topics     []string
-	Customer_Group           string
-	Customer_Outbox_Interval time.Duration
+	// Customer service configuration
+	CustomerDBURL          string
+	CustomerDBURLLocal     string
+	CustomerServicePort    string
+	CustomerWriteTopic     string
+	CustomerReadTopics     []string
+	CustomerGroup          string
+	CustomerOutboxInterval time.Duration
 
 	// CORS configuration
 	CORSAllowedOrigins   string
@@ -49,27 +50,27 @@ func Load(envFile string) *Config {
 	return &Config{
 		EventBroker: getEnv("EVENT_BROKER", "localhost:9092"),
 
-		EventWriter_Write_Topic: getEnv("EVENT_WRITER_WRITE_TOPIC", ""),
-		EventWriter_Read_Topics: getEnvArray("EVENT_WRITER_READ_TOPICS", []string{}),
-		EventWriter_Group:       getEnv("EVENT_WRITER_GROUP", ""),
+		EventWriterWriteTopic: getEnv("EVENT_WRITER_WRITE_TOPIC", ""),
+		EventWriterReadTopics: getEnvArray("EVENT_WRITER_READ_TOPICS", []string{}),
+		EventWriterGroup:      getEnv("EVENT_WRITER_GROUP", ""),
 
-		EventReader_Write_Topic: getEnv("EVENT_READER_WRITE_TOPIC", ""),
-		EventReader_Read_Topics: getEnvArray("EVENT_READER_READ_TOPICS", []string{}),
-		EventReader_Group:       getEnv("EVENT_READER_GROUP", ""),
+		EventReaderWriteTopic: getEnv("EVENT_READER_WRITE_TOPIC", ""),
+		EventReaderReadTopics: getEnvArray("EVENT_READER_READ_TOPICS", []string{}),
+		EventReaderGroup:      getEnv("EVENT_READER_GROUP", ""),
 
-		webSocket_URL:         getEnv("WEBSOCKET_URL", "ws://localhost:8080/ws"),
-		WebSocket_TimeoutMs:   getEnvInt("WEBSOCKET_TIMEOUT_MS", 5000),
-		WebSocket_ReadBuffer:  getEnvInt("WEBSOCKET_READ_BUFFER", 1024),
-		WebSocket_WriteBuffer: getEnvInt("WEBSOCKET_WRITE_BUFFER", 1024),
-		webSocket_Port:        getEnv("WEBSOCKET_PORT", ":8080"),
+		WebSocketURL:         getEnv("WEBSOCKET_URL", "ws://localhost:8080/ws"),
+		WebSocketTimeoutMs:   getEnvInt("WEBSOCKET_TIMEOUT_MS", 5000),
+		WebSocketReadBuffer:  getEnvInt("WEBSOCKET_READ_BUFFER", 1024),
+		WebSocketWriteBuffer: getEnvInt("WEBSOCKET_WRITE_BUFFER", 1024),
+		WebSocketPort:        getEnv("WEBSOCKET_PORT", ":8080"),
 
-		Customer_DB_URL:          getEnv("PSQL_CUSTOMER_DB_URL", "postgres://user:password@localhost:5432/customer_db?sslmode=disable"),
-		Customer_DB_URL_Local:    getEnv("PSQL_CUSTOMER_DB_URL_LOCAL", "postgres://user:password@localhost:5432/customer_db?sslmode=disable"),
-		Customer_Service_Port:    getEnv("CUSTOMER_SERVICE_PORT", ":80"),
-		Customer_Write_Topic:     getEnv("CUSTOMER_WRITE_TOPIC", ""),
-		Customer_Read_Topics:     getEnvArray("CUSTOMER_READ_TOPICS", []string{}),
-		Customer_Group:           getEnv("CUSTOMER_GROUP", "CustomerEventGroup"),
-		Customer_Outbox_Interval: getEnvTimeDuration("CUSTOMER_OUTBOX_INTERVAL", (5 * time.Second)),
+		CustomerDBURL:          getEnv("PSQL_CUSTOMER_DB_URL", "postgres://user:password@localhost:5432/customer_db?sslmode=disable"),
+		CustomerDBURLLocal:     getEnv("PSQL_CUSTOMER_DB_URL_LOCAL", "postgres://user:password@localhost:5432/customer_db?sslmode=disable"),
+		CustomerServicePort:    getEnv("CUSTOMER_SERVICE_PORT", ":80"),
+		CustomerWriteTopic:     getEnv("CUSTOMER_WRITE_TOPIC", ""),
+		CustomerReadTopics:     getEnvArray("CUSTOMER_READ_TOPICS", []string{}),
+		CustomerGroup:          getEnv("CUSTOMER_GROUP", "CustomerEventGroup"),
+		CustomerOutboxInterval: getEnvTimeDuration("CUSTOMER_OUTBOX_INTERVAL", (5 * time.Second)),
 
 		// Populate CORS fields from env
 		CORSAllowedOrigins:   getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:4200"),
@@ -90,39 +91,17 @@ func getEnv(key, fallback string) string {
 func getEnvArray(key string, fallback []string) []string {
 	if value := os.Getenv(key); value != "" {
 		// Split the string by comma and trim spaces
-		parts := []string{}
-		for _, v := range splitAndTrim(value, ",") {
-			// Only append non-empty values
-			// This is a simple check, you might want to handle more complex cases
-			//logging.Info("Config: %s=%s", key, v)
-
-			if v != "" {
-				parts = append(parts, v)
+		var parts []string
+		for _, v := range strings.Split(value, ",") {
+			// Only append non-empty values after trimming
+			if trimmed := strings.TrimSpace(v); trimmed != "" {
+				parts = append(parts, trimmed)
 			}
 		}
 		logging.Debug("Config: %s=%v", key, parts)
 		return parts
 	}
 	return fallback
-}
-
-// splitAndTrim splits a string by sep and trims spaces from each element.
-func splitAndTrim(s, sep string) []string {
-	raw := []string{}
-	for _, part := range split(s, sep) {
-		raw = append(raw, trim(part))
-	}
-	return raw
-}
-
-// split splits a string by sep.
-func split(s, sep string) []string {
-	return strings.Split(s, sep)
-}
-
-// trim trims spaces from a string.
-func trim(s string) string {
-	return strings.TrimSpace(s)
 }
 
 func getEnvInt(key string, fallback int) int {
@@ -154,22 +133,22 @@ func getEnvBool(key string, fallback bool) bool {
 // Getters for the Websocket configuration
 
 func (c *Config) WebSocketEnabled() bool {
-	return c.webSocket_URL != ""
+	return c.WebSocketURL != ""
 }
-func (c *Config) WebSocketURL() string {
-	return c.webSocket_URL
+func (c *Config) GetWebSocketURL() string {
+	return c.WebSocketURL
 }
 func (c *Config) WebSocketTimeout() time.Duration {
-	return time.Duration(c.WebSocket_TimeoutMs) * time.Millisecond
+	return time.Duration(c.WebSocketTimeoutMs) * time.Millisecond
 }
 func (c *Config) WebSocketReadBufferSize() int {
-	return c.WebSocket_ReadBuffer
+	return c.WebSocketReadBuffer
 }
 func (c *Config) WebSocketWriteBufferSize() int {
-	return c.WebSocket_WriteBuffer
+	return c.WebSocketWriteBuffer
 }
-func (c *Config) WebSocketPort() string {
-	return c.webSocket_Port
+func (c *Config) GetWebSocketPort() string {
+	return c.WebSocketPort
 }
 
 // Getters for CORS configuration
@@ -202,43 +181,43 @@ func (c *Config) GetEventBroker() string {
 
 // Getters for event writer and reader Kafka topics
 func (c *Config) GetEventWriterWriteTopic() string {
-	return c.EventWriter_Write_Topic
+	return c.EventWriterWriteTopic
 }
 func (c *Config) GetEventWriterReadTopics() []string {
-	return c.EventWriter_Read_Topics
+	return c.EventWriterReadTopics
 }
 func (c *Config) GetEventWriterGroup() string {
-	return c.EventWriter_Group
+	return c.EventWriterGroup
 }
 func (c *Config) GetEventReaderWriteTopic() string {
-	return c.EventReader_Write_Topic
+	return c.EventReaderWriteTopic
 }
 func (c *Config) GetEventReaderReadTopics() []string {
-	return c.EventReader_Read_Topics
+	return c.EventReaderReadTopics
 }
 func (c *Config) GetEventReaderGroup() string {
-	return c.EventReader_Group
+	return c.EventReaderGroup
 }
 
 // Getters for Customer services
 func (c *Config) GetCustomerDBURL() string {
-	return c.Customer_DB_URL
+	return c.CustomerDBURL
 }
 func (c *Config) GetCustomerDBURLLocal() string {
-	return c.Customer_DB_URL_Local
+	return c.CustomerDBURLLocal
 }
 func (c *Config) GetCustomerServicePort() string {
-	return c.Customer_Service_Port
+	return c.CustomerServicePort
 }
 func (c *Config) GetCustomerWriteTopic() string {
-	return c.Customer_Write_Topic
+	return c.CustomerWriteTopic
 }
 func (c *Config) GetCustomerReadTopics() []string {
-	return c.Customer_Read_Topics
+	return c.CustomerReadTopics
 }
 func (c *Config) GetCustomerGroup() string {
-	return c.Customer_Group
+	return c.CustomerGroup
 }
 func (c *Config) GetCustomerOutboxInterval() time.Duration {
-	return c.Customer_Outbox_Interval
+	return c.CustomerOutboxInterval
 }

@@ -1,32 +1,52 @@
+// Package customer provides data access operations for customer entities.
+//
+// This package implements the repository pattern for customer domain objects,
+// handling database operations including CRUD operations, transactions, and
+// event publishing through the outbox pattern.
 package customer
 
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 
 	entity "go-shopping-poc/internal/entity/customer"
 	events "go-shopping-poc/internal/event/customer"
 	"go-shopping-poc/pkg/logging"
 	outbox "go-shopping-poc/pkg/outbox"
-
-	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
 )
 
-// CustomerRepository defines data access operations for customer entities.
+// Custom error types for different repository failure scenarios
+var (
+	ErrCustomerNotFound   = errors.New("customer not found")
+	ErrAddressNotFound    = errors.New("address not found")
+	ErrCreditCardNotFound = errors.New("credit card not found")
+	ErrInvalidUUID        = errors.New("invalid UUID format")
+	ErrDatabaseOperation  = errors.New("database operation failed")
+	ErrTransactionFailed  = errors.New("transaction failed")
+)
+
+// CustomerRepository defines the contract for customer data access operations.
 //
-// NOTE: Foreign Key Cascade Behavior:
-// - Deleting a customer will automatically delete all associated addresses and credit cards (ON DELETE CASCADE)
-// - Deleting an address or credit card will set the customer's default_*_id fields to NULL (ON DELETE SET NULL)
-// - These behaviors are enforced at the database level per the updated schema constraints
+// This interface abstracts database operations for customer entities,
+// providing a clean separation between business logic and data persistence.
+// All methods accept a context for proper request tracing and cancellation.
+//
+// Database Constraints:
+// - Deleting a customer cascades to addresses and credit cards (ON DELETE CASCADE)
+// - Deleting addresses/credit cards sets default_*_id fields to NULL (ON DELETE SET NULL)
+// - These behaviors are enforced at the database level per schema constraints
 type CustomerRepository interface {
 	InsertCustomer(ctx context.Context, customer *entity.Customer) error
 	GetCustomerByEmail(ctx context.Context, email string) (*entity.Customer, error)
 	GetCustomerByID(ctx context.Context, customerID string) (*entity.Customer, error)
 	UpdateCustomer(ctx context.Context, customer *entity.Customer) error
-	PatchCustomer(ctx context.Context, customerID string, patchData map[string]interface{}) error
+	PatchCustomer(ctx context.Context, customerID string, patchData *PatchCustomerRequest) error
 
 	AddAddress(ctx context.Context, customerID string, addr *entity.Address) (*entity.Address, error)
 	UpdateAddress(ctx context.Context, addressID string, addr *entity.Address) error
@@ -46,22 +66,119 @@ type CustomerRepository interface {
 	//DeleteCustomer(ctx context.Context, id uuid.UUID) error
 }
 
+// customerRepository implements CustomerRepository using PostgreSQL.
+//
+// This struct provides the concrete implementation of customer data access
+// operations using sqlx for database interactions and the outbox pattern
+// for reliable event publishing.
 type customerRepository struct {
 	db           *sqlx.DB
-	outboxWriter outbox.Writer // existing outbox writer
+	outboxWriter outbox.Writer
 }
 
+// NewCustomerRepository creates a new customer repository instance.
+//
+// Parameters:
+//   - db: Database connection for customer data operations
+//   - outbox: Writer for publishing domain events via the outbox pattern
+//
+// Returns a configured customer repository ready for use.
 func NewCustomerRepository(db *sqlx.DB, outbox outbox.Writer) *customerRepository {
 	return &customerRepository{db: db, outboxWriter: outbox}
 }
 
+// InsertCustomer creates a new customer record in the database.
+//
+// This method handles the complete customer creation process including:
+// - Setting default values for missing fields
+// - Inserting the customer record
+// - Loading and returning related data (addresses, credit cards, status history)
+//
+// The customer ID is generated automatically if not provided.
 func (r *customerRepository) InsertCustomer(ctx context.Context, customer *entity.Customer) error {
 	logging.Debug("Repository: Inserting new customer...")
 
+	// Prepare customer with defaults
+	r.PrepareCustomerDefaults(customer)
+
+	// Insert customer record and related data in a transaction
+	if err := r.insertCustomerWithRelations(ctx, customer); err != nil {
+		return fmt.Errorf("failed to insert customer with relations: %w", err)
+	}
+
+	return nil
+}
+
+// insertCustomerWithRelations handles the complete customer creation process
+func (r *customerRepository) insertCustomerWithRelations(ctx context.Context, customer *entity.Customer) error {
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Insert basic customer record
+	if err := r.insertCustomerRecordInTransaction(ctx, tx, customer); err != nil {
+		return err
+	}
+
+	customerID, err := uuid.Parse(customer.CustomerID)
+	if err != nil {
+		return fmt.Errorf("%w: invalid customer ID: %v", ErrInvalidUUID, err)
+	}
+
+	// Insert provided addresses
+	if len(customer.Addresses) > 0 {
+		if err := r.insertAddresses(ctx, tx, customer.Addresses, customerID); err != nil {
+			return err
+		}
+	}
+
+	// Insert provided credit cards
+	if len(customer.CreditCards) > 0 {
+		if err := r.insertCreditCards(ctx, tx, customer.CreditCards, customerID); err != nil {
+			return err
+		}
+	}
+
+	// Insert initial status history
+	initialStatus := []entity.CustomerStatus{{
+		CustomerID: customerID,
+		OldStatus:  "",
+		NewStatus:  customer.CustomerStatus,
+		ChangedAt:  customer.StatusDateTime,
+	}}
+	if err := r.insertStatusHistory(ctx, tx, initialStatus, customerID); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	// Load all data back to ensure consistency
+	if err := r.LoadCustomerRelations(ctx, customer); err != nil {
+		return fmt.Errorf("failed to load customer relations: %w", err)
+	}
+
+	return nil
+}
+
+// insertCustomerRecordInTransaction inserts customer record within a transaction
+func (r *customerRepository) insertCustomerRecordInTransaction(ctx context.Context, tx *sqlx.Tx, customer *entity.Customer) error {
+	customerQuery := `INSERT INTO customers.Customer (customer_id, user_name, email, first_name, last_name, phone, customer_since, customer_status, status_date_time) VALUES (:customer_id, :user_name, :email, :first_name, :last_name, :phone, :customer_since, :customer_status, :status_date_time)`
+
+	_, err := tx.NamedExecContext(ctx, customerQuery, customer)
+	if err != nil {
+		return fmt.Errorf("%w: failed to execute insert query: %v", ErrDatabaseOperation, err)
+	}
+	return nil
+}
+
+func (r *customerRepository) PrepareCustomerDefaults(customer *entity.Customer) {
 	newID := uuid.New()
 	customer.CustomerID = newID.String()
 
-	// Set default values if not provided
 	if customer.CustomerSince.IsZero() {
 		customer.CustomerSince = time.Now()
 	}
@@ -71,46 +188,52 @@ func (r *customerRepository) InsertCustomer(ctx context.Context, customer *entit
 	if customer.StatusDateTime.IsZero() {
 		customer.StatusDateTime = time.Now()
 	}
+}
 
-	// Insert customer first without default IDs to avoid foreign key constraint
+// InsertCustomerRecord inserts the customer record into the database
+func (r *customerRepository) InsertCustomerRecord(ctx context.Context, customer *entity.Customer) error {
 	customerQuery := `INSERT INTO customers.Customer (customer_id, user_name, email, first_name, last_name, phone, customer_since, customer_status, status_date_time) VALUES (:customer_id, :user_name, :email, :first_name, :last_name, :phone, :customer_since, :customer_status, :status_date_time)`
 
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer tx.Rollback()
 
 	_, err = tx.NamedExecContext(ctx, customerQuery, customer)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to execute insert query: %w", err)
 	}
 
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
+}
+
+// LoadCustomerRelations loads addresses, credit cards, and status history for the customer
+func (r *customerRepository) LoadCustomerRelations(ctx context.Context, customer *entity.Customer) error {
 	id, err := uuid.Parse(customer.CustomerID)
 	if err != nil {
-		return err
-	}
-
-	// Commit the insert before reading related data to ensure visibility
-	if err := tx.Commit(); err != nil {
-		return err
+		return fmt.Errorf("invalid customer ID: %w", err)
 	}
 
 	addresses, err := r.getAddressesByCustomerID(ctx, id)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to load addresses: %w", err)
 	}
 	customer.Addresses = addresses
 
 	creditCards, err := r.getCreditCardsByCustomerID(ctx, id)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to load credit cards: %w", err)
 	}
 	customer.CreditCards = creditCards
 
 	statusHistory, err := r.getStatusHistoryByCustomerID(ctx, id)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to load status history: %w", err)
 	}
 	customer.StatusHistory = statusHistory
 
@@ -122,7 +245,7 @@ func (r *customerRepository) GetCustomerByID(ctx context.Context, customerID str
 
 	id, err := uuid.Parse(customerID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %s: %v", ErrInvalidUUID, customerID, err)
 	}
 
 	query := `select * from customers.customer where customers.customer.customer_id = $1`
@@ -132,24 +255,24 @@ func (r *customerRepository) GetCustomerByID(ctx context.Context, customerID str
 			return nil, nil
 		}
 		logging.Error("Error fetching customer by ID: %v", err)
-		return nil, err
+		return nil, fmt.Errorf("%w: failed to fetch customer %s: %v", ErrDatabaseOperation, customerID, err)
 	}
 
 	addresses, err := r.getAddressesByCustomerID(ctx, id)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to load addresses for customer %s: %w", customerID, err)
 	}
 	customer.Addresses = addresses
 
 	creditCards, err := r.getCreditCardsByCustomerID(ctx, id)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to load credit cards for customer %s: %w", customerID, err)
 	}
 	customer.CreditCards = creditCards
 
 	statusHistory, err := r.getStatusHistoryByCustomerID(ctx, id)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to load status history for customer %s: %w", customerID, err)
 	}
 	customer.StatusHistory = statusHistory
 
@@ -166,29 +289,29 @@ func (r *customerRepository) GetCustomerByEmail(ctx context.Context, email strin
 			return nil, nil
 		}
 		logging.Error("Error fetching customer by email: %v", err)
-		return nil, err
+		return nil, fmt.Errorf("%w: failed to fetch customer by email %s: %v", ErrDatabaseOperation, email, err)
 	}
 
 	id, err := uuid.Parse(customer.CustomerID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: invalid customer ID %s: %v", ErrInvalidUUID, customer.CustomerID, err)
 	}
 
 	addresses, err := r.getAddressesByCustomerID(ctx, id)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to load addresses for customer %s: %w", email, err)
 	}
 	customer.Addresses = addresses
 
 	creditCards, err := r.getCreditCardsByCustomerID(ctx, id)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to load credit cards for customer %s: %w", email, err)
 	}
 	customer.CreditCards = creditCards
 
 	statusHistory, err := r.getStatusHistoryByCustomerID(ctx, id)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to load status history for customer %s: %w", email, err)
 	}
 	customer.StatusHistory = statusHistory
 
@@ -199,7 +322,7 @@ func (r *customerRepository) getAddressesByCustomerID(ctx context.Context, custo
 	query := `SELECT * FROM customers.Address WHERE customer_id = $1`
 	var addresses []entity.Address
 	if err := r.db.SelectContext(ctx, &addresses, query, customerID); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: failed to fetch addresses for customer %s: %v", ErrDatabaseOperation, customerID, err)
 	}
 	return addresses, nil
 }
@@ -208,7 +331,7 @@ func (r *customerRepository) getCreditCardsByCustomerID(ctx context.Context, cus
 	query := `SELECT * FROM customers.CreditCard WHERE customer_id = $1`
 	var creditCards []entity.CreditCard
 	if err := r.db.SelectContext(ctx, &creditCards, query, customerID); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: failed to fetch credit cards for customer %s: %v", ErrDatabaseOperation, customerID, err)
 	}
 	return creditCards, nil
 }
@@ -217,33 +340,77 @@ func (r *customerRepository) getStatusHistoryByCustomerID(ctx context.Context, c
 	query := `SELECT * FROM customers.CustomerStatusHistory WHERE customer_id = $1`
 	var statusHistory []entity.CustomerStatus
 	if err := r.db.SelectContext(ctx, &statusHistory, query, customerID); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: failed to fetch status history for customer %s: %v", ErrDatabaseOperation, customerID, err)
 	}
 	return statusHistory, nil
 }
 
+// UpdateCustomer performs a complete replacement of customer data (PUT semantics).
+//
+// This method replaces the entire customer record and all related data:
+// - Updates the main customer record
+// - Deletes and recreates all addresses
+// - Deletes and recreates all credit cards
+// - Deletes and recreates status history
+// - Publishes a customer updated event
+//
+// Use PatchCustomer for partial updates instead of complete replacement.
 func (r *customerRepository) UpdateCustomer(ctx context.Context, customer *entity.Customer) error {
 	logging.Debug("Repository: Updating customer (PUT - complete replace)...")
 
-	// PUT requires complete customer record - validate required fields
+	// Validate required fields
+	if err := r.validateCustomerForUpdate(customer); err != nil {
+		return err
+	}
+
+	// Parse customer ID
+	id, err := uuid.Parse(customer.CustomerID)
+	if err != nil {
+		return fmt.Errorf("%w: invalid customer ID %s: %v", ErrInvalidUUID, customer.CustomerID, err)
+	}
+
+	// Execute update in transaction
+	return r.executeCustomerUpdate(ctx, customer, id)
+}
+
+// validateCustomerForUpdate validates that required fields are present for a PUT update
+func (r *customerRepository) validateCustomerForUpdate(customer *entity.Customer) error {
 	if customer.CustomerID == "" || customer.Username == "" || customer.Email == "" {
 		return fmt.Errorf("PUT requires complete customer record with customer_id, username, and email")
 	}
+	return nil
+}
 
-	id, err := uuid.Parse(customer.CustomerID)
-	if err != nil {
-		return err
-	}
-
+// executeCustomerUpdate performs the actual database update within a transaction
+func (r *customerRepository) executeCustomerUpdate(ctx context.Context, customer *entity.Customer, id uuid.UUID) error {
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("%w: failed to begin transaction: %v", ErrTransactionFailed, err)
 	}
 	defer tx.Rollback()
 
-	// Update basic customer info
-	customerQuery := `UPDATE customers.Customer 
-		SET user_name = :user_name, email = :email, first_name = :first_name, 
+	// Update customer record
+	if err := r.updateCustomerRecord(ctx, tx, customer); err != nil {
+		return err
+	}
+
+	// Replace related records
+	if err := r.replaceCustomerRelations(ctx, tx, customer, id); err != nil {
+		return err
+	}
+
+	// Publish event and commit
+	if err := r.publishCustomerUpdateEvent(ctx, tx, customer); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+// updateCustomerRecord updates the main customer record
+func (r *customerRepository) updateCustomerRecord(ctx context.Context, tx *sqlx.Tx, customer *entity.Customer) error {
+	customerQuery := `UPDATE customers.Customer
+		SET user_name = :user_name, email = :email, first_name = :first_name,
 		last_name = :last_name, phone = :phone, customer_since = :customer_since,
 		customer_status = :customer_status, status_date_time = :status_date_time,
 		default_shipping_address_id = :default_shipping_address_id,
@@ -253,28 +420,71 @@ func (r *customerRepository) UpdateCustomer(ctx context.Context, customer *entit
 
 	result, err := tx.NamedExecContext(ctx, customerQuery, customer)
 	if err != nil {
-		return err
+		return fmt.Errorf("%w: failed to update customer record: %v", ErrDatabaseOperation, err)
 	}
+
 	rows, err := result.RowsAffected()
 	if err != nil {
-		return err
+		return fmt.Errorf("%w: failed to get rows affected: %v", ErrDatabaseOperation, err)
 	}
 	if rows == 0 {
-		return fmt.Errorf("customer not found: %s", customer.CustomerID)
+		return fmt.Errorf("%w: customer not found: %s", ErrCustomerNotFound, customer.CustomerID)
 	}
 
-	// Delete existing addresses and credit cards
-	if _, err := tx.ExecContext(ctx, `DELETE FROM customers.Address WHERE customer_id = $1`, id); err != nil {
-		return err
-	}
-	if _, err := tx.ExecContext(ctx, `DELETE FROM customers.CreditCard WHERE customer_id = $1`, id); err != nil {
-		return err
-	}
-	if _, err := tx.ExecContext(ctx, `DELETE FROM customers.CustomerStatusHistory WHERE customer_id = $1`, id); err != nil {
+	return nil
+}
+
+// replaceCustomerRelations replaces all addresses, credit cards, and status history
+func (r *customerRepository) replaceCustomerRelations(ctx context.Context, tx *sqlx.Tx, customer *entity.Customer, id uuid.UUID) error {
+	// Delete existing relations
+	if err := r.deleteExistingRelations(ctx, tx, id); err != nil {
 		return err
 	}
 
-	// Insert new addresses
+	// Insert new relations
+	if err := r.insertNewRelations(ctx, tx, customer, id); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// deleteExistingRelations removes all existing related records
+func (r *customerRepository) deleteExistingRelations(ctx context.Context, tx *sqlx.Tx, customerID uuid.UUID) error {
+	queries := []string{
+		`DELETE FROM customers.Address WHERE customer_id = $1`,
+		`DELETE FROM customers.CreditCard WHERE customer_id = $1`,
+		`DELETE FROM customers.CustomerStatusHistory WHERE customer_id = $1`,
+	}
+
+	for _, query := range queries {
+		if _, err := tx.ExecContext(ctx, query, customerID); err != nil {
+			return fmt.Errorf("%w: failed to delete existing relations: %v", ErrDatabaseOperation, err)
+		}
+	}
+
+	return nil
+}
+
+// insertNewRelations inserts new addresses, credit cards, and status history
+func (r *customerRepository) insertNewRelations(ctx context.Context, tx *sqlx.Tx, customer *entity.Customer, id uuid.UUID) error {
+	if err := r.insertAddresses(ctx, tx, customer.Addresses, id); err != nil {
+		return err
+	}
+
+	if err := r.insertCreditCards(ctx, tx, customer.CreditCards, id); err != nil {
+		return err
+	}
+
+	if err := r.insertStatusHistory(ctx, tx, customer.StatusHistory, id); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// insertAddresses inserts new address records
+func (r *customerRepository) insertAddresses(ctx context.Context, tx *sqlx.Tx, addresses []entity.Address, customerID uuid.UUID) error {
 	addressQuery := `INSERT INTO customers.Address (
 		address_id, customer_id, address_type, first_name, last_name,
 		address_1, address_2, city, state, zip
@@ -282,15 +492,20 @@ func (r *customerRepository) UpdateCustomer(ctx context.Context, customer *entit
 		:address_id, :customer_id, :address_type, :first_name, :last_name,
 		:address_1, :address_2, :city, :state, :zip
 	)`
-	for i := range customer.Addresses {
-		customer.Addresses[i].CustomerID = id
-		customer.Addresses[i].AddressID = uuid.New()
-		if _, err := tx.NamedExecContext(ctx, addressQuery, &customer.Addresses[i]); err != nil {
-			return err
+
+	for i := range addresses {
+		addresses[i].CustomerID = customerID
+		addresses[i].AddressID = uuid.New()
+		if _, err := tx.NamedExecContext(ctx, addressQuery, &addresses[i]); err != nil {
+			return fmt.Errorf("%w: failed to insert address: %v", ErrDatabaseOperation, err)
 		}
 	}
 
-	// Insert new credit cards
+	return nil
+}
+
+// insertCreditCards inserts new credit card records
+func (r *customerRepository) insertCreditCards(ctx context.Context, tx *sqlx.Tx, cards []entity.CreditCard, customerID uuid.UUID) error {
 	cardQuery := `INSERT INTO customers.CreditCard (
 		card_id, customer_id, card_type, card_number, card_holder_name,
 		card_expires, card_cvv
@@ -298,40 +513,56 @@ func (r *customerRepository) UpdateCustomer(ctx context.Context, customer *entit
 		:card_id, :customer_id, :card_type, :card_number, :card_holder_name,
 		:card_expires, :card_cvv
 	)`
-	for i := range customer.CreditCards {
-		customer.CreditCards[i].CustomerID = id
-		customer.CreditCards[i].CardID = uuid.New()
-		if _, err := tx.NamedExecContext(ctx, cardQuery, &customer.CreditCards[i]); err != nil {
-			return err
+
+	for i := range cards {
+		cards[i].CustomerID = customerID
+		cards[i].CardID = uuid.New()
+		if _, err := tx.NamedExecContext(ctx, cardQuery, &cards[i]); err != nil {
+			return fmt.Errorf("%w: failed to insert credit card: %v", ErrDatabaseOperation, err)
 		}
 	}
 
-	// Insert status history
+	return nil
+}
+
+// insertStatusHistory inserts new status history records
+func (r *customerRepository) insertStatusHistory(ctx context.Context, tx *sqlx.Tx, history []entity.CustomerStatus, customerID uuid.UUID) error {
 	statusQuery := `INSERT INTO customers.CustomerStatusHistory (
 		customer_id, old_status, new_status, changed_at
 	) VALUES (
 		:customer_id, :old_status, :new_status, :changed_at
 	)`
-	for _, status := range customer.StatusHistory {
-		status.CustomerID = id
+
+	for _, status := range history {
+		status.CustomerID = customerID
 		if status.ChangedAt.IsZero() {
 			status.ChangedAt = time.Now()
 		}
 		if _, err := tx.NamedExecContext(ctx, statusQuery, status); err != nil {
-			return err
+			return fmt.Errorf("%w: failed to insert status history: %v", ErrDatabaseOperation, err)
 		}
 	}
 
-	// Publish event
-	customerEvent := events.NewCustomerUpdatedEvent(customer.CustomerID, nil)
-	if err := r.outboxWriter.WriteEvent(ctx, tx, customerEvent); err != nil {
-		return err
-	}
-
-	return tx.Commit()
+	return nil
 }
 
-func (r *customerRepository) PatchCustomer(ctx context.Context, customerID string, patchData map[string]interface{}) error {
+// publishCustomerUpdateEvent publishes the customer update event
+func (r *customerRepository) publishCustomerUpdateEvent(ctx context.Context, tx *sqlx.Tx, customer *entity.Customer) error {
+	customerEvent := events.NewCustomerUpdatedEvent(customer.CustomerID, nil)
+	if err := r.outboxWriter.WriteEvent(ctx, tx, customerEvent); err != nil {
+		return fmt.Errorf("failed to publish customer update event: %w", err)
+	}
+	return nil
+}
+
+// PatchCustomer applies partial updates to customer data (PATCH semantics).
+//
+// This method allows selective updates to customer fields without replacing
+// the entire record. It supports updating basic fields, default addresses/cards,
+// and replacing addresses/credit cards arrays.
+//
+// Only non-nil fields in patchData will be updated.
+func (r *customerRepository) PatchCustomer(ctx context.Context, customerID string, patchData *PatchCustomerRequest) error {
 	logging.Debug("Repository: Patching customer %s", customerID)
 
 	// Get existing customer first
@@ -346,94 +577,88 @@ func (r *customerRepository) PatchCustomer(ctx context.Context, customerID strin
 	// Apply patch data to existing customer
 	updated := *existing
 
-	for field, value := range patchData {
-		switch field {
-		case "user_name":
-			if str, ok := value.(string); ok {
-				updated.Username = str
-			}
-		case "email":
-			if str, ok := value.(string); ok {
-				updated.Email = str
-			}
-		case "first_name":
-			if str, ok := value.(string); ok {
-				updated.FirstName = str
-			}
-		case "last_name":
-			if str, ok := value.(string); ok {
-				updated.LastName = str
-			}
-		case "phone":
-			if str, ok := value.(string); ok {
-				updated.Phone = str
-			}
-		case "customer_status":
-			if str, ok := value.(string); ok {
-				updated.CustomerStatus = str
-			}
-		case "default_shipping_address_id":
-			if str, ok := value.(string); ok && str != "" {
-				if uuid, err := uuid.Parse(str); err == nil {
-					updated.DefaultShippingAddressID = &uuid
-				}
-			} else if str == "" {
-				updated.DefaultShippingAddressID = nil
-			}
-		case "default_billing_address_id":
-			if str, ok := value.(string); ok && str != "" {
-				if uuid, err := uuid.Parse(str); err == nil {
-					updated.DefaultBillingAddressID = &uuid
-				}
-			} else if str == "" {
-				updated.DefaultBillingAddressID = nil
-			}
-		case "default_credit_card_id":
-			if str, ok := value.(string); ok && str != "" {
-				if uuid, err := uuid.Parse(str); err == nil {
-					updated.DefaultCreditCardID = &uuid
-				}
-			} else if str == "" {
-				updated.DefaultCreditCardID = nil
-			}
-		case "addresses":
-			if addresses, ok := value.([]interface{}); ok {
-				var addrList []entity.Address
-				for _, addrInterface := range addresses {
-					if addrMap, ok := addrInterface.(map[string]interface{}); ok {
-						addr := entity.Address{
-							AddressType: getString(addrMap, "address_type"),
-							FirstName:   getString(addrMap, "first_name"),
-							LastName:    getString(addrMap, "last_name"),
-							Address1:    getString(addrMap, "address_1"),
-							Address2:    getString(addrMap, "address_2"),
-							City:        getString(addrMap, "city"),
-							State:       getString(addrMap, "state"),
-							Zip:         getString(addrMap, "zip"),
-						}
-						addrList = append(addrList, addr)
-					}
-				}
-				updated.Addresses = addrList
-			}
-		case "credit_cards":
-			if cards, ok := value.([]interface{}); ok {
-				var cardList []entity.CreditCard
-				for _, cardInterface := range cards {
-					if cardMap, ok := cardInterface.(map[string]interface{}); ok {
-						card := entity.CreditCard{
-							CardType:       getString(cardMap, "card_type"),
-							CardNumber:     getString(cardMap, "card_number"),
-							CardHolderName: getString(cardMap, "card_holder_name"),
-							CardExpires:    getString(cardMap, "card_expires"),
-							CardCVV:        getString(cardMap, "card_cvv"),
-						}
-						cardList = append(cardList, card)
-					}
-				}
-				updated.CreditCards = cardList
+	// Apply basic field updates
+	if patchData.UserName != nil {
+		updated.Username = *patchData.UserName
+	}
+	if patchData.Email != nil {
+		updated.Email = *patchData.Email
+	}
+	if patchData.FirstName != nil {
+		updated.FirstName = *patchData.FirstName
+	}
+	if patchData.LastName != nil {
+		updated.LastName = *patchData.LastName
+	}
+	if patchData.Phone != nil {
+		updated.Phone = *patchData.Phone
+	}
+	if patchData.CustomerStatus != nil {
+		updated.CustomerStatus = *patchData.CustomerStatus
+	}
+
+	// Handle UUID pointer fields
+	if patchData.DefaultShippingAddressID != nil {
+		if *patchData.DefaultShippingAddressID == "" {
+			updated.DefaultShippingAddressID = nil
+		} else {
+			if uuid, err := uuid.Parse(*patchData.DefaultShippingAddressID); err == nil {
+				updated.DefaultShippingAddressID = &uuid
 			}
 		}
+	}
+	if patchData.DefaultBillingAddressID != nil {
+		if *patchData.DefaultBillingAddressID == "" {
+			updated.DefaultBillingAddressID = nil
+		} else {
+			if uuid, err := uuid.Parse(*patchData.DefaultBillingAddressID); err == nil {
+				updated.DefaultBillingAddressID = &uuid
+			}
+		}
+	}
+	if patchData.DefaultCreditCardID != nil {
+		if *patchData.DefaultCreditCardID == "" {
+			updated.DefaultCreditCardID = nil
+		} else {
+			if uuid, err := uuid.Parse(*patchData.DefaultCreditCardID); err == nil {
+				updated.DefaultCreditCardID = &uuid
+			}
+		}
+	}
+
+	// Handle addresses if provided
+	if patchData.Addresses != nil {
+		var addrList []entity.Address
+		for _, patchAddr := range patchData.Addresses {
+			addr := entity.Address{
+				AddressType: patchAddr.AddressType,
+				FirstName:   patchAddr.FirstName,
+				LastName:    patchAddr.LastName,
+				Address1:    patchAddr.Address1,
+				Address2:    patchAddr.Address2,
+				City:        patchAddr.City,
+				State:       patchAddr.State,
+				Zip:         patchAddr.Zip,
+			}
+			addrList = append(addrList, addr)
+		}
+		updated.Addresses = addrList
+	}
+
+	// Handle credit cards if provided
+	if patchData.CreditCards != nil {
+		var cardList []entity.CreditCard
+		for _, patchCard := range patchData.CreditCards {
+			card := entity.CreditCard{
+				CardType:       patchCard.CardType,
+				CardNumber:     patchCard.CardNumber,
+				CardHolderName: patchCard.CardHolderName,
+				CardExpires:    patchCard.CardExpires,
+				CardCVV:        patchCard.CardCVV,
+			}
+			cardList = append(cardList, card)
+		}
+		updated.CreditCards = cardList
 	}
 
 	return r.UpdateCustomer(ctx, &updated)
