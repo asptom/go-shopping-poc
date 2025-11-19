@@ -43,6 +43,13 @@ func (h *CustomerHandler) UpdateCustomer(w http.ResponseWriter, r *http.Request)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+
+	// PUT requires complete customer record - validate required fields
+	if customer.CustomerID == "" || customer.Username == "" || customer.Email == "" {
+		http.Error(w, "PUT requires complete customer record with customer_id, username, and email", http.StatusBadRequest)
+		return
+	}
+
 	if err := h.service.UpdateCustomer(context.Background(), &customer); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -50,6 +57,44 @@ func (h *CustomerHandler) UpdateCustomer(w http.ResponseWriter, r *http.Request)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(customer); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+func (h *CustomerHandler) PatchCustomer(w http.ResponseWriter, r *http.Request) {
+	var patchData map[string]interface{}
+	if err := json.NewDecoder(r.Body).Decode(&patchData); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Extract customer_id from path
+	customerID := chi.URLParam(r, "id")
+	if customerID == "" {
+		http.Error(w, "missing customer_id in path", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.service.PatchCustomer(context.Background(), customerID, patchData); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Return updated customer
+	updated, err := h.service.GetCustomerByID(context.Background(), customerID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if updated == nil {
+		http.Error(w, "customer not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(updated); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -215,6 +260,105 @@ func (h *CustomerHandler) DeleteCreditCard(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	if err := h.service.DeleteCreditCard(r.Context(), cardId); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// SetDefaultShippingAddress - PUT /customers/{id}/default-shipping-address/{addressId}
+func (h *CustomerHandler) SetDefaultShippingAddress(w http.ResponseWriter, r *http.Request) {
+	customerID := chi.URLParam(r, "id")
+	if customerID == "" {
+		http.Error(w, "missing customer id", http.StatusBadRequest)
+		return
+	}
+	addressID := chi.URLParam(r, "addressId")
+	if addressID == "" {
+		http.Error(w, "missing address id", http.StatusBadRequest)
+		return
+	}
+	if err := h.service.SetDefaultShippingAddress(r.Context(), customerID, addressID); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// SetDefaultBillingAddress - PUT /customers/{id}/default-billing-address/{addressId}
+func (h *CustomerHandler) SetDefaultBillingAddress(w http.ResponseWriter, r *http.Request) {
+	customerID := chi.URLParam(r, "id")
+	if customerID == "" {
+		http.Error(w, "missing customer id", http.StatusBadRequest)
+		return
+	}
+	addressID := chi.URLParam(r, "addressId")
+	if addressID == "" {
+		http.Error(w, "missing address id", http.StatusBadRequest)
+		return
+	}
+	if err := h.service.SetDefaultBillingAddress(r.Context(), customerID, addressID); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// SetDefaultCreditCard - PUT /customers/{id}/default-credit-card/{cardId}
+func (h *CustomerHandler) SetDefaultCreditCard(w http.ResponseWriter, r *http.Request) {
+	customerID := chi.URLParam(r, "id")
+	if customerID == "" {
+		http.Error(w, "missing customer id", http.StatusBadRequest)
+		return
+	}
+	cardID := chi.URLParam(r, "cardId")
+	if cardID == "" {
+		http.Error(w, "missing card id", http.StatusBadRequest)
+		return
+	}
+	if err := h.service.SetDefaultCreditCard(r.Context(), customerID, cardID); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// ClearDefaultShippingAddress - DELETE /customers/{id}/default-shipping-address
+func (h *CustomerHandler) ClearDefaultShippingAddress(w http.ResponseWriter, r *http.Request) {
+	customerID := chi.URLParam(r, "id")
+	if customerID == "" {
+		http.Error(w, "missing customer id", http.StatusBadRequest)
+		return
+	}
+	if err := h.service.ClearDefaultShippingAddress(r.Context(), customerID); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// ClearDefaultBillingAddress - DELETE /customers/{id}/default-billing-address
+func (h *CustomerHandler) ClearDefaultBillingAddress(w http.ResponseWriter, r *http.Request) {
+	customerID := chi.URLParam(r, "id")
+	if customerID == "" {
+		http.Error(w, "missing customer id", http.StatusBadRequest)
+		return
+	}
+	if err := h.service.ClearDefaultBillingAddress(r.Context(), customerID); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// ClearDefaultCreditCard - DELETE /customers/{id}/default-credit-card
+func (h *CustomerHandler) ClearDefaultCreditCard(w http.ResponseWriter, r *http.Request) {
+	customerID := chi.URLParam(r, "id")
+	if customerID == "" {
+		http.Error(w, "missing customer id", http.StatusBadRequest)
+		return
+	}
+	if err := h.service.ClearDefaultCreditCard(r.Context(), customerID); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

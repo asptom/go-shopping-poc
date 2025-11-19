@@ -9,15 +9,21 @@ import (
 // Customer represents a logical customer entity in the system.
 
 type Customer struct {
-	CustomerID  string           `json:"customer_id" db:"customer_id"` // UUID as string
-	Username    string           `json:"user_name" db:"user_name"`
-	Email       string           `json:"email,omitempty" db:"email"`
-	FirstName   string           `json:"first_name,omitempty" db:"first_name"`
-	LastName    string           `json:"last_name,omitempty" db:"last_name"`
-	Phone       string           `json:"phone,omitempty" db:"phone"`
-	Addresses   []Address        `json:"addresses,omitempty"`
-	CreditCards []CreditCard     `json:"credit_cards,omitempty"`
-	Statuses    []CustomerStatus `json:"customer_statuses,omitempty"`
+	CustomerID               string           `json:"customer_id" db:"customer_id"` // UUID as string
+	Username                 string           `json:"user_name" db:"user_name"`
+	Email                    string           `json:"email,omitempty" db:"email"`
+	FirstName                string           `json:"first_name,omitempty" db:"first_name"`
+	LastName                 string           `json:"last_name,omitempty" db:"last_name"`
+	Phone                    string           `json:"phone,omitempty" db:"phone"`
+	DefaultShippingAddressID *uuid.UUID       `json:"default_shipping_address_id,omitempty" db:"default_shipping_address_id"`
+	DefaultBillingAddressID  *uuid.UUID       `json:"default_billing_address_id,omitempty" db:"default_billing_address_id"`
+	DefaultCreditCardID      *uuid.UUID       `json:"default_credit_card_id,omitempty" db:"default_credit_card_id"`
+	CustomerSince            time.Time        `json:"customer_since" db:"customer_since"`
+	CustomerStatus           string           `json:"customer_status" db:"customer_status"`
+	StatusDateTime           time.Time        `json:"status_date_time" db:"status_date_time"`
+	Addresses                []Address        `json:"addresses,omitempty"`
+	CreditCards              []CreditCard     `json:"credit_cards,omitempty"`
+	StatusHistory            []CustomerStatus `json:"status_history,omitempty"`
 }
 
 type CustomerBase struct {
@@ -40,7 +46,6 @@ type Address struct {
 	City        string    `json:"city" db:"city"`
 	State       string    `json:"state" db:"state"`
 	Zip         string    `json:"zip" db:"zip"`
-	IsDefault   bool      `json:"is_default" db:"is_default"`
 }
 
 type CreditCard struct {
@@ -51,12 +56,12 @@ type CreditCard struct {
 	CardHolderName string    `json:"card_holder_name" db:"card_holder_name"`
 	CardExpires    string    `json:"card_expires" db:"card_expires"`
 	CardCVV        string    `json:"card_cvv" db:"card_cvv"`
-	IsDefault      bool      `json:"is_default" db:"is_default"`
 }
 
 type CustomerStatus struct {
-	ID             int64     `json:"-" db:"id"`
-	CustomerID     uuid.UUID `json:"-" db:"customer_id"`
-	CustomerStatus string    `json:"customer_status" db:"customer_status"`
-	StatusDateTime time.Time `json:"status_date_time" db:"status_date_time"` // RFC3339 string
+	ID         int64     `json:"-" db:"id"`
+	CustomerID uuid.UUID `json:"-" db:"customer_id"`
+	OldStatus  string    `json:"old_status" db:"old_status"`
+	NewStatus  string    `json:"new_status" db:"new_status"`
+	ChangedAt  time.Time `json:"changed_at" db:"changed_at"` // RFC3339 string
 }

@@ -30,6 +30,10 @@ const (
 	CardAdded   EventType = "card.add"
 	CardUpdated EventType = "card.update"
 	CardDeleted EventType = "card.delete"
+
+	DefaultShippingAddressChanged EventType = "default.shipping_address.changed"
+	DefaultBillingAddressChanged  EventType = "default.billing_address.changed"
+	DefaultCreditCardChanged      EventType = "default.credit_card.changed"
 )
 
 // CustomerEventPayload represents the data structure for customer events
@@ -114,4 +118,16 @@ func NewCardUpdatedEvent(customerID, cardID string, details map[string]string) *
 
 func NewCardDeletedEvent(customerID, cardID string, details map[string]string) *CustomerEvent {
 	return NewCustomerEvent(customerID, CardDeleted, cardID, details)
+}
+
+func NewDefaultShippingAddressChangedEvent(customerID, addressID string, details map[string]string) *CustomerEvent {
+	return NewCustomerEvent(customerID, DefaultShippingAddressChanged, addressID, details)
+}
+
+func NewDefaultBillingAddressChangedEvent(customerID, addressID string, details map[string]string) *CustomerEvent {
+	return NewCustomerEvent(customerID, DefaultBillingAddressChanged, addressID, details)
+}
+
+func NewDefaultCreditCardChangedEvent(customerID, cardID string, details map[string]string) *CustomerEvent {
+	return NewCustomerEvent(customerID, DefaultCreditCardChanged, cardID, details)
 }

@@ -28,6 +28,7 @@ type Config struct {
 	webSocket_Port        string
 
 	Customer_DB_URL          string
+	Customer_DB_URL_Local    string
 	Customer_Service_Port    string
 	Customer_Write_Topic     string
 	Customer_Read_Topics     []string
@@ -63,6 +64,7 @@ func Load(envFile string) *Config {
 		webSocket_Port:        getEnv("WEBSOCKET_PORT", ":8080"),
 
 		Customer_DB_URL:          getEnv("PSQL_CUSTOMER_DB_URL", "postgres://user:password@localhost:5432/customer_db?sslmode=disable"),
+		Customer_DB_URL_Local:    getEnv("PSQL_CUSTOMER_DB_URL_LOCAL", "postgres://user:password@localhost:5432/customer_db?sslmode=disable"),
 		Customer_Service_Port:    getEnv("CUSTOMER_SERVICE_PORT", ":80"),
 		Customer_Write_Topic:     getEnv("CUSTOMER_WRITE_TOPIC", ""),
 		Customer_Read_Topics:     getEnvArray("CUSTOMER_READ_TOPICS", []string{}),
@@ -221,6 +223,9 @@ func (c *Config) GetEventReaderGroup() string {
 // Getters for Customer services
 func (c *Config) GetCustomerDBURL() string {
 	return c.Customer_DB_URL
+}
+func (c *Config) GetCustomerDBURLLocal() string {
+	return c.Customer_DB_URL_Local
 }
 func (c *Config) GetCustomerServicePort() string {
 	return c.Customer_Service_Port

@@ -74,6 +74,7 @@ func main() {
 	router.Post("/customers", handler.CreateCustomer)
 	router.Get("/customers/{email}", handler.GetCustomerByEmailPath)
 	router.Put("/customers", handler.UpdateCustomer)
+	router.Patch("/customers/{id}", handler.PatchCustomer)
 
 	// Address endpoints
 	router.Post("/customers/{id}/addresses", handler.AddAddress)
@@ -84,6 +85,16 @@ func main() {
 	router.Post("/customers/{id}/credit-cards", handler.AddCreditCard)
 	router.Put("/customers/credit-cards/{cardId}", handler.UpdateCreditCard)
 	router.Delete("/customers/credit-cards/{cardId}", handler.DeleteCreditCard)
+
+	// Default address endpoints
+	router.Put("/customers/{id}/default-shipping-address/{addressId}", handler.SetDefaultShippingAddress)
+	router.Put("/customers/{id}/default-billing-address/{addressId}", handler.SetDefaultBillingAddress)
+	router.Delete("/customers/{id}/default-shipping-address", handler.ClearDefaultShippingAddress)
+	router.Delete("/customers/{id}/default-billing-address", handler.ClearDefaultBillingAddress)
+
+	// Default credit card endpoints
+	router.Put("/customers/{id}/default-credit-card/{cardId}", handler.SetDefaultCreditCard)
+	router.Delete("/customers/{id}/default-credit-card", handler.ClearDefaultCreditCard)
 
 	// Start HTTP server (listen on 80; Traefik will terminate TLS)
 	serverAddr := cfg.GetCustomerServicePort()
