@@ -28,11 +28,32 @@ func LoadTestConfig() *config.Config {
 func SetupTestDB(t *testing.T) *sqlx.DB {
 	t.Helper()
 
+	// Get current working directory for debugging
+	cwd, _ := os.Getwd()
+	t.Logf("Test working directory: %s", cwd)
+
 	cfg := LoadTestConfig()
+	envFile := config.ResolveEnvFile()
+	t.Logf("Resolved env file path: %s", envFile)
+	t.Logf("CustomerDBURLLocal from config: %s", cfg.GetCustomerDBURLLocal())
+
+	// Check if env file exists
+	if _, err := os.Stat(envFile); os.IsNotExist(err) {
+		t.Logf("WARNING: Env file %s does not exist", envFile)
+	} else {
+		t.Logf("Env file %s exists", envFile)
+	}
+
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" && cfg.GetCustomerDBURLLocal() != "" {
 		dbURL = cfg.GetCustomerDBURLLocal()
+		t.Logf("Using database URL from config: %s", dbURL)
+	} else if dbURL != "" {
+		t.Logf("Using DATABASE_URL environment variable: %s", dbURL)
+	} else {
+		t.Logf("No database URL available")
 	}
+
 	db, err := sqlx.Connect("pgx", dbURL)
 	if err != nil {
 		t.Skipf("Skipping test, database not available: %v", err)

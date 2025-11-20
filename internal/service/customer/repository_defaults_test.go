@@ -1,3 +1,25 @@
+/*
+Package customer_test provides comprehensive testing for customer repository default field operations.
+
+This file focuses on dedicated default field management endpoints and includes:
+- Default address management (shipping/billing)
+- Default credit card management
+- Service layer integration testing
+- Error handling for invalid inputs
+- Integration tests for customer creation with relations
+
+Test Categories:
+1. Default Address Management - Setting and clearing default shipping/billing addresses
+2. Default Credit Card Management - Setting and clearing default credit cards
+3. Service Layer Integration - Testing service methods that delegate to repository
+4. Error Handling - Invalid UUIDs, non-existent customers
+5. Integration Tests - Full customer creation with addresses and credit cards
+
+Important Notes:
+- All tests require database setup and use testutils for consistent test data
+- Default operations are tested both individually and through service layer
+- Error cases verify proper validation and error propagation
+*/
 package customer
 
 import (
@@ -12,6 +34,8 @@ import (
 	outbox "go-shopping-poc/pkg/outbox"
 	"go-shopping-poc/pkg/testutils"
 )
+
+// ===== SETUP & HELPERS =====
 
 // setupTestDB creates a test database connection
 func setupTestDB(t *testing.T) *sqlx.DB {
@@ -36,7 +60,7 @@ func createTestCreditCard(t *testing.T, db *sqlx.DB, customerID string) string {
 		t.Fatalf("Invalid customer ID: %v", err)
 	}
 
-	query := `INSERT INTO customers.CreditCard (card_id, customer_id, card_type, card_number, card_holder_name, card_expires, card_cvv) 
+	query := `INSERT INTO customers.CreditCard (card_id, customer_id, card_type, card_number, card_holder_name, card_expires, card_cvv)
 	          VALUES ($1, $2, $3, $4, $5, $6, $7)`
 
 	_, err = db.Exec(query, cardID, custUUID, "visa", "4111111111111111", "Test User", "12/25", "123")
@@ -47,11 +71,16 @@ func createTestCreditCard(t *testing.T, db *sqlx.DB, customerID string) string {
 	return cardID.String()
 }
 
-func TestUpdateDefaultShippingAddress(t *testing.T) {
+// ===== DEFAULT ADDRESS MANAGEMENT =====
+
+// TestDefaultShippingAddress_Set verifies setting a default shipping address for a customer.
+//
+// Business Scenario: Customer selects one of their addresses as the default for shipping
+// Expected: Default shipping address ID is stored in customer record
+func TestDefaultShippingAddress_Set(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	// Create mock outbox writer (nil for testing)
 	repo := NewCustomerRepository(db, outbox.Writer{})
 	ctx := context.Background()
 
@@ -83,7 +112,11 @@ func TestUpdateDefaultShippingAddress(t *testing.T) {
 	}
 }
 
-func TestUpdateDefaultBillingAddress(t *testing.T) {
+// TestDefaultBillingAddress_Set verifies setting a default billing address for a customer.
+//
+// Business Scenario: Customer selects one of their addresses as the default for billing
+// Expected: Default billing address ID is stored in customer record
+func TestDefaultBillingAddress_Set(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
@@ -118,7 +151,13 @@ func TestUpdateDefaultBillingAddress(t *testing.T) {
 	}
 }
 
-func TestUpdateDefaultCreditCard(t *testing.T) {
+// ===== DEFAULT CREDIT CARD MANAGEMENT =====
+
+// TestDefaultCreditCard_Set verifies setting a default credit card for a customer.
+//
+// Business Scenario: Customer selects one of their credit cards as the default for payments
+// Expected: Default credit card ID is stored in customer record
+func TestDefaultCreditCard_Set(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
@@ -153,7 +192,11 @@ func TestUpdateDefaultCreditCard(t *testing.T) {
 	}
 }
 
-func TestClearDefaultShippingAddress(t *testing.T) {
+// TestDefaultShippingAddress_Clear verifies clearing a default shipping address for a customer.
+//
+// Business Scenario: Customer removes their default shipping address selection
+// Expected: Default shipping address ID is set to NULL in customer record
+func TestDefaultShippingAddress_Clear(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
@@ -189,7 +232,11 @@ func TestClearDefaultShippingAddress(t *testing.T) {
 	}
 }
 
-func TestClearDefaultBillingAddress(t *testing.T) {
+// TestDefaultBillingAddress_Clear verifies clearing a default billing address for a customer.
+//
+// Business Scenario: Customer removes their default billing address selection
+// Expected: Default billing address ID is set to NULL in customer record
+func TestDefaultBillingAddress_Clear(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
@@ -225,7 +272,11 @@ func TestClearDefaultBillingAddress(t *testing.T) {
 	}
 }
 
-func TestClearDefaultCreditCard(t *testing.T) {
+// TestDefaultCreditCard_Clear verifies clearing a default credit card for a customer.
+//
+// Business Scenario: Customer removes their default credit card selection
+// Expected: Default credit card ID is set to NULL in customer record
+func TestDefaultCreditCard_Clear(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
@@ -261,7 +312,13 @@ func TestClearDefaultCreditCard(t *testing.T) {
 	}
 }
 
-func TestServiceLayerDefaultMethods(t *testing.T) {
+// ===== SERVICE LAYER INTEGRATION =====
+
+// TestServiceLayer_DefaultMethods verifies that service layer methods correctly delegate to repository.
+//
+// Business Scenario: Service layer provides high-level API that delegates to repository operations
+// Expected: Service methods work correctly and maintain data integrity
+func TestServiceLayer_DefaultMethods(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
@@ -292,7 +349,13 @@ func TestServiceLayerDefaultMethods(t *testing.T) {
 	}
 }
 
-func TestInvalidUUIDHandling(t *testing.T) {
+// ===== ERROR HANDLING =====
+
+// TestDefaultOperations_InvalidUUID verifies error handling for invalid UUID inputs.
+//
+// Business Scenario: Invalid UUIDs should be rejected with appropriate error messages
+// Expected: Operations fail gracefully with validation errors for malformed UUIDs
+func TestDefaultOperations_InvalidUUID(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
@@ -313,6 +376,12 @@ func TestInvalidUUIDHandling(t *testing.T) {
 	}
 }
 
+// ===== QUERY OPERATIONS =====
+
+// TestGetCustomerByEmail verifies retrieving customers by email address.
+//
+// Business Scenario: Authentication and customer lookup by email
+// Expected: Returns complete customer data for valid email, nil for non-existent email
 func TestGetCustomerByEmail(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
@@ -356,6 +425,12 @@ func TestGetCustomerByEmail(t *testing.T) {
 	}
 }
 
+// ===== INTEGRATION TESTS =====
+
+// TestInsertCustomerWithRelations verifies creating a customer with addresses and credit cards.
+//
+// Business Scenario: New customer registration with complete profile information
+// Expected: Customer, addresses, credit cards, and status history all created with proper relationships
 func TestInsertCustomerWithRelations(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
@@ -442,7 +517,11 @@ func cleanupTestData(t *testing.T, db *sqlx.DB, customerID string) {
 	testutils.CleanupTestData(t, db, customerID)
 }
 
-func TestNonExistentCustomer(t *testing.T) {
+// TestDefaultOperations_NonExistentCustomer verifies error handling for operations on non-existent customers.
+//
+// Business Scenario: Attempting to set defaults for customers that don't exist
+// Expected: Operations fail gracefully with appropriate error messages
+func TestDefaultOperations_NonExistentCustomer(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 

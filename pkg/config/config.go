@@ -83,16 +83,18 @@ func Load(envFile string) *Config {
 
 func getEnv(key, fallback string) string {
 	if value := os.Getenv(key); value != "" {
-		return value
+		return os.ExpandEnv(value) // Expand environment variables in the value
 	}
-	return fallback
+	return os.ExpandEnv(fallback) // Also expand variables in fallback
 }
 
 func getEnvArray(key string, fallback []string) []string {
 	if value := os.Getenv(key); value != "" {
+		// Expand environment variables first
+		expandedValue := os.ExpandEnv(value)
 		// Split the string by comma and trim spaces
 		var parts []string
-		for _, v := range strings.Split(value, ",") {
+		for _, v := range strings.Split(expandedValue, ",") {
 			// Only append non-empty values after trimming
 			if trimmed := strings.TrimSpace(v); trimmed != "" {
 				parts = append(parts, trimmed)

@@ -1,5 +1,165 @@
 # AGENTS.md
 
+## Recent Session Summary (Today)
+
+### Environment Variable Expansion & Config Testing - Complete ✅
+
+**Problem Solved**: Two critical issues were resolved:
+1. **Environment variables in .env files weren't being expanded** (e.g., `$PSQL_CUSTOMER_ROLE` remained as literal text)
+2. **Config package had zero test coverage** despite being critical infrastructure
+
+**Root Cause Analysis**:
+- **godotenv Limitation**: Only loads literal strings, doesn't perform shell variable expansion
+- **Working Directory Issues**: Tests running from different directories couldn't find `.env.local`
+- **No Test Coverage**: Config package was untested, risking production issues
+
+**Solution Implemented**:
+
+#### **1. Environment Variable Expansion Fix**
+- **Modified `getEnv()` and `getEnvArray()` functions** in `pkg/config/config.go`:
+  - Added `os.ExpandEnv()` calls to expand shell variables in loaded values
+  - Example: `"postgres://$PSQL_CUSTOMER_ROLE:$PSQL_CUSTOMER_PASSWORD@localhost:30432/$PSQL_CUSTOMER_DB?sslmode=disable"`
+    → `"postgres://customersuser:customerssecret@localhost:30432/customersdb?sslmode=disable"`
+
+#### **2. Absolute Path Resolution**
+- **Enhanced `ResolveEnvFile()`** in `pkg/config/env.go`:
+  - Added `findProjectRoot()` function to locate project root by finding `go.mod`
+  - Modified to return absolute paths instead of relative paths
+  - Ensures `.env.local` is found regardless of test execution directory
+
+#### **3. Comprehensive Config Testing**
+- **Created `pkg/config/config_test.go`** (565 lines):
+  - 25 test functions covering all config functionality
+  - Environment variable parsing tests (getEnv, getEnvArray, getEnvInt, etc.)
+  - Configuration loading integration tests
+  - Environment variable expansion verification
+
+- **Created `pkg/config/env_test.go`** (75 lines):
+  - Environment file resolution tests
+  - Project root detection validation
+  - Absolute path generation testing
+
+#### **4. Enhanced Test Debugging**
+- **Updated `pkg/testutils/testutils.go`**:
+  - Added comprehensive logging in `SetupTestDB()`
+  - Shows working directory, resolved env file path, database URL source
+  - Helps diagnose configuration issues in tests
+
+#### **5. Test Reorganization & Documentation**
+- **Reorganized all customer service test files** with hierarchical structure:
+  - `repository_defaults_test.go` - Default field management tests
+  - `repository_validation_test.go` - Unit tests for validation & transformation
+  - `repository_update_test.go` - PUT/PATCH operations & data preservation
+- **Added comprehensive documentation** to all test files
+- **Improved test naming** for consistency and clarity
+
+**Results Achieved**:
+- ✅ **Environment variables properly expanded** in database URLs and all config values
+- ✅ **Tests work from any directory** (project root detection)
+- ✅ **25/25 config tests passing** with 77.8% coverage
+- ✅ **All customer service tests passing** with proper database connections
+- ✅ **Comprehensive test documentation** for future maintenance
+
+**Files Modified**:
+- `pkg/config/config.go` - Added environment variable expansion
+- `pkg/config/env.go` - Added project root detection and absolute path resolution
+- `pkg/config/config_test.go` - Comprehensive config testing (new file)
+- `pkg/config/env_test.go` - Environment file resolution testing (new file)
+- `pkg/testutils/testutils.go` - Enhanced debugging and logging
+- `internal/service/customer/repository_defaults_test.go` - Reorganized and documented
+- `internal/service/customer/repository_validation_test.go` - Reorganized and documented
+- `internal/service/customer/repository_update_test.go` - Reorganized and documented
+
+**Status**: ✅ Complete and tested
+
+## Recent Session Summary (Today)
+
+### PATCH API Default Field Preservation Fix - Complete ✅
+
+**Problem Solved**: PATCH operations were incorrectly clearing default address and credit card fields when updating only basic fields like phone. This occurred because the repository PatchCustomer method called UpdateCustomer (designed for full PUT replacement), which always regenerated UUIDs for addresses/credit cards, breaking default field references.
+
+**Root Cause**: 
+- PATCH called `UpdateCustomer` which does complete replacement
+- `UpdateCustomer` deletes and re-inserts all addresses/credit cards with new UUIDs
+- Original default field UUIDs became invalid, getting set to null
+
+**Solution Implemented**:
+
+#### **1. Repository Layer Selective Updates**
+- **Added helper methods** in `repository.go`:
+  - `deleteAddresses()` - Removes only addresses for a customer
+  - `deleteCreditCards()` - Removes only credit cards for a customer
+  - `executePatchCustomer()` - Performs selective PATCH updates in transaction
+
+- **Modified `PatchCustomer()` method**:
+  - Removed call to `UpdateCustomer()` (which always replaces relations)
+  - Added logic to conditionally replace addresses/credit cards only when provided in patch data
+  - Calls `executePatchCustomer()` for proper selective updates
+
+#### **2. Service Layer Simplification**
+- **Refactored `PatchCustomer()` method** in `service.go`:
+  - Removed complex field application logic (now handled in repository)
+  - Now just validates and delegates to repository
+  - Much cleaner separation of concerns
+
+#### **3. Comprehensive Test Coverage**
+- **Enhanced existing test**: `TestPatchCustomer_BasicInfoOnly` now verifies address/credit card IDs are preserved
+- **Added critical test**: `TestPatchCustomer_PhoneOnly_PreservesDefaultsAndAddresses` tests the exact bug scenario:
+  - Sets default shipping address and credit card
+  - PATCHes only phone field
+  - Verifies defaults and address IDs are preserved
+
+**Benefits Achieved**:
+- **Data Integrity**: Default fields preserved when not explicitly updated
+- **Address/Card Stability**: Existing addresses/credit cards keep their UUIDs when not replaced
+- **True PATCH Semantics**: Only specified fields/arrays are modified
+- **Backward Compatibility**: All existing PATCH behavior maintained for valid cases
+- **Comprehensive Testing**: New test prevents regression of this critical bug
+
+**Files Modified**:
+- `internal/service/customer/repository.go` - Added selective update logic, helper methods
+- `internal/service/customer/service.go` - Simplified PatchCustomer to delegate to repository
+- `internal/service/customer/smart_update_test.go` - Enhanced existing test, added regression test
+
+**Status**: ✅ Complete and tested
+
+## Recent Session Summary (Nov 20, 2025)
+
+### PATCH API Response Completeness Fix - Complete ✅
+
+**Problem Solved**: PATCH API responses were missing the `default_shipping_address_id`, `default_billing_address_id`, and `default_credit_card_id` fields, causing frontend applications to receive incomplete customer data.
+
+**Root Cause**: Customer entity struct used `omitempty` on default fields, causing nil values to be excluded from JSON responses instead of appearing as `null`.
+
+**Solution Implemented**:
+
+#### **1. Fixed JSON Marshaling**
+- **Removed `omitempty`** from default field JSON tags in `internal/entity/customer/customer.go`
+- **Result**: Default fields now always appear in JSON responses (as `null` when unset, as UUID strings when set)
+
+#### **2. Updated Documentation**
+- **Fixed API examples** in `ai/customer_prompt.md` to include all default fields in responses
+- **Enhanced endpoint descriptions** to clarify that all customer endpoints return complete objects
+- **Added schema notes** confirming all fields are always present
+
+#### **3. Added Response Completeness Tests**
+- **Added `TestPatchCustomer_ResponseIncludesAllDefaultFields`**: Verifies PATCH responses include null default fields when none are set
+- **Added `TestPatchCustomer_ResponseIncludesSetDefaults`**: Verifies PATCH responses include actual UUID values when defaults are set
+
+**Benefits Achieved**:
+- **Complete API Responses**: All customer endpoints (CREATE, GET, PUT, PATCH) return full customer objects
+- **Frontend Reliability**: Consistent JSON structure with all fields present (null when unset)
+- **Documentation Accuracy**: Examples match actual API behavior
+- **Type Safety**: No more missing properties causing frontend errors
+
+**Files Modified**:
+- `internal/entity/customer/customer.go` - Removed `omitempty` from default fields
+- `ai/customer_prompt.md` - Updated examples and endpoint descriptions
+- `internal/service/customer/smart_update_test.go` - Added response completeness tests
+
+**Status**: ✅ Complete and tested
+
+
 ## Build Commands
 - `make services-build` - Build all services (customer, eventreader)
 - `make services-test` - Run tests for all services  

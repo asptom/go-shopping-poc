@@ -102,40 +102,15 @@ func (s *CustomerService) UpdateCustomer(ctx context.Context, customer *entity.C
 //
 // This method supports PATCH operations, allowing clients to update
 // specific fields of a customer without replacing the entire record.
-// It validates the patch data, retrieves the existing customer,
-// applies the changes, and persists the updates.
+// It validates the patch data and delegates to the repository for persistence.
 func (s *CustomerService) PatchCustomer(ctx context.Context, customerID string, patchData *PatchCustomerRequest) error {
 	// Validate patch data
 	if err := s.ValidatePatchData(patchData); err != nil {
 		return fmt.Errorf("invalid patch data: %w", err)
 	}
 
-	// Get existing customer first
-	existing, err := s.repo.GetCustomerByID(ctx, customerID)
-	if err != nil {
-		return err
-	}
-	if existing == nil {
-		return fmt.Errorf("customer not found: %s", customerID)
-	}
-
-	// Apply patch data to existing customer
-	updated := *existing // Copy existing customer
-
-	// Apply field updates
-	s.ApplyFieldUpdates(&updated, patchData)
-
-	// Transform and apply addresses if provided
-	if patchData.Addresses != nil {
-		updated.Addresses = s.TransformAddressesFromPatch(patchData.Addresses)
-	}
-
-	// Transform and apply credit cards if provided
-	if patchData.CreditCards != nil {
-		updated.CreditCards = s.TransformCreditCardsFromPatch(patchData.CreditCards)
-	}
-
-	return s.repo.UpdateCustomer(ctx, &updated)
+	// Delegate to repository for selective updates
+	return s.repo.PatchCustomer(ctx, customerID, patchData)
 }
 
 // ValidatePatchData validates the patch request data

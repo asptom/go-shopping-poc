@@ -22,9 +22,9 @@ type Customer struct {
 	FirstName                string           `json:"first_name,omitempty" db:"first_name"`
 	LastName                 string           `json:"last_name,omitempty" db:"last_name"`
 	Phone                    string           `json:"phone,omitempty" db:"phone"`
-	DefaultShippingAddressID *uuid.UUID       `json:"default_shipping_address_id,omitempty" db:"default_shipping_address_id"`
-	DefaultBillingAddressID  *uuid.UUID       `json:"default_billing_address_id,omitempty" db:"default_billing_address_id"`
-	DefaultCreditCardID      *uuid.UUID       `json:"default_credit_card_id,omitempty" db:"default_credit_card_id"`
+	DefaultShippingAddressID *uuid.UUID       `json:"default_shipping_address_id" db:"default_shipping_address_id"`
+	DefaultBillingAddressID  *uuid.UUID       `json:"default_billing_address_id" db:"default_billing_address_id"`
+	DefaultCreditCardID      *uuid.UUID       `json:"default_credit_card_id" db:"default_credit_card_id"`
 	CustomerSince            time.Time        `json:"customer_since" db:"customer_since"`
 	CustomerStatus           string           `json:"customer_status" db:"customer_status"`
 	StatusDateTime           time.Time        `json:"status_date_time" db:"status_date_time"`

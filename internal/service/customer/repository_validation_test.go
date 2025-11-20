@@ -1,3 +1,24 @@
+/*
+Package customer_test provides comprehensive testing for customer repository validation and transformation logic.
+
+This file focuses on unit tests that validate business logic without requiring database setup:
+- Error type definitions and error wrapping
+- Request validation for PATCH operations
+- Field application and transformation logic
+- Entity preparation and defaults setting
+
+Test Categories:
+1. Error Types & Wrapping - Custom error definitions and proper error chaining
+2. Request Validation - PATCH request validation and UUID format checking
+3. Field Application - Applying PATCH updates to customer entities
+4. Data Transformation - Converting PATCH requests to entity structures
+5. Entity Preparation - Setting defaults and preparing entities for database operations
+
+Important Notes:
+- All tests are pure unit tests that don't require database connections
+- Tests validate business logic and data transformation rules
+- Error handling and validation are critical for API reliability
+*/
 package customer
 
 import (
@@ -11,25 +32,13 @@ import (
 	entity "go-shopping-poc/internal/entity/customer"
 )
 
-// TestErrorWrapping tests that repository methods properly wrap errors
-func TestCustomerRepository_ErrorWrapping(t *testing.T) {
-	// Test ErrInvalidUUID wrapping
-	_, err := (&customerRepository{}).GetCustomerByID(context.Background(), "invalid-uuid")
-	if err == nil {
-		t.Error("Expected error for invalid UUID")
-	}
-	if !errors.Is(err, ErrInvalidUUID) {
-		t.Errorf("Expected ErrInvalidUUID in error chain, got: %v", err)
-	}
+// ===== ERROR TYPES & WRAPPING =====
 
-	// Test that error messages include context
-	if !containsString(err.Error(), "invalid UUID format") {
-		t.Errorf("Error message should include context, got: %s", err.Error())
-	}
-}
-
-// TestCustomErrors tests that custom error types are properly defined
-func TestCustomErrors(t *testing.T) {
+// TestCustomErrors_Definitions verifies that all custom error types are properly defined.
+//
+// Business Scenario: Repository operations must return consistent, identifiable error types
+// Expected: All error constants are defined with appropriate messages
+func TestCustomErrors_Definitions(t *testing.T) {
 	tests := []struct {
 		name     string
 		err      error
@@ -55,8 +64,33 @@ func TestCustomErrors(t *testing.T) {
 	}
 }
 
-// TestPatchCustomerRequest_Validation tests patch request validation
-func TestPatchCustomerRequest_Validation(t *testing.T) {
+// TestRepository_ErrorWrapping verifies that repository methods properly wrap and chain errors.
+//
+// Business Scenario: Errors should be wrapped with context while maintaining error chain
+// Expected: Invalid inputs return wrapped errors that can be identified with errors.Is()
+func TestRepository_ErrorWrapping(t *testing.T) {
+	// Test ErrInvalidUUID wrapping
+	_, err := (&customerRepository{}).GetCustomerByID(context.Background(), "invalid-uuid")
+	if err == nil {
+		t.Error("Expected error for invalid UUID")
+	}
+	if !errors.Is(err, ErrInvalidUUID) {
+		t.Errorf("Expected ErrInvalidUUID in error chain, got: %v", err)
+	}
+
+	// Test that error messages include context
+	if !containsString(err.Error(), "invalid UUID format") {
+		t.Errorf("Error message should include context, got: %s", err.Error())
+	}
+}
+
+// ===== REQUEST VALIDATION =====
+
+// TestPatchRequest_Validation verifies PATCH request validation logic.
+//
+// Business Scenario: PATCH requests must be validated before processing
+// Expected: Valid requests pass, invalid requests fail with descriptive errors
+func TestPatchRequest_Validation(t *testing.T) {
 	service := &CustomerService{}
 
 	// Test nil patch data
@@ -77,14 +111,22 @@ func TestPatchCustomerRequest_Validation(t *testing.T) {
 	if err != nil {
 		t.Errorf("Expected no error for valid patch data, got: %v", err)
 	}
+}
+
+// TestPatchRequest_InvalidUUID verifies UUID validation in PATCH requests.
+//
+// Business Scenario: Invalid UUIDs in PATCH requests should be rejected
+// Expected: Malformed UUIDs return validation errors with field-specific messages
+func TestPatchRequest_InvalidUUID(t *testing.T) {
+	service := &CustomerService{}
 
 	// Test invalid UUID
 	invalidUUID := "not-a-uuid"
-	patchData = &PatchCustomerRequest{
+	patchData := &PatchCustomerRequest{
 		DefaultShippingAddressID: &invalidUUID,
 	}
 
-	err = service.ValidatePatchData(patchData)
+	err := service.ValidatePatchData(patchData)
 	if err == nil {
 		t.Error("Expected error for invalid UUID")
 	}
@@ -94,8 +136,13 @@ func TestPatchCustomerRequest_Validation(t *testing.T) {
 	}
 }
 
-// TestFieldUpdates tests the ApplyFieldUpdates method
-func TestApplyFieldUpdates(t *testing.T) {
+// ===== FIELD APPLICATION =====
+
+// TestFieldUpdates_BasicFields verifies applying basic field updates from PATCH requests.
+//
+// Business Scenario: PATCH requests should update only specified fields
+// Expected: Basic fields (username, email, status) are updated correctly
+func TestFieldUpdates_BasicFields(t *testing.T) {
 	service := &CustomerService{}
 
 	customer := &entity.Customer{
@@ -129,8 +176,11 @@ func TestApplyFieldUpdates(t *testing.T) {
 	}
 }
 
-// TestDefaultFieldHandling tests UUID pointer field handling
-func TestDefaultFieldHandling(t *testing.T) {
+// TestFieldUpdates_DefaultFields verifies applying default field updates from PATCH requests.
+//
+// Business Scenario: Default field pointers should be set/cleared correctly
+// Expected: UUID pointers are set for valid values, cleared for empty strings
+func TestFieldUpdates_DefaultFields(t *testing.T) {
 	service := &CustomerService{}
 
 	customer := &entity.Customer{}
@@ -149,13 +199,29 @@ func TestDefaultFieldHandling(t *testing.T) {
 	if customer.DefaultShippingAddressID.String() != validUUID {
 		t.Errorf("Expected UUID %s, got %s", validUUID, customer.DefaultShippingAddressID.String())
 	}
+}
 
-	// Test clearing UUID (empty string)
+// TestFieldUpdates_DefaultFieldClearing verifies clearing default fields with empty strings.
+//
+// Business Scenario: Empty string values should clear default field pointers
+// Expected: Default field pointers are set to nil when empty string provided
+func TestFieldUpdates_DefaultFieldClearing(t *testing.T) {
+	service := &CustomerService{}
+
+	customer := &entity.Customer{}
+
+	// First set a UUID
+	validUUID := uuid.New().String()
+	patchData := &PatchCustomerRequest{
+		DefaultShippingAddressID: &validUUID,
+	}
+	service.ApplyFieldUpdates(customer, patchData)
+
+	// Then clear it with empty string
 	emptyString := ""
 	patchData = &PatchCustomerRequest{
 		DefaultShippingAddressID: &emptyString,
 	}
-
 	service.ApplyFieldUpdates(customer, patchData)
 
 	if customer.DefaultShippingAddressID != nil {
@@ -163,8 +229,13 @@ func TestDefaultFieldHandling(t *testing.T) {
 	}
 }
 
-// TestAddressTransformation tests address transformation
-func TestAddressTransformation(t *testing.T) {
+// ===== DATA TRANSFORMATION =====
+
+// TestAddressTransformation_FromPatch verifies transforming PATCH address requests to entity addresses.
+//
+// Business Scenario: PATCH requests with address arrays need conversion to entity structures
+// Expected: Address fields are correctly mapped from request to entity format
+func TestAddressTransformation_FromPatch(t *testing.T) {
 	service := &CustomerService{}
 
 	patchAddresses := []PatchAddressRequest{
@@ -199,8 +270,11 @@ func TestAddressTransformation(t *testing.T) {
 	}
 }
 
-// TestCreditCardTransformation tests credit card transformation
-func TestCreditCardTransformation(t *testing.T) {
+// TestCreditCardTransformation_FromPatch verifies transforming PATCH credit card requests to entity cards.
+//
+// Business Scenario: PATCH requests with credit card arrays need conversion to entity structures
+// Expected: Credit card fields are correctly mapped from request to entity format
+func TestCreditCardTransformation_FromPatch(t *testing.T) {
 	service := &CustomerService{}
 
 	patchCards := []PatchCreditCardRequest{
@@ -233,8 +307,13 @@ func TestCreditCardTransformation(t *testing.T) {
 	}
 }
 
-// TestCustomerDefaults tests the PrepareCustomerDefaults method
-func TestCustomerDefaults(t *testing.T) {
+// ===== ENTITY PREPARATION =====
+
+// TestCustomerDefaults_NewCustomer verifies setting defaults for new customers.
+//
+// Business Scenario: New customer entities need default values for database insertion
+// Expected: CustomerID is generated, status set to 'active', timestamps set to current time
+func TestCustomerDefaults_NewCustomer(t *testing.T) {
 	repo := &customerRepository{}
 
 	customer := &entity.Customer{
@@ -261,9 +340,16 @@ func TestCustomerDefaults(t *testing.T) {
 	if customer.StatusDateTime.IsZero() {
 		t.Error("StatusDateTime should be set")
 	}
+}
 
-	// Test that existing values are preserved
-	customer2 := &entity.Customer{
+// TestCustomerDefaults_ExistingValuesPreserved verifies that existing values are not overwritten.
+//
+// Business Scenario: When updating existing customers, preserve their current values
+// Expected: Only nil/zero values are set, existing values remain unchanged
+func TestCustomerDefaults_ExistingValuesPreserved(t *testing.T) {
+	repo := &customerRepository{}
+
+	customer := &entity.Customer{
 		Username:       "testuser",
 		Email:          "test@example.com",
 		CustomerStatus: "inactive",
@@ -271,16 +357,18 @@ func TestCustomerDefaults(t *testing.T) {
 		StatusDateTime: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
 	}
 
-	repo.PrepareCustomerDefaults(customer2)
+	repo.PrepareCustomerDefaults(customer)
 
-	if customer2.CustomerStatus != "inactive" {
+	if customer.CustomerStatus != "inactive" {
 		t.Error("Existing CustomerStatus should be preserved")
 	}
 
-	if !customer2.CustomerSince.Equal(time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)) {
+	if !customer.CustomerSince.Equal(time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)) {
 		t.Error("Existing CustomerSince should be preserved")
 	}
 }
+
+// ===== HELPERS =====
 
 // Helper function to check if a string contains a substring
 func containsString(s, substr string) bool {

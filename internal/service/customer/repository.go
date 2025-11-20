@@ -466,6 +466,26 @@ func (r *customerRepository) deleteExistingRelations(ctx context.Context, tx *sq
 	return nil
 }
 
+// deleteAddresses removes all existing addresses for a customer
+func (r *customerRepository) deleteAddresses(ctx context.Context, tx *sqlx.Tx, customerID uuid.UUID) error {
+	query := `DELETE FROM customers.Address WHERE customer_id = $1`
+	_, err := tx.ExecContext(ctx, query, customerID)
+	if err != nil {
+		return fmt.Errorf("%w: failed to delete addresses: %v", ErrDatabaseOperation, err)
+	}
+	return nil
+}
+
+// deleteCreditCards removes all existing credit cards for a customer
+func (r *customerRepository) deleteCreditCards(ctx context.Context, tx *sqlx.Tx, customerID uuid.UUID) error {
+	query := `DELETE FROM customers.CreditCard WHERE customer_id = $1`
+	_, err := tx.ExecContext(ctx, query, customerID)
+	if err != nil {
+		return fmt.Errorf("%w: failed to delete credit cards: %v", ErrDatabaseOperation, err)
+	}
+	return nil
+}
+
 // insertNewRelations inserts new addresses, credit cards, and status history
 func (r *customerRepository) insertNewRelations(ctx context.Context, tx *sqlx.Tx, customer *entity.Customer, id uuid.UUID) error {
 	if err := r.insertAddresses(ctx, tx, customer.Addresses, id); err != nil {
@@ -626,9 +646,9 @@ func (r *customerRepository) PatchCustomer(ctx context.Context, customerID strin
 		}
 	}
 
-	// Handle addresses if provided
+	// Prepare new addresses and credit cards for insertion if provided
+	var newAddresses []entity.Address
 	if patchData.Addresses != nil {
-		var addrList []entity.Address
 		for _, patchAddr := range patchData.Addresses {
 			addr := entity.Address{
 				AddressType: patchAddr.AddressType,
@@ -640,14 +660,12 @@ func (r *customerRepository) PatchCustomer(ctx context.Context, customerID strin
 				State:       patchAddr.State,
 				Zip:         patchAddr.Zip,
 			}
-			addrList = append(addrList, addr)
+			newAddresses = append(newAddresses, addr)
 		}
-		updated.Addresses = addrList
 	}
 
-	// Handle credit cards if provided
+	var newCreditCards []entity.CreditCard
 	if patchData.CreditCards != nil {
-		var cardList []entity.CreditCard
 		for _, patchCard := range patchData.CreditCards {
 			card := entity.CreditCard{
 				CardType:       patchCard.CardType,
@@ -656,12 +674,59 @@ func (r *customerRepository) PatchCustomer(ctx context.Context, customerID strin
 				CardExpires:    patchCard.CardExpires,
 				CardCVV:        patchCard.CardCVV,
 			}
-			cardList = append(cardList, card)
+			newCreditCards = append(newCreditCards, card)
 		}
-		updated.CreditCards = cardList
 	}
 
-	return r.UpdateCustomer(ctx, &updated)
+	// Parse customer ID
+	id, err := uuid.Parse(customerID)
+	if err != nil {
+		return fmt.Errorf("%w: invalid customer ID %s: %v", ErrInvalidUUID, customerID, err)
+	}
+
+	// Execute selective patch update
+	return r.executePatchCustomer(ctx, &updated, id, newAddresses, newCreditCards)
+}
+
+// executePatchCustomer performs selective PATCH updates in a transaction
+func (r *customerRepository) executePatchCustomer(ctx context.Context, customer *entity.Customer, id uuid.UUID, newAddresses []entity.Address, newCreditCards []entity.CreditCard) error {
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("%w: failed to begin transaction: %v", ErrTransactionFailed, err)
+	}
+	defer tx.Rollback()
+
+	// Update customer record
+	if err := r.updateCustomerRecord(ctx, tx, customer); err != nil {
+		return err
+	}
+
+	// Replace addresses only if provided
+	if len(newAddresses) > 0 {
+		if err := r.deleteAddresses(ctx, tx, id); err != nil {
+			return err
+		}
+		if err := r.insertAddresses(ctx, tx, newAddresses, id); err != nil {
+			return err
+		}
+	}
+
+	// Replace credit cards only if provided
+	if len(newCreditCards) > 0 {
+		if err := r.deleteCreditCards(ctx, tx, id); err != nil {
+			return err
+		}
+		if err := r.insertCreditCards(ctx, tx, newCreditCards, id); err != nil {
+			return err
+		}
+	}
+
+	// Publish event
+	if err := r.publishCustomerUpdateEvent(ctx, tx, customer); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 func (r *customerRepository) AddAddress(ctx context.Context, customerID string, addr *entity.Address) (*entity.Address, error) {

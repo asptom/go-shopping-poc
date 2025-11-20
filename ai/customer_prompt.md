@@ -43,31 +43,33 @@
 }
 ```
 
-### Get Customer by Email  
+### Get Customer by Email
 - **GET** `/customers/{email}`
 - **URL Parameter**: email (path-encoded)
-- **Response**: 200 OK with customer object or 404 Not Found
+- **Response**: 200 OK with complete customer object (all fields included) or 404 Not Found
 
 ### Update Customer
-- **PUT** `/customers` 
+- **PUT** `/customers`
 - **Request Body**: Complete customer record (required for PUT)
-- **Response**: 200 OK
+- **Response**: 200 OK with complete updated customer object (all fields included)
 - **Behavior**: Replaces entire customer record
   - **Validation**: Requires customer_id, username, and email
   - **Use Case**: When you need to replace the entire customer record
   - **All Fields**: Must include addresses, credit cards, and status history
+  - **Complete Response**: Returns full customer object with all fields present (null for unset defaults)
 
 ### Patch Customer (NEW)
 - **PATCH** `/customers/{id}`
 - **Request Body**: Partial update object with only fields to change
-- **Response**: 200 OK with complete updated customer object
+- **Response**: 200 OK with complete updated customer object (all fields included)
 - **Behavior**: Field-level partial updates
   - **Basic Info**: `"user_name"`, `"email"`, `"first_name"`, `"last_name"`, `"phone"`, `"customer_status"`
-  - **Default Fields**: `"default_shipping_address_id"`, `"default_billing_address_id"`, `"default_credit_card_id"` (UUID strings or null to clear)
+  - **Default Fields**: `"default_shipping_address_id"`, `"default_billing_address_id"`, `"default_credit_card_id"` (UUID strings when set, null when not set)
   - **Addresses**: `"addresses"` - Array of address objects (replaces all addresses)
   - **Credit Cards**: `"credit_cards"` - Array of credit card objects (replaces all credit cards)
   - **Use Case**: When you need to update specific fields without affecting others
   - **Preservation**: Unspecified fields are preserved automatically
+  - **Complete Response**: Returns full customer object with all fields present (null for unset defaults)
 
 ### Address Management Endpoints
 - **POST** `/customers/{id}/addresses` - Add new address
@@ -180,12 +182,12 @@
 {
   "customer_id": "string (UUID)",
   "user_name": "string",
-  "email": "string", 
+  "email": "string",
   "first_name": "string",
   "last_name": "string",
   "phone": "string",
   "default_shipping_address_id": "string (UUID) or null",
-  "default_billing_address_id": "string (UUID) or null", 
+  "default_billing_address_id": "string (UUID) or null",
   "default_credit_card_id": "string (UUID) or null",
   "customer_since": "string (ISO8601)",
   "customer_status": "string",
@@ -195,6 +197,7 @@
   "status_history": [CustomerStatus]
 }
 ```
+**Note**: All fields are always present in API responses. Default fields appear as `null` when no default is set, never omitted.
 
 ### Address
 ```json
@@ -389,6 +392,9 @@ curl -X POST https://pocstore.local/customers \
   "first_name": "John",
   "last_name": "Doe",
   "phone": "555-123-4567",
+  "default_shipping_address_id": null,
+  "default_billing_address_id": null,
+  "default_credit_card_id": null,
   "customer_since": "2025-11-19T20:29:15.265133431Z",
   "customer_status": "active",
   "status_date_time": "2025-11-19T20:29:15.265133514Z",
@@ -414,6 +420,13 @@ curl -X POST https://pocstore.local/customers \
       "card_holder_name": "John Doe",
       "card_expires": "12/25",
       "card_cvv": "123"
+    }
+  ],
+  "status_history": [
+    {
+      "old_status": "",
+      "new_status": "active",
+      "changed_at": "2025-11-19T20:29:15.265133514Z"
     }
   ]
 }
