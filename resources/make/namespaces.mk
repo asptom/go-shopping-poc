@@ -20,6 +20,7 @@ namespaces-info: ## Show namespace configuration details
 	@echo "Postgresql Namespace: $$PSQL_NAMESPACE"
 	@echo "Kafka Namespace: $$KAFKA_CLUSTER_NAMESPACE"
 	@echo "Keycloak Namespace: $$KEYCLOAK_NAMESPACE"
+	@echo "Minio Namespace: $$MINIO_NAMESPACE"
 	@echo "-------------------------"
 	@echo
 
@@ -33,6 +34,7 @@ namespaces-create: ## Create all necessary namespaces
 	@kubectl create namespace $$PSQL_NAMESPACE || true
 	@kubectl create namespace $$KAFKA_CLUSTER_NAMESPACE || true
 	@kubectl create namespace $$KEYCLOAK_NAMESPACE || true
+	@kubectl create namespace $$MINIO_NAMESPACE || true
 	@echo "Namespaces created (if they did not already exist)."
 
 # ------------------------------------------------------------------
@@ -61,4 +63,9 @@ namespaces-delete: ## Delete all created namespaces
     else \
         echo "Namespace $$KEYCLOAK_NAMESPACE not found, skipping."; \
     fi
+	@if kubectl get namespace "$$MINIO_NAMESPACE" >/dev/null 2>&1; then \
+		kubectl delete namespace "$$MINIO_NAMESPACE"; \
+	else \
+		echo "Namespace $$MINIO_NAMESPACE not found, skipping."; \
+	fi
 	@echo "Namespaces deleted (if they existed)."

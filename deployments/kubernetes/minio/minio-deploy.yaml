@@ -1,0 +1,155 @@
+# MinIO Deployment for Kubernetes
+# This deployment uses a StatefulSet with a headless service to manage MinIO instances.
+# It also includes Ingress resources to expose the MinIO API and Console.
+# Note:
+# To create the required secret for MinIO credentials, use the following command:
+# kubectl create secret generic minio-credentials \
+# --from-literal=root-user=<base64-encoded-root-user> \
+# --from-literal=root-password=<base64-encoded-root-password> \
+# --namespace=minio
+
+# Change the values to secure ones (avoid defaults in production). Base64-encode them:
+
+#Root user: echo -n 'minioadmin' | base64 → bWluaW9hZG1pbg==
+#Root password: echo -n 'minioadmin' | base64 → bWluaW9hZG1pbg==
+
+# apiVersion: v1
+# kind: Secret
+# metadata:
+#   name: minio-credentials
+#   namespace: minio
+# type: Opaque
+# data:
+#   root-user: bWluaW9hZG1pbg==  # Base64-encoded 'minioadmin' (change)
+#   root-password: bWluaW9hZG1pbg==  # Base64-encoded 'minioadmin' (change)
+
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: minio
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio 
+  namespace: minio
+  labels:
+    app: minio
+spec:
+  type: NodePort
+  ports:
+    - port: 9000
+      targetPort: 9000
+      nodePort: 30090  # Expose MinIO API on localhost:30090
+      name: minio-api
+    - port: 9001
+      targetPort: 9001
+      nodePort: 30091  # Expose MinIO Console on localhost:30091
+      name: minio-console
+  #clusterIP: None  # headless service required for StatefulSet
+  selector:
+    app: minio
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: minio 
+  namespace: minio
+spec:
+  serviceName: minio
+  replicas: 1
+  selector:
+    matchLabels:
+      app: minio
+  template:
+    metadata:
+      labels:
+        app: minio
+    spec:
+      containers:
+        - name: minio
+          image: minio/minio:latest
+          imagePullPolicy: IfNotPresent
+          args:
+          - server
+          - /data
+          - --console-address=:9001
+          env:
+          - name: MINIO_ROOT_USER
+            valueFrom:
+              secretKeyRef:
+                name: minio-credentials
+                key: MINIO_USER
+          - name: MINIO_ROOT_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: minio-credentials
+                key: MINIO_PASSWORD
+          ports:
+          - containerPort: 9000
+            name: minio-api
+          - containerPort: 9001
+            name: minio-console
+          volumeMounts:
+          - name: data
+            mountPath: /data
+      restartPolicy: Always
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 2Gi
+        storageClassName: "local-path"  # Rancher Desktop uses local-path storage
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: minio-api
+  namespace: minio
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+spec:
+  rules:
+  - host: api.minio.local  # Change to your domain; add to /etc/hosts for dev
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: minio
+            port:
+              number: 9000
+  # tls:
+  #   - hosts:
+  #       - api.minio.local
+  #     secretName: miniolocal-tls
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: minio-console
+  namespace: minio
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+spec:
+  rules:
+  - host: console.minio.local  # Change to your domain
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: minio
+            port:
+              number: 9001
+  # tls:
+  #   - hosts:
+  #       - console.minio.local
+  #     secretName: miniolocal-tls

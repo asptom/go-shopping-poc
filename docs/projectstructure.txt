@@ -1,34 +1,86 @@
-go-shopping-poc/
+project/
 ├── go.mod
 ├── go.sum
+├── Makefile
 ├── README.md
-├── cmd/
-│   ├── customer/             # main.go for Customer Service
+|
+├── cmd/                                # Entrypoints for each microservice
+│   ├── customer/
 │   │   └── main.go
-│   ├── order/                # main.go for Order Service
+│   │   └── config.yaml
+│   ├── order/
 │   │   └── main.go
-│   └── ...                   # other service entrypoints
-├── deployments/              # Kubernetes/Helm/docker-compose manifests
+│   │   └── config.yaml
 │   └── ...
-├── docs/                     # Project documents and explanations
-│   └── ...
-├── internal/                 # Private code for this repo (not importable by others)
-│   ├── entity/               # Entity definitions for all domains
-│   │   └── customer.go
-│   │   └── order.go
-│   ├── service/              # Business logic and plumbing for domain services
-│   │   └── customer/
-│   │       └── handler.go
-│   │       └── repository.go
-│   │       └── service.go
-│   │   └── order
-│   └── ...                   # other internal packages
-├── pkg/                      # Shared code (importable by other modules)
-│   ├── event/                # Event bus, event interfaces, Kafka integration
-│   ├── logger/               # Logging utilities
-│   ├── config/               # Shared config loading
-│   └── ...                   # other shared packages
-├── resources/                # Non-code resources needed by the project (security/certificates/config)
-│   └── ...
-├── scripts/                  # Helper scripts (build, install, test, etc.)
-│   └── ...
+│
+├── deployments/                         # Kubernetes, Helm, Docker Compose, etc.
+│   ├── k8s/
+│   ├── helm/
+│   └── docker-compose/
+│
+├── docs/                                # Architecture, specs, decision records
+│
+├── internal/                            # Private code (not importable)
+│   │
+│   ├── contracts/                       # Pure DTOs (events, requests, responses)
+│   │   ├── events/
+│   │   │   ├── customer.go
+│   │   │   ├── order.go
+│   │   │   └── ...
+│   │   └── common.go
+│   │
+│   ├── platform/                        # Shared infrastructure (non-domain-specific)
+│   │   ├── config/                      # Config loading, env, options
+│   │   ├── logging/                     # Logging utilities / wrappers
+│   │   ├── outbox/                      # Outbox pattern implementation
+│   │   ├── event/
+│   │   │   ├── bus/                     # Kafka (or other bus) implementation
+│   │   │   │   ├── kafka/
+│   │   │   │   │   ├── event.go
+│   │   │   │   │   └── eventbus.go
+│   │   │   ├── handler/                 # Common reusable handlers
+│   │   │   │   ├── customer_handler.go  # Only if generic / reusable
+│   │   │   │   ├── order_handler.go
+│   │   │   │   └── ...
+│   │   │   └── middleware.go            # Retry, dead letter, etc.
+│   │   └── db/                          # DB utilities (migrations, connections)
+│   │
+│   ├── service/                         # Domain services (the actual microservices)
+│   │   ├── customer/
+│   │   │   ├── entity.go
+│   │   │   ├── repository.go            # Persistence
+│   │   │   ├── service.go               # Business logic
+│   │   │   ├── handler.go               # HTTP/RPC handler
+│   │   │   ├── eventhandlers/           # Reactions to events from other domains
+│   │   │   │   └── on_order_created.go
+│   │   │   └── test/
+│   │   │   └── ...
+│   │   ├── order/
+│   │   │   ├── entity.go
+│   │   │   ├── repository.go
+│   │   │   ├── service.go
+│   │   │   ├── handler.go
+│   │   │   ├── eventhandlers/
+│   │   │   │  └── on_customer_created.go
+│   │   │   └── test/
+│   │   │   └── ...
+│   │
+│   └── shared/                          # Optional: helpers shared across services
+│       └── ...
+│
+├── pkg/                                 # Stable public APIs (importable by others)
+│   └── (keep minimal)
+│
+├── resources/                           # Setup/bootstrap resources for local dev
+│   ├── kafka/
+│   ├── keycloak/
+│   ├── make/
+│   ├── postgresql/
+│   │   ├── schemas/
+│   │   │   ├── customer_db.sql
+│   │   │   └── order_db.sql
+│   │   └── init/
+│   └── certificates/
+│
+└── scripts/                             # Utility scripts (bash, migrations, hooks)
+    └── ...

@@ -1,6 +1,6 @@
-# Sub-Makefile for TLS certificate installation and management
+# Sub-Makefile for kafka installation and management
 # Include this in your top-level Makefile with:
-#   include $(PROJECT_HOME)/scripts/Makefile/certificates.mk
+#   include $(PROJECT_HOME)/scripts/Makefile/kafka.mk
 
 SHELL := /usr/bin/env bash
 .SHELLFLAGS := -euo pipefail -c

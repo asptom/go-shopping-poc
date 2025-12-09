@@ -101,6 +101,12 @@ ifneq ($(strip $(PROJECT_HOME)),)
 		include $(PROJECT_HOME)/resources/make/keycloak.mk
 	else
 		$(warning $(PROJECT_HOME)/resources/make/keycloak.mk not found — keycloak targets not loaded)
+	endif
+	
+	ifneq ($(wildcard $(PROJECT_HOME)/resources/make/minio.mk),)
+		include $(PROJECT_HOME)/resources/make/minio.mk
+	else
+		$(warning $(PROJECT_HOME)/resources/make/minio.mk not found — minio targets not loaded)
 	endif	
 else
 	$(warning PROJECT_HOME not defined after loading env files)
@@ -234,7 +240,7 @@ help:
 	@echo "📘 Go Shopping POC — Make Targets"
 	@echo "=================================="
 	@echo
-	@echo "install			Full setup: clean, build, docker-build, create namespaces, install postgres, kafka, certificates, and services"
+	@echo "install			Full setup: clean, build, docker-build, create namespaces, install postgres, kafka, certificates, keycloak, minio, and services"
 	@echo "uninstall		Uninstall all services and all supporting components"
 	@echo
 	@grep -h '^[a-zA-Z0-9_.-]*:.*##' $(MAKEFILE_LIST) | \
