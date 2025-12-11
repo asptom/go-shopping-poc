@@ -1,13 +1,13 @@
-# go-shopping-poc
+# Project Information
 
-This project serves as a vehicle to learn the Go programming language, project structures, and methodologies by actually implementing something.
+**Project Name**: go-shopping-poc   
 
-The goal of the project will be to provide backend services based on an event-driven architecture to support a web-based shopping application.  
+**Description**: This project is being used as a proof-of-concept to learn the Go programming language and related concepts.  We are building the microservices needed to support a fictitious shopping application: customer, shoppingcart, order, product, etc.
 
-These services have previously been implemented using Java and Quarkus.  The architecture will remain largely the same, but I do expect that the tools and approaches used to implement that architecture will change along with the programming language.
+To support the application we will be using Keycloak (OIDC authentication and authorization), Postgres (database), Kafka (event management), and Minio (S3 storage for product images).  
 
-More details to be added as the project progresses.
+The microservices and the supporting services will all run inside of a local kubernetes instance from Rancher Desktop running on a a local Mac development machine. 
 
-## Project Structure
-The initial structure will be loosely based on the project-layout standard outlined here:
-[Golang Standards - Project Layout](https://github.com/golang-standards/project-layout)
+The front-end application that accesses these services is being written in Angular and is housed in a separate project.  
+
+We will be using the Saga and Outbox patterns to ensure the microservices remain independent. 
