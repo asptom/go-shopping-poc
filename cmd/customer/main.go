@@ -11,7 +11,7 @@ import (
 
 	"go-shopping-poc/internal/platform/config"
 	"go-shopping-poc/internal/platform/cors"
-	bus "go-shopping-poc/internal/platform/eventbus"
+	bus "go-shopping-poc/internal/platform/event/bus/kafka"
 	"go-shopping-poc/internal/platform/logging"
 	"go-shopping-poc/internal/platform/outbox"
 

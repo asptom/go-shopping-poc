@@ -15,8 +15,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 
+	events "go-shopping-poc/internal/contracts/events"
 	entity "go-shopping-poc/internal/entity/customer"
-	events "go-shopping-poc/internal/event/customer"
 	"go-shopping-poc/internal/platform/logging"
 	outbox "go-shopping-poc/internal/platform/outbox"
 )

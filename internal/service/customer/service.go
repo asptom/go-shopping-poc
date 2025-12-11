@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 	entity "go-shopping-poc/internal/entity/customer"
+	"go-shopping-poc/internal/platform/service"
 
 	"github.com/google/uuid"
 )
@@ -55,12 +56,16 @@ type PatchCreditCardRequest struct {
 // the HTTP handlers and the repository layer. It contains business
 // logic, validation, and data transformation.
 type CustomerService struct {
+	*service.BaseService
 	repo CustomerRepository
 }
 
 // NewCustomerService creates a new customer service instance.
 func NewCustomerService(repo CustomerRepository) *CustomerService {
-	return &CustomerService{repo: repo}
+	return &CustomerService{
+		BaseService: service.NewBaseService("customer"),
+		repo:        repo,
+	}
 }
 
 func (s *CustomerService) GetCustomerByEmail(ctx context.Context, email string) (*entity.Customer, error) {

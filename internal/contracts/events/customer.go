@@ -7,15 +7,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// CustomerEventFactory implements EventFactory for CustomerEvent
-type CustomerEventFactory struct{}
-
-func (f CustomerEventFactory) FromJSON(data []byte) (CustomerEvent, error) {
-	var event CustomerEvent
-	err := json.Unmarshal(data, &event)
-	return event, err
-}
-
 // EventType is a typed alias for well-known customer events
 type EventType string
 
@@ -50,6 +41,15 @@ type CustomerEvent struct {
 	EventType    EventType            `json:"type"`
 	Timestamp    time.Time            `json:"timestamp"`
 	EventPayload CustomerEventPayload `json:"payload"`
+}
+
+// CustomerEventFactory implements EventFactory for CustomerEvent
+type CustomerEventFactory struct{}
+
+func (f CustomerEventFactory) FromJSON(data []byte) (CustomerEvent, error) {
+	var event CustomerEvent
+	err := json.Unmarshal(data, &event)
+	return event, err
 }
 
 // Convenience constructor for CustomerEvent

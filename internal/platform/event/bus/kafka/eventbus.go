@@ -1,22 +1,19 @@
-package eventbus
+package kafka
 
 import (
 	"context"
 	"encoding/json"
-	event "go-shopping-poc/internal/platform/event"
-	"go-shopping-poc/internal/platform/logging"
 	"sync"
+
+	"go-shopping-poc/internal/contracts/events"
+	"go-shopping-poc/internal/platform/event/bus"
+	"go-shopping-poc/internal/platform/logging"
 
 	"github.com/segmentio/kafka-go"
 )
 
-// Handler is a function that handles/processes an event.
-
-// Handler func(Event[any])
-
 // EventBus enables subscribing to and publishing events via Kafka.
 // It supports multiple topics for reading and one for writing.
-
 type EventBus struct {
 	writer        *kafka.Writer
 	readers       map[string]*kafka.Reader
@@ -25,9 +22,7 @@ type EventBus struct {
 }
 
 // NewEventBus creates a Kafka event bus without authentication (PLAINTEXT).
-
 func NewEventBus(broker string, readTopics []string, writeTopic string, group string) *EventBus {
-
 	writer := &kafka.Writer{
 		Addr:     kafka.TCP(broker),
 		Topic:    writeTopic,
@@ -66,8 +61,7 @@ func (eb *EventBus) ReadTopics() []string {
 
 // SubscribeTyped adds a type-safe handler for events of type T.
 // The topic is automatically determined from the event's Topic() method.
-
-func SubscribeTyped[T event.Event](eb *EventBus, factory event.EventFactory[T], handler HandlerFunc[T]) {
+func SubscribeTyped[T events.Event](eb *EventBus, factory events.EventFactory[T], handler bus.HandlerFunc[T]) {
 	// Create a dummy event to get the topic
 	dummy := *new(T)
 	topic := dummy.Topic()
@@ -81,8 +75,7 @@ func SubscribeTyped[T event.Event](eb *EventBus, factory event.EventFactory[T], 
 }
 
 // Publish sends an event to a specified Kafka topic.
-
-func (eb *EventBus) Publish(ctx context.Context, topic string, event event.Event) error {
+func (eb *EventBus) Publish(ctx context.Context, topic string, event events.Event) error {
 	logging.Debug("Eventbus: Publishing event to topic: %s, event type: %s", topic, event.Type())
 
 	value, err := json.Marshal(event)
@@ -98,7 +91,6 @@ func (eb *EventBus) Publish(ctx context.Context, topic string, event event.Event
 
 // PublishRaw sends raw JSON data to a specified Kafka topic.
 // Used by the outbox publisher to avoid double marshaling.
-
 func (eb *EventBus) PublishRaw(ctx context.Context, topic string, eventType string, data []byte) error {
 	logging.Debug("Eventbus: Publishing raw event to topic: %s, event type: %s", topic, eventType)
 
@@ -109,7 +101,6 @@ func (eb *EventBus) PublishRaw(ctx context.Context, topic string, eventType stri
 }
 
 // StartConsuming reads messages from all configured Kafka read topics and dispatches them to handlers.
-
 func (eb *EventBus) StartConsuming(ctx context.Context) error {
 	var wg sync.WaitGroup
 	errCh := make(chan error, len(eb.readers))

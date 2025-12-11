@@ -3,7 +3,7 @@ package outbox
 import (
 	"context"
 	"database/sql"
-	bus "go-shopping-poc/internal/platform/eventbus"
+	bus "go-shopping-poc/internal/platform/event/bus/kafka"
 	"go-shopping-poc/internal/platform/logging"
 	"sync"
 	"time"

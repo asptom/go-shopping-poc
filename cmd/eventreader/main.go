@@ -6,10 +6,11 @@ import (
 	"os/signal"
 	"syscall"
 
-	events "go-shopping-poc/internal/event/customer"
 	"go-shopping-poc/internal/platform/config"
-	"go-shopping-poc/internal/platform/eventbus"
+	kafka "go-shopping-poc/internal/platform/event/bus/kafka"
 	"go-shopping-poc/internal/platform/logging"
+	"go-shopping-poc/internal/service/eventreader"
+	"go-shopping-poc/internal/service/eventreader/eventhandlers"
 )
 
 func main() {
@@ -32,33 +33,60 @@ func main() {
 
 	logging.Debug("Eventreader: Event Broker: %s, Read Topics: %v, Write Topic: %v, Group: %s", broker, readTopics, writeTopic, group)
 
-	eventBus := eventbus.NewEventBus(broker, readTopics, writeTopic, group)
+	eventBus := kafka.NewEventBus(broker, readTopics, writeTopic, group)
 
-	// Create factory and handler using the new typed system
-	factory := events.CustomerEventFactory{}
-	handler := eventbus.HandlerFunc[events.CustomerEvent](func(ctx context.Context, evt events.CustomerEvent) error {
-		logging.Info("Eventreader: Processing customer event: %s", evt.Type())
-		logging.Info("Eventreader: Data in event: CustomerID=%s, EventType=%s, ResourceID=%s",
-			evt.EventPayload.CustomerID, evt.EventPayload.EventType, evt.EventPayload.ResourceID)
-		return nil
-	})
+	// Create service
+	service := eventreader.NewEventReaderService(eventBus)
 
-	// Subscribe using the new typed system - no adapter needed!
-	eventbus.SubscribeTyped(eventBus, factory, handler)
+	// Register event handlers
+	registerEventHandlers(service)
 
+	// Start service
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
 	logging.Debug("Eventreader: Starting event consumer...")
-	// Start consuming in a goroutine
 	go func() {
 		logging.Debug("Eventreader: Event consumer started")
-		if err := eventBus.StartConsuming(ctx); err != nil {
+		if err := service.Start(ctx); err != nil {
 			logging.Error("Eventreader: Event consumer stopped:", err)
 		}
 	}()
 
+	// Wait for shutdown signal
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 	<-sig
 	logging.Debug("Eventreader: Received shutdown signal, shutting down...")
+
+	// Graceful shutdown
+	if err := service.Stop(ctx); err != nil {
+		logging.Error("Eventreader: Error during shutdown:", err)
+	}
+}
+
+// registerEventHandlers registers all event handlers with the service
+func registerEventHandlers(service *eventreader.EventReaderService) {
+	// Register CustomerCreated handler using the clean generic method
+	customerCreatedHandler := eventhandlers.NewOnCustomerCreated()
+	eventreader.RegisterHandler(
+		service,
+		customerCreatedHandler.CreateFactory(),
+		customerCreatedHandler.CreateHandler(),
+	)
+
+	// Future handlers can be registered here using the same generic method:
+	// customerUpdatedHandler := eventhandlers.NewOnCustomerUpdated()
+	// eventreader.RegisterHandler(
+	//     service,
+	//     customerUpdatedHandler.CreateFactory(),
+	//     customerUpdatedHandler.CreateHandler(),
+	// )
+
+	// orderCreatedHandler := eventhandlers.NewOnOrderCreated()
+	// eventreader.RegisterHandler(
+	//     service,
+	//     orderCreatedHandler.CreateFactory(),
+	//     orderCreatedHandler.CreateHandler(),
+	// )
 }

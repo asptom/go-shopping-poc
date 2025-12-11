@@ -3,7 +3,7 @@ package outbox
 import (
 	"context"
 	"errors"
-	event "go-shopping-poc/internal/platform/event"
+	"go-shopping-poc/internal/contracts/events"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -20,7 +20,7 @@ func NewWriter(db *sqlx.DB) *Writer {
 
 // WriteEvent writes an Event to the outbox table using the provided sqlx transaction.
 // tx must be a non-nil *sqlx.Tx started by the caller; this function does not Commit/Rollback.
-func (w *Writer) WriteEvent(ctx context.Context, tx *sqlx.Tx, evt event.Event) error {
+func (w *Writer) WriteEvent(ctx context.Context, tx *sqlx.Tx, evt events.Event) error {
 	if tx == nil {
 		return errors.New("tx must be non-nil")
 	}

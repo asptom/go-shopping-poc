@@ -1,22 +1,21 @@
-package eventbus
+package kafka
 
 import (
 	"context"
 	"fmt"
-	event "go-shopping-poc/internal/platform/event"
+
+	"go-shopping-poc/internal/contracts/events"
+	"go-shopping-poc/internal/platform/event/bus"
 )
 
-// HandlerFunc defines a function type for handling typed events
-type HandlerFunc[T event.Event] func(ctx context.Context, event T) error
-
 // TypedHandler provides type-safe event handling using generics
-type TypedHandler[T event.Event] struct {
-	factory event.EventFactory[T]
-	handler HandlerFunc[T]
+type TypedHandler[T events.Event] struct {
+	factory events.EventFactory[T]
+	handler bus.HandlerFunc[T]
 }
 
 // NewTypedHandler creates a new typed handler with the given factory and handler function
-func NewTypedHandler[T event.Event](factory event.EventFactory[T], handler HandlerFunc[T]) *TypedHandler[T] {
+func NewTypedHandler[T events.Event](factory events.EventFactory[T], handler bus.HandlerFunc[T]) *TypedHandler[T] {
 	return &TypedHandler[T]{
 		factory: factory,
 		handler: handler,
