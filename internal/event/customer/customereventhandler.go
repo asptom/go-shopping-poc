@@ -3,7 +3,7 @@ package events
 import (
 	"context"
 
-	"go-shopping-poc/pkg/logging"
+	"go-shopping-poc/internal/platform/logging"
 )
 
 // Define the callback type

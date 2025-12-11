@@ -6,9 +6,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"go-shopping-poc/pkg/config"
-	"go-shopping-poc/pkg/logging"
-	ws "go-shopping-poc/pkg/websocket"
+	"go-shopping-poc/internal/platform/config"
+	"go-shopping-poc/internal/platform/logging"
+	ws "go-shopping-poc/internal/platform/websocket"
 
 	"github.com/gorilla/websocket"
 )

@@ -32,8 +32,8 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	entity "go-shopping-poc/internal/entity/customer"
-	outbox "go-shopping-poc/pkg/outbox"
-	"go-shopping-poc/pkg/testutils"
+	outbox "go-shopping-poc/internal/platform/outbox"
+	"go-shopping-poc/internal/testutils"
 )
 
 // ===== SETUP & HELPERS =====

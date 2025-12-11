@@ -9,11 +9,11 @@ import (
 	"syscall"
 	"time"
 
-	"go-shopping-poc/pkg/config"
-	"go-shopping-poc/pkg/cors"
-	bus "go-shopping-poc/pkg/eventbus"
-	"go-shopping-poc/pkg/logging"
-	"go-shopping-poc/pkg/outbox"
+	"go-shopping-poc/internal/platform/config"
+	"go-shopping-poc/internal/platform/cors"
+	bus "go-shopping-poc/internal/platform/eventbus"
+	"go-shopping-poc/internal/platform/logging"
+	"go-shopping-poc/internal/platform/outbox"
 
 	"go-shopping-poc/internal/service/customer"
 

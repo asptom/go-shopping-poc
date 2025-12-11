@@ -7,9 +7,9 @@ import (
 	"syscall"
 
 	events "go-shopping-poc/internal/event/customer"
-	"go-shopping-poc/pkg/config"
-	"go-shopping-poc/pkg/eventbus"
-	"go-shopping-poc/pkg/logging"
+	"go-shopping-poc/internal/platform/config"
+	"go-shopping-poc/internal/platform/eventbus"
+	"go-shopping-poc/internal/platform/logging"
 )
 
 func main() {

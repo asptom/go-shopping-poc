@@ -17,8 +17,8 @@ import (
 
 	entity "go-shopping-poc/internal/entity/customer"
 	events "go-shopping-poc/internal/event/customer"
-	"go-shopping-poc/pkg/logging"
-	outbox "go-shopping-poc/pkg/outbox"
+	"go-shopping-poc/internal/platform/logging"
+	outbox "go-shopping-poc/internal/platform/outbox"
 )
 
 // Custom error types for different repository failure scenarios

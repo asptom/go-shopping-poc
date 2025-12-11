@@ -75,7 +75,7 @@ func (e CustomerEvent) Type() string {
 }
 
 func (e CustomerEvent) Topic() string {
-	return "CustomerEvents"
+	return "customer.changes"
 }
 
 func (e CustomerEvent) Payload() any {

@@ -9,7 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	entity "go-shopping-poc/internal/entity/customer"
-	"go-shopping-poc/pkg/errors"
+	"go-shopping-poc/internal/platform/errors"
 )
 
 type CustomerHandler struct {
