@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	events "go-shopping-poc/internal/event/customer"
-	"go-shopping-poc/internal/platform/event"
 )
 
 func TestTypedHandler(t *testing.T) {
@@ -118,31 +117,4 @@ func TestCustomerEventFactory(t *testing.T) {
 	if reconstructedEvent.EventPayload.CustomerID != "test-customer-123" {
 		t.Errorf("Expected customer ID 'test-customer-123', got '%s'", reconstructedEvent.EventPayload.CustomerID)
 	}
-}
-
-func TestBackwardCompatibility(t *testing.T) {
-	// Test that old Subscribe method still works
-	bus := NewEventBus("localhost:9092", []string{"test-topic"}, "write-topic", "test-group")
-
-	// Create a mock legacy handler
-	handler := &mockLegacyHandler{}
-
-	// Subscribe using legacy method
-	bus.Subscribe("customer.created", handler)
-
-	// Verify handler was registered
-	bus.mu.RLock()
-	handlers := bus.handlers["customer.created"]
-	bus.mu.RUnlock()
-
-	if len(handlers) == 0 {
-		t.Error("No legacy handlers were registered for event type 'customer.created'")
-	}
-}
-
-// Mock legacy handler for backward compatibility testing
-type mockLegacyHandler struct{}
-
-func (h *mockLegacyHandler) Handle(ctx context.Context, event event.Event) error {
-	return nil
 }

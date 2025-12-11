@@ -14,19 +14,12 @@ import (
 
 // Handler func(Event[any])
 
-// EventHandler defines the interface for handling events
-type EventHandler interface {
-	Handle(ctx context.Context, event event.Event) error
-}
-
 // EventBus enables subscribing to and publishing events via Kafka.
 // It supports multiple topics for reading and one for writing.
 
 type EventBus struct {
-	writer   *kafka.Writer
-	readers  map[string]*kafka.Reader
-	handlers map[string][]EventHandler
-	// New: typed handlers for backward compatibility during migration
+	writer        *kafka.Writer
+	readers       map[string]*kafka.Reader
 	typedHandlers map[string][]func(ctx context.Context, data []byte) error
 	mu            sync.RWMutex
 }
@@ -55,7 +48,6 @@ func NewEventBus(broker string, readTopics []string, writeTopic string, group st
 	return &EventBus{
 		writer:        writer,
 		readers:       readers,
-		handlers:      make(map[string][]EventHandler),
 		typedHandlers: make(map[string][]func(ctx context.Context, data []byte) error),
 	}
 }
@@ -70,16 +62,6 @@ func (eb *EventBus) ReadTopics() []string {
 		topics = append(topics, topic)
 	}
 	return topics
-}
-
-// Subscribe adds a handler for a specific event type.
-// Maintains backward compatibility with existing code.
-
-func (eb *EventBus) Subscribe(eventType string, handler EventHandler) {
-	eb.mu.Lock()
-	defer eb.mu.Unlock()
-	eb.handlers[eventType] = append(eb.handlers[eventType], handler)
-	logging.Info("Eventbus: subscribed to event: %s", eventType)
 }
 
 // SubscribeTyped adds a type-safe handler for events of type T.
@@ -145,33 +127,6 @@ func (eb *EventBus) StartConsuming(ctx context.Context) error {
 
 				logging.Debug("Eventbus: Received message from topic: %s, key: %s", topic, string(m.Key))
 
-				// Handle legacy handlers (backward compatibility)
-				eb.mu.RLock()
-				legacyHandlers := eb.handlers[string(m.Key)]
-				eb.mu.RUnlock()
-
-				if len(legacyHandlers) > 0 {
-					logging.Debug("Eventbus: Processing with legacy handlers for event type: %s", string(m.Key))
-
-					// Use the event registry to obtain a concrete event.Event from stored payload
-					evt, err := event.UnmarshalEvent(string(m.Key), m.Value)
-					if err != nil {
-						logging.Error("Eventbus - Failed to unmarshal event payload for key %s: %v", string(m.Key), err)
-					} else {
-						logging.Info("Eventbus: Received event of type: %s from topic: %s", evt.Type(), topic)
-
-						for _, handler := range legacyHandlers {
-							h := handler
-							e := evt
-							go func() {
-								if err := h.Handle(ctx, e); err != nil {
-									logging.Error("Eventbus: legacy handler error for event %s: %v", e.Type(), err)
-								}
-							}()
-						}
-					}
-				}
-
 				// Handle new typed handlers
 				eb.mu.RLock()
 				typedHandlers := eb.typedHandlers[topic]
@@ -192,7 +147,7 @@ func (eb *EventBus) StartConsuming(ctx context.Context) error {
 				}
 
 				// If no handlers found, log and continue
-				if len(legacyHandlers) == 0 && len(typedHandlers) == 0 {
+				if len(typedHandlers) == 0 {
 					logging.Debug("Eventbus: No handlers found for topic: %s, key: %s", topic, string(m.Key))
 				}
 			}
