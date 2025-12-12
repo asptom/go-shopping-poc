@@ -1,9 +1,37 @@
+// Package service provides the foundational infrastructure for all service types.
+// It implements Clean Architecture by providing reusable service lifecycle management
+// that supports event-driven, HTTP, gRPC, and custom service implementations.
+//
+// Key interfaces:
+//   - Service: Common lifecycle interface (Start, Stop, Health, Name)
+//   - EventService: Event-specific extension with handler management
+//
+// Usage patterns:
+//   - Event-driven services: Embed EventServiceBase
+//   - HTTP services: Embed BaseService + add HTTP server
+//   - Custom services: Implement Service interface directly
+//
+// Example usage:
+//
+//	// Event-driven service
+//	type MyService struct {
+//	    *service.EventServiceBase
+//	    // domain-specific fields
+//	}
+//
+//	func NewMyService(eventBus bus.Bus) *MyService {
+//	    return &MyService{
+//	        EventServiceBase: service.NewEventServiceBase("my-service", eventBus),
+//	    }
+//	}
 package service
 
 import (
 	"context"
 	"errors"
 	"fmt"
+
+	bus "go-shopping-poc/internal/platform/event/bus"
 )
 
 // Service defines the common interface for all service types
@@ -20,6 +48,13 @@ type Service interface {
 
 	// Name returns the service name for identification
 	Name() string
+}
+
+// EventService extends Service with event-specific functionality
+type EventService interface {
+	Service
+	EventBus() bus.Bus
+	HandlerCount() int
 }
 
 // BaseService provides a base implementation that can be embedded in specific services

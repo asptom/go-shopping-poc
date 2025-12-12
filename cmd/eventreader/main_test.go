@@ -24,7 +24,9 @@ func TestRegisterEventHandlers(t *testing.T) {
 	service := eventreader.NewEventReaderService(eventBus)
 
 	// Test registering handlers
-	registerEventHandlers(service)
+	if err := registerEventHandlers(service); err != nil {
+		t.Fatalf("Failed to register event handlers: %v", err)
+	}
 
 	// Verify that handlers were registered (we can't easily test the actual registration
 	// without a more complex mock, but we can at least verify the function doesn't panic)
@@ -73,11 +75,13 @@ func TestMainFunctionStructure(t *testing.T) {
 	}
 
 	// Test handler registration
-	eventreader.RegisterHandler(
+	if err := eventreader.RegisterHandler(
 		service,
 		customerCreatedHandler.CreateFactory(),
 		customerCreatedHandler.CreateHandler(),
-	)
+	); err != nil {
+		t.Fatalf("Failed to register handler: %v", err)
+	}
 
 	// Test that we can create a context (this would be used in main)
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)

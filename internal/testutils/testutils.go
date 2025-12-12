@@ -142,3 +142,30 @@ func CleanupTestData(t *testing.T, db *sqlx.DB, customerID string) {
 		}
 	}
 }
+
+// SetupTestEnvironment prepares the test environment for integration tests
+func SetupTestEnvironment(t *testing.T) {
+	t.Helper()
+
+	// Load configuration to ensure environment is properly set up
+	cfg := LoadTestConfig()
+
+	// Check if Kafka configuration is available, skip if not
+	if cfg.GetEventBroker() == "" {
+		t.Skip("Skipping integration test: Event broker configuration is missing (Kafka not available)")
+	}
+
+	if len(cfg.GetEventReaderReadTopics()) == 0 {
+		t.Skip("Skipping integration test: Event reader topics configuration is missing")
+	}
+
+	if cfg.GetEventReaderWriteTopic() == "" {
+		t.Skip("Skipping integration test: Event reader write topic configuration is missing")
+	}
+
+	if cfg.GetEventReaderGroup() == "" {
+		t.Skip("Skipping integration test: Event reader group configuration is missing")
+	}
+
+	t.Log("Test environment setup completed successfully")
+}

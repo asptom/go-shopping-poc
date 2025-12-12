@@ -98,6 +98,36 @@ func TestOnCustomerCreated_processCustomerCreated(t *testing.T) {
 	}
 }
 
+func TestOnCustomerCreated_BusinessLogicMethods(t *testing.T) {
+	handler := NewOnCustomerCreated()
+	ctx := context.Background()
+	customerID := "test-customer-123"
+
+	// Test sendWelcomeEmail
+	err := handler.sendWelcomeEmail(ctx, customerID)
+	if err != nil {
+		t.Errorf("Expected no error from sendWelcomeEmail, got %v", err)
+	}
+
+	// Test initializeCustomerPreferences
+	err = handler.initializeCustomerPreferences(ctx, customerID)
+	if err != nil {
+		t.Errorf("Expected no error from initializeCustomerPreferences, got %v", err)
+	}
+
+	// Test updateCustomerAnalytics
+	err = handler.updateCustomerAnalytics(ctx, customerID)
+	if err != nil {
+		t.Errorf("Expected no error from updateCustomerAnalytics, got %v", err)
+	}
+
+	// Test createCustomerProfile
+	err = handler.createCustomerProfile(ctx, customerID)
+	if err != nil {
+		t.Errorf("Expected no error from createCustomerProfile, got %v", err)
+	}
+}
+
 func TestNewOnCustomerCreated(t *testing.T) {
 	handler := NewOnCustomerCreated()
 
@@ -107,5 +137,5 @@ func TestNewOnCustomerCreated(t *testing.T) {
 
 	// Test that it implements the expected interfaces
 	var _ handlerpkg.EventHandler = handler
-	var _ handlerpkg.HandlerFactory = handler
+	var _ handlerpkg.HandlerFactory[events.CustomerEvent] = handler
 }

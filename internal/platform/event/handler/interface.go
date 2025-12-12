@@ -21,14 +21,34 @@ type EventHandler interface {
 }
 
 // HandlerFactory creates event handlers with their factories
-// This interface provides a factory pattern for creating typed handlers
-// that can be registered with the event bus.
-type HandlerFactory interface {
+// This interface provides a generic factory pattern for creating typed handlers
+// that can be registered with the event bus for any event type.
+//
+// Generic Parameter:
+//
+//	T: The specific event type (must implement events.Event interface)
+//	   Examples: events.CustomerEvent, events.OrderEvent, events.ProductEvent
+//
+// Usage Example:
+//
+//	type MyEventHandler struct{}
+//
+//	func (h MyEventHandler) CreateFactory() events.EventFactory[MyEvent] {
+//	    return &MyEventFactory{}
+//	}
+//
+//	func (h MyEventHandler) CreateHandler() bus.HandlerFunc[MyEvent] {
+//	    return func(ctx context.Context, event MyEvent) error {
+//	        // Handle event business logic
+//	        return nil
+//	    }
+//	}
+type HandlerFactory[T events.Event] interface {
 	// CreateFactory returns the event factory for this handler
 	// The factory is used to reconstruct events from raw message data.
-	CreateFactory() events.EventFactory[events.CustomerEvent]
+	CreateFactory() events.EventFactory[T]
 
 	// CreateHandler returns the handler function
 	// The handler function processes events of the specific type.
-	CreateHandler() bus.HandlerFunc[events.CustomerEvent]
+	CreateHandler() bus.HandlerFunc[T]
 }

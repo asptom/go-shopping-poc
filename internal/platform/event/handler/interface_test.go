@@ -50,8 +50,8 @@ func TestEventHandler_Interface(t *testing.T) {
 func TestHandlerFactory_Interface(t *testing.T) {
 	handler := NewMockEventHandler("test-event")
 
-	// Test that it implements HandlerFactory
-	var _ HandlerFactory = handler
+	// Test that it implements HandlerFactory[events.CustomerEvent]
+	var _ HandlerFactory[events.CustomerEvent] = handler
 
 	factory := handler.CreateFactory()
 	if factory == nil {
@@ -70,7 +70,7 @@ func TestSharedHandlerInterfaces(t *testing.T) {
 
 	// Verify interface compliance
 	var eventHandler EventHandler = handler
-	var factoryHandler HandlerFactory = handler
+	var factoryHandler HandlerFactory[events.CustomerEvent] = handler
 
 	// Test methods
 	ctx := context.Background()

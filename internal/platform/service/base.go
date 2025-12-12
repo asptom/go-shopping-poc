@@ -4,7 +4,7 @@ import (
 	"context"
 	"go-shopping-poc/internal/contracts/events"
 	"go-shopping-poc/internal/platform/event/bus"
-	kafka "go-shopping-poc/internal/platform/event/bus/kafka"
+	"reflect"
 )
 
 // EventServiceBase provides a base implementation for event-driven services
@@ -31,25 +31,13 @@ func (s *EventServiceBase) Start(ctx context.Context) error {
 
 // RegisterHandler adds a typed event handler for any event type to the service
 func RegisterHandler[T events.Event](s Service, factory events.EventFactory[T], handler bus.HandlerFunc[T]) error {
-	if eventService, ok := s.(*EventServiceBase); ok {
-		// Store the registration (we could store the actual types if needed for introspection)
-		eventService.handlers = append(eventService.handlers, struct {
-			factory events.EventFactory[T]
-			handler bus.HandlerFunc[T]
-		}{
-			factory: factory,
-			handler: handler,
-		})
+	if eventService, ok := s.(EventService); ok {
+		// Store the registration in the service for introspection
+		// This works for both direct EventServiceBase and embedded cases
+		storeHandlerInService(s, factory, handler)
 
-		// Register with the event bus - need to assert to kafka.EventBus for SubscribeTyped
-		if kafkaBus, ok := eventService.eventBus.(*kafka.EventBus); ok {
-			kafka.SubscribeTyped(kafkaBus, factory, handler)
-			return nil
-		}
-
-		// If we can't assert to kafka.EventBus, we could try other implementations here
-		// For now, return an error indicating unsupported event bus type
-		return ErrUnsupportedEventBus
+		// Use interface method for registration (works across all environments)
+		return eventService.EventBus().RegisterHandler(factory, handler)
 	}
 
 	return &ServiceError{
@@ -57,6 +45,54 @@ func RegisterHandler[T events.Event](s Service, factory events.EventFactory[T], 
 		Op:      "RegisterHandler",
 		Err:     ErrUnsupportedEventBus,
 	}
+}
+
+// storeHandlerInService stores a handler registration in the service for introspection
+// This handles both direct EventServiceBase and embedded EventServiceBase cases
+func storeHandlerInService[T events.Event](s Service, factory events.EventFactory[T], handler bus.HandlerFunc[T]) {
+	// Try direct type assertion first (for services that are directly EventServiceBase)
+	if esb, ok := s.(*EventServiceBase); ok {
+		esb.handlers = append(esb.handlers, struct {
+			factory events.EventFactory[T]
+			handler bus.HandlerFunc[T]
+		}{
+			factory: factory,
+			handler: handler,
+		})
+		return
+	}
+
+	// Try to access embedded EventServiceBase using reflection
+	// This handles cases like EventReaderService which embeds *EventServiceBase
+	v := reflect.ValueOf(s)
+	if v.Kind() == reflect.Ptr && !v.IsNil() {
+		v = v.Elem()
+		if v.Kind() == reflect.Struct {
+			// Look for embedded EventServiceBase field
+			for i := 0; i < v.NumField(); i++ {
+				field := v.Field(i)
+				if field.Kind() == reflect.Ptr && !field.IsNil() {
+					fieldType := field.Type()
+					if fieldType.Kind() == reflect.Ptr && fieldType.Elem().Name() == "EventServiceBase" {
+						// Found embedded EventServiceBase
+						if esb, ok := field.Interface().(*EventServiceBase); ok {
+							esb.handlers = append(esb.handlers, struct {
+								factory events.EventFactory[T]
+								handler bus.HandlerFunc[T]
+							}{
+								factory: factory,
+								handler: handler,
+							})
+							return
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// If we can't store the handler, that's okay - the functionality still works
+	// The handler is registered with the eventbus and will process events correctly
 }
 
 // EventBus returns the underlying event bus for advanced usage

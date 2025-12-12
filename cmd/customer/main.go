@@ -23,7 +23,7 @@ import (
 )
 
 func main() {
-	logging.SetLevel("INFO")
+	logging.SetLevel("DEBUG")
 	logging.Info("Customer:  Customer service started...")
 
 	// Load configuration
@@ -47,7 +47,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("Customer: Failed to connect to DB: %v", err)
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			logging.Error("Customer: Error closing database connection: %v", err)
+		}
+	}()
 
 	// Connect to Kafka
 	broker := cfg.GetEventBroker()

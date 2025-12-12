@@ -152,6 +152,13 @@ func (r *customerRepository) insertCustomerWithRelations(ctx context.Context, cu
 		return err
 	}
 
+	// emit outbox event inside same transaction
+
+	evt := events.NewCustomerCreatedEvent(customer.CustomerID, nil)
+	if err := r.outboxWriter.WriteEvent(ctx, tx, evt); err != nil {
+		return fmt.Errorf("failed to publish customer created event: %w", err)
+	}
+
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
@@ -203,6 +210,13 @@ func (r *customerRepository) InsertCustomerRecord(ctx context.Context, customer 
 	_, err = tx.NamedExecContext(ctx, customerQuery, customer)
 	if err != nil {
 		return fmt.Errorf("failed to execute insert query: %w", err)
+	}
+
+	// emit outbox event inside same transaction
+
+	evt := events.NewCustomerCreatedEvent(customer.CustomerID, nil)
+	if err := r.outboxWriter.WriteEvent(ctx, tx, evt); err != nil {
+		return fmt.Errorf("failed to publish customer created event: %w", err)
 	}
 
 	if err := tx.Commit(); err != nil {

@@ -2,23 +2,40 @@ package eventreader
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	events "go-shopping-poc/internal/contracts/events"
 	"go-shopping-poc/internal/platform/event/bus"
-	"go-shopping-poc/internal/platform/service"
 )
 
 // MockEventBus for testing
 type MockEventBus struct {
-	bus.Bus
 	startConsumingCalled bool
+}
+
+func (m *MockEventBus) Publish(ctx context.Context, topic string, event events.Event) error {
+	return nil
+}
+
+func (m *MockEventBus) PublishRaw(ctx context.Context, topic string, eventType string, data []byte) error {
+	return nil
 }
 
 func (m *MockEventBus) StartConsuming(ctx context.Context) error {
 	m.startConsumingCalled = true
 	return nil
+}
+
+func (m *MockEventBus) RegisterHandler(factory any, handler any) error {
+	return nil
+}
+
+func (m *MockEventBus) WriteTopic() string {
+	return "test-write"
+}
+
+func (m *MockEventBus) ReadTopics() []string {
+	return []string{"test-read"}
 }
 
 func TestEventReaderService_RegisterHandler(t *testing.T) {
@@ -32,14 +49,9 @@ func TestEventReaderService_RegisterHandler(t *testing.T) {
 
 	err := RegisterHandler(eventService, factory, handler)
 
-	// This should return an error since mockBus is not a kafka.EventBus
-	if err == nil {
-		t.Error("Expected error for non-kafka event bus")
-	}
-
-	// Check if the error contains ErrUnsupportedEventBus (it's wrapped in ServiceError)
-	if !errors.Is(err, service.ErrUnsupportedEventBus) {
-		t.Errorf("Expected ErrUnsupportedEventBus, got %v", err)
+	// RegisterHandler should succeed for any Bus implementation
+	if err != nil {
+		t.Errorf("Expected no error for valid bus implementation, got %v", err)
 	}
 }
 
@@ -79,6 +91,7 @@ func TestNewEventReaderService(t *testing.T) {
 		t.Error("Expected service to be non-nil")
 	}
 
+	// #nosec G601 - eventService is checked for nil above
 	if eventService.Name() != "eventreader" {
 		t.Errorf("Expected service name 'eventreader', got '%s'", eventService.Name())
 	}

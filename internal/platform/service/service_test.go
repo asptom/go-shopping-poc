@@ -32,9 +32,26 @@ func (m *MockEventBus) WriteTopic() string {
 	return m.writeTopic
 }
 
-// MockEventBusKafka extends MockEventBus to be castable to *kafka.EventBus
+func (m *MockEventBus) RegisterHandler(factory any, handler any) error {
+	return ErrUnsupportedEventBus
+}
+
+func (m *MockEventBus) Publish(ctx context.Context, topic string, event events.Event) error {
+	return nil
+}
+
+func (m *MockEventBus) PublishRaw(ctx context.Context, topic string, eventType string, data []byte) error {
+	return nil
+}
+
+// MockEventBusKafka extends MockEventBus to simulate kafka.EventBus behavior
 type MockEventBusKafka struct {
 	MockEventBus
+}
+
+func (m *MockEventBusKafka) RegisterHandler(factory any, handler any) error {
+	// Simulate successful registration for kafka-like bus
+	return nil
 }
 
 func TestBaseService_Name(t *testing.T) {
@@ -124,11 +141,12 @@ func TestEventServiceBase_Start_Error(t *testing.T) {
 }
 
 func TestRegisterHandler_Success(t *testing.T) {
-	// For this test, we'll skip the actual kafka.EventBus assertion
-	// and just test the handler storage functionality
-	mockBus := &MockEventBus{
-		readTopics: []string{"topic1"},
-		writeTopic: "write-topic",
+	// Test that RegisterHandler works with interface-based registration
+	mockBus := &MockEventBusKafka{
+		MockEventBus: MockEventBus{
+			readTopics: []string{"topic1"},
+			writeTopic: "write-topic",
+		},
 	}
 
 	service := NewEventServiceBase("event-service", mockBus)
@@ -138,15 +156,15 @@ func TestRegisterHandler_Success(t *testing.T) {
 		return nil
 	})
 
-	// This will fail because mockBus is not a kafka.EventBus, but we can test the error
 	err := RegisterHandler(service, factory, handler)
 
-	if err == nil {
-		t.Error("Expected error for non-kafka event bus")
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
 	}
 
-	if err != ErrUnsupportedEventBus {
-		t.Errorf("Expected ErrUnsupportedEventBus, got %v", err)
+	// Verify handler was stored
+	if service.HandlerCount() != 1 {
+		t.Errorf("Expected 1 handler, got %d", service.HandlerCount())
 	}
 }
 

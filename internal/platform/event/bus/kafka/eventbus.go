@@ -3,6 +3,7 @@ package kafka
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"sync"
 
 	"go-shopping-poc/internal/contracts/events"
@@ -60,9 +61,9 @@ func (eb *EventBus) ReadTopics() []string {
 }
 
 // SubscribeTyped adds a type-safe handler for events of type T.
-// The topic is automatically determined from the event's Topic() method.
+// The topic is automatically determined from event's Topic() method.
 func SubscribeTyped[T events.Event](eb *EventBus, factory events.EventFactory[T], handler bus.HandlerFunc[T]) {
-	// Create a dummy event to get the topic
+	// Create a dummy event to get topic
 	dummy := *new(T)
 	topic := dummy.Topic()
 
@@ -72,6 +73,38 @@ func SubscribeTyped[T events.Event](eb *EventBus, factory events.EventFactory[T]
 	defer eb.mu.Unlock()
 	eb.typedHandlers[topic] = append(eb.typedHandlers[topic], typedHandler.Handle)
 	logging.Info("Eventbus: subscribed to topic: %s with typed handler", topic)
+}
+
+// RegisterHandler allows registering handlers via interface
+// This method supports registering handlers for any event type by using type assertions.
+// When new event types are added, extend this method with additional cases.
+func (eb *EventBus) RegisterHandler(factory any, handler any) error {
+	// Handle CustomerEvent - the primary event type currently supported
+	if f, ok := factory.(events.EventFactory[events.CustomerEvent]); ok {
+		if h, ok := handler.(bus.HandlerFunc[events.CustomerEvent]); ok {
+			SubscribeTyped(eb, f, h)
+			return nil
+		}
+	}
+
+	// Handle concrete CustomerEventFactory type
+	if f, ok := factory.(events.CustomerEventFactory); ok {
+		if h, ok := handler.(bus.HandlerFunc[events.CustomerEvent]); ok {
+			SubscribeTyped(eb, f, h)
+			return nil
+		}
+	}
+
+	// TODO: Add support for other event types here as they are implemented
+	// Example:
+	// if f, ok := factory.(events.EventFactory[events.OrderEvent]); ok {
+	//     if h, ok := handler.(bus.HandlerFunc[events.OrderEvent]); ok {
+	//         SubscribeTyped(eb, f, h)
+	//         return nil
+	//     }
+	// }
+
+	return fmt.Errorf("unsupported factory type: %T", factory)
 }
 
 // Publish sends an event to a specified Kafka topic.

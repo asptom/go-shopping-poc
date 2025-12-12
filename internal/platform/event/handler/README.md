@@ -12,7 +12,7 @@ The shared handler pattern provides common interfaces and utilities for implemen
 internal/platform/event/handler/
 ├── interface.go           # Common handler interfaces
 ├── interface_test.go     # Tests for shared interfaces
-├── customer_handler.go   # Reusable customer event handlers
+├── event_utils.go        # Generic event handling utilities
 └── [future_handlers]    # Additional domain-specific handlers
 ```
 
@@ -34,16 +34,69 @@ type EventHandler interface {
 
 ### HandlerFactory
 
-The `HandlerFactory` interface provides a factory pattern for creating typed handlers:
+The `HandlerFactory[T]` interface provides a generic factory pattern for creating typed handlers:
 
 ```go
-type HandlerFactory interface {
+type HandlerFactory[T events.Event] interface {
     // CreateFactory returns the event factory for this handler
-    CreateFactory() events.EventFactory[events.CustomerEvent]
+    CreateFactory() events.EventFactory[T]
     
     // CreateHandler returns the handler function
-    CreateHandler() bus.HandlerFunc[events.CustomerEvent]
+    CreateHandler() bus.HandlerFunc[T]
 }
+```
+
+**Generic Parameter:**
+- `T`: The specific event type (e.g., `events.CustomerEvent`, `events.OrderEvent`)
+- Must implement the `events.Event` interface
+
+**Benefits:**
+- **Type Safety**: Compile-time type checking for all event handling
+- **Reusability**: Same interface works for any event type
+- **Clean Architecture**: Platform layer remains generic and domain-agnostic
+- **Extensibility**: Easy to add new event types without changing platform code
+
+
+
+## Generic Event Utilities
+
+The `EventUtils` type provides reusable, domain-agnostic utilities for event processing:
+
+### Available Utilities
+
+```go
+utils := handler.NewEventUtils()
+
+// Validation
+err := utils.ValidateEvent(ctx, event)
+
+// Logging
+utils.LogEventProcessing(ctx, eventType, entityID, resourceID)
+utils.LogEventCompletion(ctx, eventType, entityID, err)
+
+// Safe processing with validation
+err := utils.HandleEventWithValidation(ctx, event, processor)
+
+// Panic recovery
+err := utils.SafeEventProcessing(ctx, event, processor)
+
+// Extract information
+entityID := utils.GetEventID(event)
+resourceID := utils.GetResourceID(event)
+```
+
+### Event Type Matching
+
+The `EventTypeMatcher` provides type checking utilities:
+
+```go
+matcher := handler.NewEventTypeMatcher()
+
+// Check event type
+isMatch := matcher.MatchEventType(event, "customer.created", "customer.updated")
+
+// Check specific event types
+isCustomer := matcher.IsCustomerEvent(event)
 ```
 
 ## Usage Pattern
@@ -119,27 +172,34 @@ func SetupHandlers(service *eventreader.EventReaderService) {
 }
 ```
 
-### 3. Use Reusable Handlers
+### 3. Use Generic Event Utilities
 
-Leverage existing reusable handlers:
+Leverage generic event handling utilities:
 
 ```go
 import "go-shopping-poc/internal/platform/event/handler"
 
 func SetupCustomerHandlers(service *eventreader.EventReaderService) {
-    customerHandler := handler.NewCustomerEventHandler()
+    utils := handler.NewEventUtils()
     
-    // Create a handler that uses the reusable logic
-    reusableHandler := &struct {
-        handler.CustomerEventHandler
-    }{}
+    // Create a handler that uses generic utilities
+    handlerFunc := func(ctx context.Context, event events.CustomerEvent) error {
+        // Use generic validation
+        if err := utils.ValidateEvent(ctx, event); err != nil {
+            return err
+        }
+        
+        // Use generic logging
+        utils.LogEventProcessing(ctx, event.EventType, event.EventPayload.CustomerID, event.EventPayload.ResourceID)
+        
+        // Your business logic here
+        return nil
+    }
     
     // Register for specific events
     service.RegisterHandler(
         events.CustomerEventFactory{},
-        func(ctx context.Context, event events.CustomerEvent) error {
-            return reusableHandler.HandleCustomerCreated(ctx, event)
-        },
+        handlerFunc,
     )
 }
 ```
