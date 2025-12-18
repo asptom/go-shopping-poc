@@ -8,10 +8,9 @@
 
 This project implements Clean Architecture principles with clear separation of concerns:
 
-- **Contracts Layer** (`internal/contracts/`): Pure data structures and interfaces
+- **Contracts Layer** (`internal/contracts/`): Pure data structures and event DTOs
 - **Platform Layer** (`internal/platform/`): Shared infrastructure and reusable utilities
-- **Service Layer** (`internal/service/`): Domain-specific business logic
-- **Entity Layer** (`internal/entity/`): Domain models and database mappings
+- **Service Layer** (`internal/service/`): Domain-specific business logic and entities
 
 ### Event System
 

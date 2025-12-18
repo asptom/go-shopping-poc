@@ -29,7 +29,6 @@ import (
 
 	"github.com/google/uuid"
 
-	entity "go-shopping-poc/internal/entity/customer"
 )
 
 // ===== ERROR TYPES & WRAPPING =====
@@ -145,7 +144,7 @@ func TestPatchRequest_InvalidUUID(t *testing.T) {
 func TestFieldUpdates_BasicFields(t *testing.T) {
 	service := &CustomerService{}
 
-	customer := &entity.Customer{
+	customer := &Customer{
 		Username:       "olduser",
 		Email:          "old@example.com",
 		CustomerStatus: "inactive",
@@ -183,7 +182,7 @@ func TestFieldUpdates_BasicFields(t *testing.T) {
 func TestFieldUpdates_DefaultFields(t *testing.T) {
 	service := &CustomerService{}
 
-	customer := &entity.Customer{}
+	customer := &Customer{}
 
 	// Test setting UUID
 	validUUID := uuid.New().String()
@@ -208,7 +207,7 @@ func TestFieldUpdates_DefaultFields(t *testing.T) {
 func TestFieldUpdates_DefaultFieldClearing(t *testing.T) {
 	service := &CustomerService{}
 
-	customer := &entity.Customer{}
+	customer := &Customer{}
 
 	// First set a UUID
 	validUUID := uuid.New().String()
@@ -316,7 +315,7 @@ func TestCreditCardTransformation_FromPatch(t *testing.T) {
 func TestCustomerDefaults_NewCustomer(t *testing.T) {
 	repo := &customerRepository{}
 
-	customer := &entity.Customer{
+	customer := &Customer{
 		Username:  "testuser",
 		Email:     "test@example.com",
 		FirstName: "Test",
@@ -349,7 +348,7 @@ func TestCustomerDefaults_NewCustomer(t *testing.T) {
 func TestCustomerDefaults_ExistingValuesPreserved(t *testing.T) {
 	repo := &customerRepository{}
 
-	customer := &entity.Customer{
+	customer := &Customer{
 		Username:       "testuser",
 		Email:          "test@example.com",
 		CustomerStatus: "inactive",

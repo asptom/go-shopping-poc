@@ -48,11 +48,13 @@ func RegisterHandler[T events.Event](s Service, factory events.EventFactory[T], 
 // EventReaderService implements the Service interface using platform infrastructure
 type EventReaderService struct {
 	*service.EventServiceBase
+	config *Config // Store config for potential future use
 }
 
 // NewEventReaderService creates a new event reader service instance
-func NewEventReaderService(eventBus bus.Bus) *EventReaderService {
+func NewEventReaderService(eventBus bus.Bus, config *Config) *EventReaderService {
 	return &EventReaderService{
 		EventServiceBase: service.NewEventServiceBase("eventreader", eventBus),
+		config:           config,
 	}
 }

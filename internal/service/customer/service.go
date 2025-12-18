@@ -8,7 +8,6 @@ package customer
 import (
 	"context"
 	"fmt"
-	entity "go-shopping-poc/internal/entity/customer"
 	"go-shopping-poc/internal/platform/service"
 
 	"github.com/google/uuid"
@@ -57,26 +56,28 @@ type PatchCreditCardRequest struct {
 // logic, validation, and data transformation.
 type CustomerService struct {
 	*service.BaseService
-	repo CustomerRepository
+	repo   CustomerRepository
+	config *Config // Store config for potential future use
 }
 
 // NewCustomerService creates a new customer service instance.
-func NewCustomerService(repo CustomerRepository) *CustomerService {
+func NewCustomerService(repo CustomerRepository, config *Config) *CustomerService {
 	return &CustomerService{
 		BaseService: service.NewBaseService("customer"),
 		repo:        repo,
+		config:      config,
 	}
 }
 
-func (s *CustomerService) GetCustomerByEmail(ctx context.Context, email string) (*entity.Customer, error) {
+func (s *CustomerService) GetCustomerByEmail(ctx context.Context, email string) (*Customer, error) {
 	return s.repo.GetCustomerByEmail(ctx, email)
 }
 
-func (s *CustomerService) GetCustomerByID(ctx context.Context, customerID string) (*entity.Customer, error) {
+func (s *CustomerService) GetCustomerByID(ctx context.Context, customerID string) (*Customer, error) {
 	return s.repo.GetCustomerByID(ctx, customerID)
 }
 
-func (s *CustomerService) CreateCustomer(ctx context.Context, customer *entity.Customer) error {
+func (s *CustomerService) CreateCustomer(ctx context.Context, customer *Customer) error {
 	// Validate the customer entity
 	if err := customer.Validate(); err != nil {
 		return fmt.Errorf("customer validation failed: %w", err)
@@ -99,7 +100,7 @@ func (s *CustomerService) CreateCustomer(ctx context.Context, customer *entity.C
 	return s.repo.InsertCustomer(ctx, customer)
 }
 
-func (s *CustomerService) UpdateCustomer(ctx context.Context, customer *entity.Customer) error {
+func (s *CustomerService) UpdateCustomer(ctx context.Context, customer *Customer) error {
 	return s.repo.UpdateCustomer(ctx, customer)
 }
 
@@ -145,7 +146,7 @@ func (s *CustomerService) ValidatePatchData(patchData *PatchCustomerRequest) err
 }
 
 // ApplyFieldUpdates applies basic field updates to the customer
-func (s *CustomerService) ApplyFieldUpdates(customer *entity.Customer, patchData *PatchCustomerRequest) {
+func (s *CustomerService) ApplyFieldUpdates(customer *Customer, patchData *PatchCustomerRequest) {
 	if patchData.UserName != nil {
 		customer.Username = *patchData.UserName
 	}
@@ -196,10 +197,10 @@ func (s *CustomerService) ApplyFieldUpdates(customer *entity.Customer, patchData
 }
 
 // TransformAddressesFromPatch converts patch address requests to entity addresses
-func (s *CustomerService) TransformAddressesFromPatch(patchAddresses []PatchAddressRequest) []entity.Address {
-	var addresses []entity.Address
+func (s *CustomerService) TransformAddressesFromPatch(patchAddresses []PatchAddressRequest) []Address {
+	var addresses []Address
 	for _, patchAddr := range patchAddresses {
-		addr := entity.Address{
+		addr := Address{
 			AddressType: patchAddr.AddressType,
 			FirstName:   patchAddr.FirstName,
 			LastName:    patchAddr.LastName,
@@ -215,10 +216,10 @@ func (s *CustomerService) TransformAddressesFromPatch(patchAddresses []PatchAddr
 }
 
 // TransformCreditCardsFromPatch converts patch credit card requests to entity credit cards
-func (s *CustomerService) TransformCreditCardsFromPatch(patchCards []PatchCreditCardRequest) []entity.CreditCard {
-	var cards []entity.CreditCard
+func (s *CustomerService) TransformCreditCardsFromPatch(patchCards []PatchCreditCardRequest) []CreditCard {
+	var cards []CreditCard
 	for _, patchCard := range patchCards {
-		card := entity.CreditCard{
+		card := CreditCard{
 			CardType:       patchCard.CardType,
 			CardNumber:     patchCard.CardNumber,
 			CardHolderName: patchCard.CardHolderName,
@@ -230,11 +231,11 @@ func (s *CustomerService) TransformCreditCardsFromPatch(patchCards []PatchCredit
 	return cards
 }
 
-func (s *CustomerService) AddAddress(ctx context.Context, customerID string, addr *entity.Address) (*entity.Address, error) {
+func (s *CustomerService) AddAddress(ctx context.Context, customerID string, addr *Address) (*Address, error) {
 	return s.repo.AddAddress(ctx, customerID, addr)
 }
 
-func (s *CustomerService) UpdateAddress(ctx context.Context, addressID string, addr *entity.Address) error {
+func (s *CustomerService) UpdateAddress(ctx context.Context, addressID string, addr *Address) error {
 	return s.repo.UpdateAddress(ctx, addressID, addr)
 }
 
@@ -242,11 +243,11 @@ func (s *CustomerService) DeleteAddress(ctx context.Context, addressID string) e
 	return s.repo.DeleteAddress(ctx, addressID)
 }
 
-func (s *CustomerService) AddCreditCard(ctx context.Context, customerID string, card *entity.CreditCard) (*entity.CreditCard, error) {
+func (s *CustomerService) AddCreditCard(ctx context.Context, customerID string, card *CreditCard) (*CreditCard, error) {
 	return s.repo.AddCreditCard(ctx, customerID, card)
 }
 
-func (s *CustomerService) UpdateCreditCard(ctx context.Context, customerID string, card *entity.CreditCard) error {
+func (s *CustomerService) UpdateCreditCard(ctx context.Context, customerID string, card *CreditCard) error {
 	return s.repo.UpdateCreditCard(ctx, customerID, card)
 }
 

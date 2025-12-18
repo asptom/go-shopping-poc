@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"sync"
 
 	"go-shopping-poc/internal/contracts/events"
 	"go-shopping-poc/internal/platform/event/bus"
-	"go-shopping-poc/internal/platform/logging"
+	kafkaconfig "go-shopping-poc/internal/platform/event/kafka"
 
 	"github.com/segmentio/kafka-go"
 )
@@ -22,24 +23,25 @@ type EventBus struct {
 	mu            sync.RWMutex
 }
 
-// NewEventBus creates a Kafka event bus without authentication (PLAINTEXT).
-func NewEventBus(broker string, readTopics []string, writeTopic string, group string) *EventBus {
+// NewEventBus creates a Kafka event bus using the provided configuration.
+func NewEventBus(kafkaCfg *kafkaconfig.Config) *EventBus {
 	writer := &kafka.Writer{
-		Addr:     kafka.TCP(broker),
-		Topic:    writeTopic,
+		Addr:     kafka.TCP(kafkaCfg.Brokers...),
+		Topic:    kafkaCfg.Topic,
 		Balancer: &kafka.LeastBytes{},
 	}
 
 	readers := make(map[string]*kafka.Reader)
-	for _, topic := range readTopics {
-		logging.Debug("Eventbus - Creating Kafka reader for topic: %s", topic)
-		readers[topic] = kafka.NewReader(kafka.ReaderConfig{
-			Brokers: []string{broker},
-			Topic:   topic,
-			GroupID: group,
-			Dialer:  &kafka.Dialer{},
-		})
-	}
+	// Use the configured topic for both reading and writing for now
+	// This can be extended to support separate read/write topics
+	topic := kafkaCfg.Topic
+	log.Printf("[DEBUG] Eventbus - Creating Kafka reader for topic: %s", topic)
+	readers[topic] = kafka.NewReader(kafka.ReaderConfig{
+		Brokers:     kafkaCfg.Brokers,
+		GroupID:     kafkaCfg.GroupID,
+		GroupTopics: []string{topic}, // Use GroupTopics with GroupID
+		Dialer:      &kafka.Dialer{},
+	})
 
 	return &EventBus{
 		writer:        writer,
@@ -72,7 +74,7 @@ func SubscribeTyped[T events.Event](eb *EventBus, factory events.EventFactory[T]
 	eb.mu.Lock()
 	defer eb.mu.Unlock()
 	eb.typedHandlers[topic] = append(eb.typedHandlers[topic], typedHandler.Handle)
-	logging.Info("Eventbus: subscribed to topic: %s with typed handler", topic)
+	log.Printf("[INFO] Eventbus: subscribed to topic: %s with typed handler", topic)
 }
 
 // RegisterHandler allows registering handlers via interface
@@ -109,11 +111,11 @@ func (eb *EventBus) RegisterHandler(factory any, handler any) error {
 
 // Publish sends an event to a specified Kafka topic.
 func (eb *EventBus) Publish(ctx context.Context, topic string, event events.Event) error {
-	logging.Debug("Eventbus: Publishing event to topic: %s, event type: %s", topic, event.Type())
+	log.Printf("[DEBUG] Eventbus: Publishing event to topic: %s, event type: %s", topic, event.Type())
 
 	value, err := json.Marshal(event)
 	if err != nil {
-		logging.Error("Eventbus: Failed to convert event to JSON: %v", err)
+		log.Printf("[ERROR] Eventbus: Failed to convert event to JSON: %v", err)
 		return err
 	}
 	return eb.writer.WriteMessages(ctx, kafka.Message{
@@ -125,7 +127,7 @@ func (eb *EventBus) Publish(ctx context.Context, topic string, event events.Even
 // PublishRaw sends raw JSON data to a specified Kafka topic.
 // Used by the outbox publisher to avoid double marshaling.
 func (eb *EventBus) PublishRaw(ctx context.Context, topic string, eventType string, data []byte) error {
-	logging.Debug("Eventbus: Publishing raw event to topic: %s, event type: %s", topic, eventType)
+	log.Printf("[DEBUG] Eventbus: Publishing raw event to topic: %s, event type: %s", topic, eventType)
 
 	return eb.writer.WriteMessages(ctx, kafka.Message{
 		Key:   []byte(eventType),
@@ -149,7 +151,7 @@ func (eb *EventBus) StartConsuming(ctx context.Context) error {
 					return
 				}
 
-				logging.Debug("Eventbus: Received message from topic: %s, key: %s", topic, string(m.Key))
+				log.Printf("[DEBUG] Eventbus: Received message from topic: %s, key: %s", topic, string(m.Key))
 
 				// Handle new typed handlers
 				eb.mu.RLock()
@@ -157,14 +159,14 @@ func (eb *EventBus) StartConsuming(ctx context.Context) error {
 				eb.mu.RUnlock()
 
 				if len(typedHandlers) > 0 {
-					logging.Debug("Eventbus: Processing with typed handlers for topic: %s", topic)
+					log.Printf("[DEBUG] Eventbus: Processing with typed handlers for topic: %s", topic)
 
 					for _, handler := range typedHandlers {
 						h := handler
 						data := m.Value // Raw JSON bytes
 						go func() {
 							if err := h(ctx, data); err != nil {
-								logging.Error("Eventbus: typed handler error for topic %s: %v", topic, err)
+								log.Printf("[ERROR] Eventbus: typed handler error for topic %s: %v", topic, err)
 							}
 						}()
 					}
@@ -172,7 +174,7 @@ func (eb *EventBus) StartConsuming(ctx context.Context) error {
 
 				// If no handlers found, log and continue
 				if len(typedHandlers) == 0 {
-					logging.Debug("Eventbus: No handlers found for topic: %s, key: %s", topic, string(m.Key))
+					log.Printf("[DEBUG] Eventbus: No handlers found for topic: %s, key: %s", topic, string(m.Key))
 				}
 			}
 		}(topic, reader)

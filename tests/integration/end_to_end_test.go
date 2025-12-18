@@ -9,7 +9,6 @@ import (
 	"time"
 
 	events "go-shopping-poc/internal/contracts/events"
-	"go-shopping-poc/internal/platform/config"
 	kafka "go-shopping-poc/internal/platform/event/bus/kafka"
 	"go-shopping-poc/internal/platform/event/handler"
 	"go-shopping-poc/internal/service/eventreader"
@@ -27,22 +26,24 @@ func TestEndToEndEventFlow_Integration(t *testing.T) {
 	testutils.SetupTestEnvironment(t)
 
 	// Load test configuration
-	envFile := config.ResolveEnvFile()
-	cfg := config.Load(envFile)
+	cfg, err := eventreader.LoadConfig()
+	if err != nil {
+		t.Fatalf("Failed to load eventreader config: %v", err)
+	}
 
 	// Create event bus for publishing (simulating customer service)
-	publishBroker := cfg.GetEventBroker()
-	publishTopics := []string{cfg.GetEventReaderWriteTopic()} // Write to customer topic
-	publishWriteTopic := cfg.GetEventReaderWriteTopic()
-	publishGroup := cfg.GetEventReaderGroup() + "-publisher"
+	publishBroker := cfg.KafkaBroker
+	publishTopics := []string{cfg.WriteTopic} // Write to customer topic
+	publishWriteTopic := cfg.WriteTopic
+	publishGroup := cfg.Group + "-publisher"
 
 	publisherEventBus := kafka.NewEventBus(publishBroker, publishTopics, publishWriteTopic, publishGroup)
 
 	// Create event bus for consuming (eventreader service)
-	consumeBroker := cfg.GetEventBroker()
-	consumeTopics := cfg.GetEventReaderReadTopics()
-	consumeWriteTopic := cfg.GetEventReaderWriteTopic()
-	consumeGroup := cfg.GetEventReaderGroup() + "-consumer"
+	consumeBroker := cfg.KafkaBroker
+	consumeTopics := cfg.ReadTopics
+	consumeWriteTopic := cfg.WriteTopic
+	consumeGroup := cfg.Group + "-consumer"
 
 	consumerEventBus := kafka.NewEventBus(consumeBroker, consumeTopics, consumeWriteTopic, consumeGroup)
 
@@ -261,14 +262,16 @@ func TestOriginalIssueResolution_Integration(t *testing.T) {
 	testutils.SetupTestEnvironment(t)
 
 	// Load test configuration
-	envFile := config.ResolveEnvFile()
-	cfg := config.Load(envFile)
+	cfg, err := eventreader.LoadConfig()
+	if err != nil {
+		t.Fatalf("Failed to load eventreader config: %v", err)
+	}
 
 	// Create event bus
-	broker := cfg.GetEventBroker()
-	readTopics := cfg.GetEventReaderReadTopics()
-	writeTopic := cfg.GetEventReaderWriteTopic()
-	group := cfg.GetEventReaderGroup() + "-original-issue-test"
+	broker := cfg.KafkaBroker
+	readTopics := cfg.ReadTopics
+	writeTopic := cfg.WriteTopic
+	group := cfg.Group + "-original-issue-test"
 
 	eventBus := kafka.NewEventBus(broker, readTopics, writeTopic, group)
 
@@ -366,14 +369,16 @@ func TestSystemValidation_Integration(t *testing.T) {
 	testutils.SetupTestEnvironment(t)
 
 	// Load test configuration
-	envFile := config.ResolveEnvFile()
-	cfg := config.Load(envFile)
+	cfg, err := eventreader.LoadConfig()
+	if err != nil {
+		t.Fatalf("Failed to load eventreader config: %v", err)
+	}
 
 	// Create event bus
-	broker := cfg.GetEventBroker()
-	readTopics := cfg.GetEventReaderReadTopics()
-	writeTopic := cfg.GetEventReaderWriteTopic()
-	group := cfg.GetEventReaderGroup() + "-system-validation"
+	broker := cfg.KafkaBroker
+	readTopics := cfg.ReadTopics
+	writeTopic := cfg.WriteTopic
+	group := cfg.Group + "-system-validation"
 
 	eventBus := kafka.NewEventBus(broker, readTopics, writeTopic, group)
 

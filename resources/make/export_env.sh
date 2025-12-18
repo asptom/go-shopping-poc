@@ -4,8 +4,8 @@ set -euo pipefail
 
 (
   set -a
-  [ -f .env ] && source .env
-  [ -f .env.local ] && source .env.local
+  [ -f config/.env ] && source config/.env
+  [ -f config/.env.local ] && source config/.env.local
   env
 ) | sed 's/^/export /'
 

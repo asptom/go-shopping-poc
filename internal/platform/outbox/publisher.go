@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	bus "go-shopping-poc/internal/platform/event/bus/kafka"
-	"go-shopping-poc/internal/platform/logging"
+	"log"
 	"sync"
 	"time"
 
@@ -70,31 +70,31 @@ func (p *Publisher) Stop() {
 // processOutbox reads events from the outbox and publishes them.
 
 func (p *Publisher) processOutbox() {
-	logging.Debug("Outbox Publisher: Processing outbox events...")
+	log.Printf("[DEBUG] Outbox Publisher: Processing outbox events...")
 
 	query := `SELECT * FROM outbox.outbox WHERE published_at IS NULL LIMIT $1`
 	outboxEvents := []OutboxEvent{}
 
 	if err := p.db.Select(&outboxEvents, query, p.batchSize); err != nil {
-		logging.Error("Outbox Publisher: Failed to read outbox events: %v", err)
+		log.Printf("[ERROR] Outbox Publisher: Failed to read outbox events: %v", err)
 		return
 	}
 
 	if len(outboxEvents) == 0 {
-		logging.Debug("Outbox Publisher: No new outbox events to process")
+		log.Printf("[DEBUG] Outbox Publisher: No new outbox events to process")
 		return
 	}
 
 	for _, outboxEvent := range outboxEvents {
-		logging.Debug("Outbox Publisher: Will publish outbox event to topic: %s", outboxEvent.Topic)
+		log.Printf("[DEBUG] Outbox Publisher: Will publish outbox event to topic: %s", outboxEvent.Topic)
 
 		// Use PublishRaw to avoid double marshaling and support both legacy and typed handlers
 		if err := p.publisher.PublishRaw(p.ctx, outboxEvent.Topic, outboxEvent.EventType, []byte(outboxEvent.EventPayload)); err != nil {
 			// handle publish failure exactly as before
-			logging.Error("Outbox Publisher: Failed to publish event %v: %v", outboxEvent.ID, err)
+			log.Printf("[ERROR] Outbox Publisher: Failed to publish event %v: %v", outboxEvent.ID, err)
 			outboxEvent.TimesAttempted++
 			if _, err := p.db.Exec("UPDATE outbox.outbox SET times_attempted = $1 WHERE id = $2", outboxEvent.TimesAttempted, outboxEvent.ID); err != nil {
-				logging.Error("Outbox Publisher: Failed to update times attempted for event %v: %v", outboxEvent.ID, err)
+				log.Printf("[ERROR] Outbox Publisher: Failed to update times attempted for event %v: %v", outboxEvent.ID, err)
 			}
 			continue
 		}
@@ -102,12 +102,12 @@ func (p *Publisher) processOutbox() {
 		outboxEvent.TimesAttempted++
 		outboxEvent.PublishedAt = sql.NullTime{Time: time.Now(), Valid: true}
 		if _, err := p.db.Exec("UPDATE outbox.outbox SET published_at = $1, times_attempted = $2 WHERE id = $3", outboxEvent.PublishedAt, outboxEvent.TimesAttempted, outboxEvent.ID); err != nil {
-			logging.Error("Outbox Publisher: Failed to mark event %s as published: %v", outboxEvent.ID, err)
+			log.Printf("[ERROR] Outbox Publisher: Failed to mark event %s as published: %v", outboxEvent.ID, err)
 			continue
 		}
 
-		logging.Info("Outbox Publisher: Published event ID: %v to topic: %s with payload: %s", outboxEvent.ID, outboxEvent.Topic, outboxEvent.EventPayload)
+		log.Printf("[INFO] Outbox Publisher: Published event ID: %v to topic: %s with payload: %s", outboxEvent.ID, outboxEvent.Topic, outboxEvent.EventPayload)
 	}
 
-	logging.Debug("Outbox Publisher: Processed %d outbox events", len(outboxEvents))
+	log.Printf("[DEBUG] Outbox Publisher: Processed %d outbox events", len(outboxEvents))
 }

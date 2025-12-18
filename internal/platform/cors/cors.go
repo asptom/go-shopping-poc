@@ -3,27 +3,16 @@ package cors
 import (
 	"net/http"
 	"strings"
-
-	"go-shopping-poc/internal/platform/config"
 )
 
-// New returns a Chi-compatible middleware function that applies CORS
-// according to values from the provided config.
-func New(cfg *config.Config) func(http.Handler) http.Handler {
-	origins := parseList(cfg.GetCORSAllowedOrigins(), ",")
-	methods := cfg.GetCORSAllowedMethods()
-	if methods == "" {
-		methods = "GET,POST,PUT,DELETE,OPTIONS"
-	}
-	headers := cfg.GetCORSAllowedHeaders()
-	if headers == "" {
-		headers = "Content-Type,Authorization"
-	}
-	allowCreds := cfg.GetCORSAllowCredentials()
-	maxAge := cfg.GetCORSMaxAge()
-	if maxAge == "" {
-		maxAge = "3600"
-	}
+// NewFromConfig returns a Chi-compatible middleware function that applies CORS
+// according to the provided configuration.
+func NewFromConfig(corsCfg *Config) func(http.Handler) http.Handler {
+	origins := corsCfg.AllowedOrigins
+	methods := strings.Join(corsCfg.AllowedMethods, ",")
+	headers := strings.Join(corsCfg.AllowedHeaders, ",")
+	allowCreds := corsCfg.AllowCredentials
+	maxAge := corsCfg.MaxAge
 
 	// normalize origins list for quick checks
 	allowAnyOrigin := false

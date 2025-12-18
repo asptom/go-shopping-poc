@@ -8,7 +8,6 @@ import (
 	"time"
 
 	events "go-shopping-poc/internal/contracts/events"
-	"go-shopping-poc/internal/platform/config"
 	kafka "go-shopping-poc/internal/platform/event/bus/kafka"
 	"go-shopping-poc/internal/platform/event/handler"
 	"go-shopping-poc/internal/service/eventreader"
@@ -26,14 +25,16 @@ func TestCleanArchitecture_Integration(t *testing.T) {
 	testutils.SetupTestEnvironment(t)
 
 	// Load test configuration
-	envFile := config.ResolveEnvFile()
-	cfg := config.Load(envFile)
+	cfg, err := eventreader.LoadConfig()
+	if err != nil {
+		t.Fatalf("Failed to load eventreader config: %v", err)
+	}
 
 	// Create event bus
-	broker := cfg.GetEventBroker()
-	readTopics := cfg.GetEventReaderReadTopics()
-	writeTopic := cfg.GetEventReaderWriteTopic()
-	group := cfg.GetEventReaderGroup() + "-clean-arch-test"
+	broker := cfg.KafkaBroker
+	readTopics := cfg.ReadTopics
+	writeTopic := cfg.WriteTopic
+	group := cfg.Group + "-clean-arch-test"
 
 	eventBus := kafka.NewEventBus(broker, readTopics, writeTopic, group)
 
@@ -144,14 +145,16 @@ func TestHandlerRegistration_Integration(t *testing.T) {
 	testutils.SetupTestEnvironment(t)
 
 	// Load test configuration
-	envFile := config.ResolveEnvFile()
-	cfg := config.Load(envFile)
+	cfg, err := eventreader.LoadConfig()
+	if err != nil {
+		t.Fatalf("Failed to load eventreader config: %v", err)
+	}
 
 	// Create event bus
-	broker := cfg.GetEventBroker()
-	readTopics := cfg.GetEventReaderReadTopics()
-	writeTopic := cfg.GetEventReaderWriteTopic()
-	group := cfg.GetEventReaderGroup() + "-registration-test"
+	broker := cfg.KafkaBroker
+	readTopics := cfg.ReadTopics
+	writeTopic := cfg.WriteTopic
+	group := cfg.Group + "-registration-test"
 
 	eventBus := kafka.NewEventBus(broker, readTopics, writeTopic, group)
 
@@ -375,14 +378,16 @@ func TestErrorHandlingAndRecovery_Integration(t *testing.T) {
 	testutils.SetupTestEnvironment(t)
 
 	// Load test configuration
-	envFile := config.ResolveEnvFile()
-	cfg := config.Load(envFile)
+	cfg, err := eventreader.LoadConfig()
+	if err != nil {
+		t.Fatalf("Failed to load eventreader config: %v", err)
+	}
 
 	// Create event bus
-	broker := cfg.GetEventBroker()
-	readTopics := cfg.GetEventReaderReadTopics()
-	writeTopic := cfg.GetEventReaderWriteTopic()
-	group := cfg.GetEventReaderGroup() + "-error-test"
+	broker := cfg.KafkaBroker
+	readTopics := cfg.ReadTopics
+	writeTopic := cfg.WriteTopic
+	group := cfg.Group + "-error-test"
 
 	eventBus := kafka.NewEventBus(broker, readTopics, writeTopic, group)
 

@@ -9,10 +9,9 @@ import (
 	"syscall"
 	"time"
 
-	"go-shopping-poc/internal/platform/config"
 	"go-shopping-poc/internal/platform/cors"
 	bus "go-shopping-poc/internal/platform/event/bus/kafka"
-	"go-shopping-poc/internal/platform/logging"
+	"go-shopping-poc/internal/platform/event/kafka"
 	"go-shopping-poc/internal/platform/outbox"
 
 	"go-shopping-poc/internal/service/customer"
@@ -23,60 +22,76 @@ import (
 )
 
 func main() {
-	logging.SetLevel("DEBUG")
-	logging.Info("Customer:  Customer service started...")
+	log.SetFlags(log.LstdFlags)
+	log.Printf("[INFO] Customer: Customer service started...")
 
-	// Load configuration
-	envFile := config.ResolveEnvFile()
-	cfg := config.Load(envFile)
+	// Load service-specific configuration
+	cfg, err := customer.LoadConfig()
+	if err != nil {
+		log.Fatalf("Customer: Failed to load config: %v", err)
+	}
 
-	logging.Debug("Customer:  Configuration loaded from %s", envFile)
-	logging.Debug("Customer:  Config: %v", cfg)
+	log.Printf("[DEBUG] Customer: Configuration loaded successfully")
 
-	// Connect to Postgres
-	dbURL := os.Getenv("DATABASE_URL")
-	if dbURL == "" && cfg.GetCustomerDBURL() != "" {
-		dbURL = cfg.GetCustomerDBURL()
+	// Connect to Postgres (maintain DATABASE_URL backward compatibility)
+	dbURL := cfg.DatabaseURL
+	if envURL := os.Getenv("DATABASE_URL"); envURL != "" {
+		dbURL = envURL
+		log.Printf("[INFO] Customer: Using DATABASE_URL from environment")
 	}
 	if dbURL == "" {
-		log.Fatal("Customer: DATABASE_URL not set")
+		log.Fatal("Customer: Database URL not set")
 	}
 
-	logging.Debug("Customer: Connecting to database at %s", dbURL)
+	log.Printf("[DEBUG] Customer: Connecting to database at %s", dbURL)
 	db, err := sqlx.Connect("pgx", dbURL)
 	if err != nil {
 		log.Fatalf("Customer: Failed to connect to DB: %v", err)
 	}
 	defer func() {
 		if err := db.Close(); err != nil {
-			logging.Error("Customer: Error closing database connection: %v", err)
+			log.Printf("[ERROR] Customer: Error closing database connection: %v", err)
 		}
 	}()
 
 	// Connect to Kafka
-	broker := cfg.GetEventBroker()
-	writeTopic := cfg.GetCustomerWriteTopic()
-	readTopics := cfg.GetCustomerReadTopics()
-	groupID := cfg.GetCustomerGroup()
-	outboxInterval := cfg.GetCustomerOutboxInterval()
+	kafkaCfg, err := kafka.LoadConfig()
+	if err != nil {
+		log.Fatalf("Customer: Failed to load Kafka config: %v", err)
+	}
 
-	bus := bus.NewEventBus(broker, readTopics, writeTopic, groupID)
+	kafkaCfg.Topic = cfg.WriteTopic
+	kafkaCfg.GroupID = cfg.Group
+	bus := bus.NewEventBus(kafkaCfg)
 
-	// Initialize
-	logging.Debug("Customer:  Initializing outbox reader and writer")
-	outboxPublisher := outbox.NewPublisher(db, bus, 1, 1, outboxInterval)
+	// Initialize outbox
+	log.Printf("[DEBUG] Customer: Initializing outbox")
+	outboxCfg, err := outbox.LoadConfig()
+	if err != nil {
+		log.Fatalf("Customer: Failed to load outbox config: %v", err)
+	}
+
+	outboxPublisher := outbox.NewPublisher(db, bus, outboxCfg.BatchSize, outboxCfg.DeleteBatchSize, outboxCfg.ProcessInterval)
 	outboxPublisher.Start()
-	logging.Debug("Customer:  Outbox publisher started")
+	log.Printf("[DEBUG] Customer: Outbox publisher started")
 	defer outboxPublisher.Stop()
 	outboxWriter := *outbox.NewWriter(db)
+
+	// Create service with dependency injection
 	repo := customer.NewCustomerRepository(db, outboxWriter)
-	service := customer.NewCustomerService(repo)
+	service := customer.NewCustomerService(repo, cfg)
 	handler := customer.NewCustomerHandler(service)
 
 	// Set up router
 	router := chi.NewRouter()
-	// Apply CORS middleware
-	router.Use(cors.New(cfg))
+
+	// Apply CORS middleware using service config
+	corsCfg, err := cors.LoadConfig()
+	if err != nil {
+		log.Fatalf("Customer: Failed to load CORS config: %v", err)
+	}
+
+	router.Use(cors.NewFromConfig(corsCfg))
 
 	// Define routes
 	router.Post("/customers", handler.CreateCustomer)
@@ -105,7 +120,7 @@ func main() {
 	router.Delete("/customers/{id}/default-credit-card", handler.ClearDefaultCreditCard)
 
 	// Start HTTP server with graceful shutdown
-	serverAddr := cfg.GetCustomerServicePort()
+	serverAddr := cfg.ServicePort
 	if serverAddr == "" {
 		serverAddr = ":8080"
 	}
@@ -124,7 +139,7 @@ func main() {
 
 	// Start server in a goroutine
 	go func() {
-		logging.Info("Customer: Starting HTTP server on %s (Traefik will handle TLS)", serverAddr)
+		log.Printf("[INFO] Customer: Starting HTTP server on %s (Traefik will handle TLS)", serverAddr)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Customer: Failed to start HTTP server: %v", err)
 		}
@@ -132,7 +147,7 @@ func main() {
 
 	// Wait for interrupt signal
 	<-quit
-	logging.Info("Customer: Shutting down server...")
+	log.Printf("[INFO] Customer: Shutting down server...")
 
 	// Create a deadline for shutdown
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -144,5 +159,5 @@ func main() {
 	}
 
 	close(done)
-	logging.Info("Customer: Server exited")
+	log.Printf("[INFO] Customer: Server exited")
 }

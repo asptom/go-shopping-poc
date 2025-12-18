@@ -19,9 +19,9 @@ package handler
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"go-shopping-poc/internal/contracts/events"
-	"go-shopping-poc/internal/platform/logging"
 )
 
 // EventUtils provides reusable event handling utilities
@@ -37,40 +37,40 @@ func NewEventUtils() *EventUtils {
 // This provides reusable validation patterns that apply to all events
 func (u *EventUtils) ValidateEvent(ctx context.Context, event events.Event) error {
 	if event == nil {
-		logging.Error("Event validation failed: event is nil")
+		log.Printf("[ERROR] Event validation failed: event is nil")
 		return fmt.Errorf("event cannot be nil")
 	}
 
 	// Generic validation - domain-specific validation should be in service layer
 	if event.Type() == "" {
-		logging.Error("Event validation failed: missing event type")
+		log.Printf("[ERROR] Event validation failed: missing event type")
 		return fmt.Errorf("event type is required")
 	}
 
 	if event.Topic() == "" {
-		logging.Error("Event validation failed: missing topic")
+		log.Printf("[ERROR] Event validation failed: missing topic")
 		return fmt.Errorf("event topic is required")
 	}
 
-	logging.Debug("Generic event validation passed for event type %s", event.Type())
+	log.Printf("[DEBUG] Generic event validation passed for event type %s", event.Type())
 	return nil
 }
 
 // LogEventProcessing provides standardized logging for event processing
 func (u *EventUtils) LogEventProcessing(ctx context.Context, eventType string, entityID string, resourceID string) {
 	if resourceID != "" {
-		logging.Info("Processing %s event: entity=%s, resource=%s", eventType, entityID, resourceID)
+		log.Printf("[INFO] Processing %s event: entity=%s, resource=%s", eventType, entityID, resourceID)
 	} else {
-		logging.Info("Processing %s event: entity=%s", eventType, entityID)
+		log.Printf("[INFO] Processing %s event: entity=%s", eventType, entityID)
 	}
 }
 
 // LogEventCompletion provides standardized logging for completed event processing
 func (u *EventUtils) LogEventCompletion(ctx context.Context, eventType string, entityID string, err error) {
 	if err != nil {
-		logging.Error("Failed to process %s event for entity %s: %v", eventType, entityID, err)
+		log.Printf("[ERROR] Failed to process %s event for entity %s: %v", eventType, entityID, err)
 	} else {
-		logging.Info("Successfully processed %s event for entity %s", eventType, entityID)
+		log.Printf("[INFO] Successfully processed %s event for entity %s", eventType, entityID)
 	}
 }
 
@@ -103,7 +103,7 @@ func (u *EventUtils) SafeEventProcessing(
 ) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			logging.Error("Panic recovered during event processing: %v", r)
+			log.Printf("[ERROR] Panic recovered during event processing: %v", r)
 			err = fmt.Errorf("panic during event processing: %v", r)
 		}
 	}()

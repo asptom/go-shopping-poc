@@ -14,15 +14,8 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
 
-	"go-shopping-poc/internal/platform/config"
+	"go-shopping-poc/internal/service/eventreader"
 )
-
-// LoadTestConfig loads configuration for testing
-func LoadTestConfig() *config.Config {
-	envFile := config.ResolveEnvFile()
-	cfg := config.Load(envFile)
-	return cfg
-}
 
 // SetupTestDB creates a test database connection
 func SetupTestDB(t *testing.T) *sqlx.DB {
@@ -32,27 +25,14 @@ func SetupTestDB(t *testing.T) *sqlx.DB {
 	cwd, _ := os.Getwd()
 	t.Logf("Test working directory: %s", cwd)
 
-	cfg := LoadTestConfig()
-	envFile := config.ResolveEnvFile()
-	t.Logf("Resolved env file path: %s", envFile)
-	t.Logf("CustomerDBURLLocal from config: %s", cfg.GetCustomerDBURLLocal())
-
-	// Check if env file exists
-	if _, err := os.Stat(envFile); os.IsNotExist(err) {
-		t.Logf("WARNING: Env file %s does not exist", envFile)
-	} else {
-		t.Logf("Env file %s exists", envFile)
-	}
-
+	// Use DATABASE_URL environment variable directly
+	// This avoids import cycles with service packages
 	dbURL := os.Getenv("DATABASE_URL")
-	if dbURL == "" && cfg.GetCustomerDBURLLocal() != "" {
-		dbURL = cfg.GetCustomerDBURLLocal()
-		t.Logf("Using database URL from config: %s", dbURL)
-	} else if dbURL != "" {
-		t.Logf("Using DATABASE_URL environment variable: %s", dbURL)
-	} else {
-		t.Logf("No database URL available")
+	if dbURL == "" {
+		t.Skip("Skipping test, DATABASE_URL not set")
 	}
+
+	t.Logf("Using DATABASE_URL environment variable: %s", dbURL)
 
 	db, err := sqlx.Connect("pgx", dbURL)
 	if err != nil {
@@ -147,23 +127,23 @@ func CleanupTestData(t *testing.T, db *sqlx.DB, customerID string) {
 func SetupTestEnvironment(t *testing.T) {
 	t.Helper()
 
-	// Load configuration to ensure environment is properly set up
-	cfg := LoadTestConfig()
-
-	// Check if Kafka configuration is available, skip if not
-	if cfg.GetEventBroker() == "" {
-		t.Skip("Skipping integration test: Event broker configuration is missing (Kafka not available)")
+	// Load eventreader configuration for Kafka checks
+	cfg, err := eventreader.LoadConfig()
+	if err != nil {
+		t.Skipf("Skipping integration test: Failed to load eventreader config: %v", err)
 	}
 
-	if len(cfg.GetEventReaderReadTopics()) == 0 {
+	// Check if Kafka configuration is available, skip if not
+
+	if len(cfg.ReadTopics) == 0 {
 		t.Skip("Skipping integration test: Event reader topics configuration is missing")
 	}
 
-	if cfg.GetEventReaderWriteTopic() == "" {
+	if cfg.WriteTopic == "" {
 		t.Skip("Skipping integration test: Event reader write topic configuration is missing")
 	}
 
-	if cfg.GetEventReaderGroup() == "" {
+	if cfg.Group == "" {
 		t.Skip("Skipping integration test: Event reader group configuration is missing")
 	}
 

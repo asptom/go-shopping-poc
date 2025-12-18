@@ -5,7 +5,7 @@
 package customer
 
 import (
-	"go-shopping-poc/internal/platform/logging"
+	"log"
 )
 
 // CustomerServiceUtils provides utility functions for customer service operations
@@ -19,10 +19,10 @@ func NewCustomerServiceUtils() *CustomerServiceUtils {
 
 // LogCustomerOperation logs customer-related operations with consistent formatting
 func (u *CustomerServiceUtils) LogCustomerOperation(operation string, customerID string, details map[string]interface{}) {
-	logging.Info("CustomerService: %s for customer %s", operation, customerID)
+	log.Printf("[INFO] CustomerService: %s for customer %s", operation, customerID)
 	if len(details) > 0 {
 		for key, value := range details {
-			logging.Debug("CustomerService: %s detail - %s: %v", operation, key, value)
+			log.Printf("[DEBUG] CustomerService: %s detail - %s: %v", operation, key, value)
 		}
 	}
 }
@@ -41,9 +41,9 @@ func (u *CustomerServiceUtils) ValidateCustomerID(customerID string) error {
 // NewCustomerError creates a standardized customer service error
 func NewCustomerError(message string, cause error) error {
 	if cause != nil {
-		logging.Error("CustomerService: %s: %v", message, cause)
+		log.Printf("[ERROR] CustomerService: %s: %v", message, cause)
 		return cause // In a real implementation, you'd wrap with domain-specific error
 	}
-	logging.Error("CustomerService: %s", message)
+	log.Printf("[ERROR] CustomerService: %s", message)
 	return cause // In a real implementation, you'd return a domain-specific error
 }

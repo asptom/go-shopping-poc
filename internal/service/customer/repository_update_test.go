@@ -31,7 +31,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 
-	entity "go-shopping-poc/internal/entity/customer"
 	outbox "go-shopping-poc/internal/platform/outbox"
 	"go-shopping-poc/internal/testutils"
 )
@@ -44,13 +43,13 @@ func setupUpdateTestDB(t *testing.T) *sqlx.DB {
 }
 
 // createTestCustomerWithFullData creates a test customer with addresses and credit cards for update testing
-func createTestCustomerWithFullData(t *testing.T, db *sqlx.DB) *entity.Customer {
+func createTestCustomerWithFullData(t *testing.T, db *sqlx.DB) *Customer {
 	customerID := uuid.New()
 	shippingAddrID := uuid.New()
 	billingAddrID := uuid.New()
 	cardID := uuid.New()
 
-	customer := &entity.Customer{
+	customer := &Customer{
 		CustomerID: customerID.String(),
 		Username:   "testuser",
 		Email:      "test@example.com",
@@ -61,7 +60,7 @@ func createTestCustomerWithFullData(t *testing.T, db *sqlx.DB) *entity.Customer 
 		CustomerSince:  time.Now(),
 		CustomerStatus: "active",
 		StatusDateTime: time.Now(),
-		Addresses: []entity.Address{
+		Addresses: []Address{
 			{
 				AddressID:   shippingAddrID,
 				CustomerID:  customerID,
@@ -87,7 +86,7 @@ func createTestCustomerWithFullData(t *testing.T, db *sqlx.DB) *entity.Customer 
 				Zip:         "12345",
 			},
 		},
-		CreditCards: []entity.CreditCard{
+		CreditCards: []CreditCard{
 			{
 				CardID:         cardID,
 				CustomerID:     customerID,
@@ -98,7 +97,7 @@ func createTestCustomerWithFullData(t *testing.T, db *sqlx.DB) *entity.Customer 
 				CardCVV:        "123",
 			},
 		},
-		StatusHistory: []entity.CustomerStatus{
+		StatusHistory: []CustomerStatus{
 			{
 				ID:         1,
 				CustomerID: customerID,
@@ -144,7 +143,7 @@ func TestPUT_BasicInfoOnly(t *testing.T) {
 	existing := createTestCustomerWithFullData(t, db)
 
 	// Update only basic info - PUT requires complete record
-	updateCustomer := &entity.Customer{
+	updateCustomer := &Customer{
 		CustomerID:     existing.CustomerID,
 		Username:       "updateduser",
 		Email:          "updated@example.com",

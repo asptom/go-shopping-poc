@@ -8,7 +8,6 @@ import (
 	"time"
 
 	events "go-shopping-poc/internal/contracts/events"
-	"go-shopping-poc/internal/platform/config"
 	kafka "go-shopping-poc/internal/platform/event/bus/kafka"
 	"go-shopping-poc/internal/service/eventreader"
 	"go-shopping-poc/internal/service/eventreader/eventhandlers"
@@ -24,14 +23,16 @@ func TestEventReaderService_Integration(t *testing.T) {
 	testutils.SetupTestEnvironment(t)
 
 	// Load test configuration
-	envFile := config.ResolveEnvFile()
-	cfg := config.Load(envFile)
+	cfg, err := eventreader.LoadConfig()
+	if err != nil {
+		t.Fatalf("Failed to load eventreader config: %v", err)
+	}
 
 	// Create event bus
-	broker := cfg.GetEventBroker()
-	readTopics := cfg.GetEventReaderReadTopics()
-	writeTopic := cfg.GetEventReaderWriteTopic()
-	group := cfg.GetEventReaderGroup() + "-test"
+	broker := cfg.KafkaBroker
+	readTopics := cfg.ReadTopics
+	writeTopic := cfg.WriteTopic
+	group := cfg.Group + "-test"
 
 	eventBus := kafka.NewEventBus(broker, readTopics, writeTopic, group)
 

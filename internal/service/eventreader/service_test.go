@@ -13,6 +13,15 @@ type MockEventBus struct {
 	startConsumingCalled bool
 }
 
+// mockConfig returns a test config for service tests
+func mockConfig() *Config {
+	return &Config{
+		WriteTopic: "test-write",
+		ReadTopics: []string{"test-read"},
+		Group:      "test-group",
+	}
+}
+
 func (m *MockEventBus) Publish(ctx context.Context, topic string, event events.Event) error {
 	return nil
 }
@@ -40,7 +49,7 @@ func (m *MockEventBus) ReadTopics() []string {
 
 func TestEventReaderService_RegisterHandler(t *testing.T) {
 	mockBus := &MockEventBus{}
-	eventService := NewEventReaderService(mockBus)
+	eventService := NewEventReaderService(mockBus, mockConfig())
 
 	factory := events.CustomerEventFactory{}
 	handler := bus.HandlerFunc[events.CustomerEvent](func(ctx context.Context, evt events.CustomerEvent) error {
@@ -57,7 +66,7 @@ func TestEventReaderService_RegisterHandler(t *testing.T) {
 
 func TestEventReaderService_Start(t *testing.T) {
 	mockBus := &MockEventBus{}
-	eventService := NewEventReaderService(mockBus)
+	eventService := NewEventReaderService(mockBus, mockConfig())
 
 	ctx := context.Background()
 	err := eventService.Start(ctx)
@@ -73,7 +82,7 @@ func TestEventReaderService_Start(t *testing.T) {
 
 func TestEventReaderService_Stop(t *testing.T) {
 	mockBus := &MockEventBus{}
-	eventService := NewEventReaderService(mockBus)
+	eventService := NewEventReaderService(mockBus, mockConfig())
 
 	ctx := context.Background()
 	err := eventService.Stop(ctx)
@@ -85,7 +94,7 @@ func TestEventReaderService_Stop(t *testing.T) {
 
 func TestNewEventReaderService(t *testing.T) {
 	mockBus := &MockEventBus{}
-	eventService := NewEventReaderService(mockBus)
+	eventService := NewEventReaderService(mockBus, mockConfig())
 
 	if eventService == nil {
 		t.Error("Expected service to be non-nil")
@@ -107,7 +116,7 @@ func TestNewEventReaderService(t *testing.T) {
 
 func TestEventReaderService_Health(t *testing.T) {
 	mockBus := &MockEventBus{}
-	eventService := NewEventReaderService(mockBus)
+	eventService := NewEventReaderService(mockBus, mockConfig())
 
 	err := eventService.Health()
 	if err != nil {

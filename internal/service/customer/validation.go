@@ -6,9 +6,9 @@ package customer
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"go-shopping-poc/internal/contracts/events"
-	"go-shopping-poc/internal/platform/logging"
 )
 
 // CustomerEventValidator provides validation for customer events
@@ -25,19 +25,19 @@ func NewCustomerEventValidator() *CustomerEventValidator {
 func (v *CustomerEventValidator) ValidateCustomerEvent(ctx context.Context, event events.CustomerEvent) error {
 	// Validate required customer ID
 	if event.EventPayload.CustomerID == "" {
-		logging.Error("Customer event validation failed: missing CustomerID")
+		log.Printf("[ERROR] Customer event validation failed: missing CustomerID")
 		return fmt.Errorf("customer ID is required")
 	}
 
 	// Validate event type is not empty
 	if event.EventType == "" {
-		logging.Error("Customer event validation failed: missing EventType")
+		log.Printf("[ERROR] Customer event validation failed: missing EventType")
 		return fmt.Errorf("event type is required")
 	}
 
 	// Domain-specific validation: ensure customer ID format is valid
 	if len(event.EventPayload.CustomerID) < 3 {
-		logging.Error("Customer event validation failed: CustomerID too short: %s", event.EventPayload.CustomerID)
+		log.Printf("[ERROR] Customer event validation failed: CustomerID too short: %s", event.EventPayload.CustomerID)
 		return fmt.Errorf("customer ID must be at least 3 characters")
 	}
 
@@ -57,7 +57,7 @@ func (v *CustomerEventValidator) ValidateCustomerEvent(ctx context.Context, even
 	}
 
 	if !validEventTypes[string(event.EventType)] {
-		logging.Error("Customer event validation failed: unknown event type: %s", event.EventType)
+		log.Printf("[ERROR] Customer event validation failed: unknown event type: %s", event.EventType)
 		return fmt.Errorf("unknown customer event type: %s", event.EventType)
 	}
 
@@ -75,11 +75,11 @@ func (v *CustomerEventValidator) ValidateCustomerEvent(ctx context.Context, even
 	}
 
 	if resourceEvents[string(event.EventType)] && event.EventPayload.ResourceID == "" {
-		logging.Error("Customer event validation failed: missing ResourceID for event type: %s", event.EventType)
+		log.Printf("[ERROR] Customer event validation failed: missing ResourceID for event type: %s", event.EventType)
 		return fmt.Errorf("resource ID is required for event type: %s", event.EventType)
 	}
 
-	logging.Debug("Customer event validation passed for customer %s, event type %s",
+	log.Printf("[DEBUG] Customer event validation passed for customer %s, event type %s",
 		event.EventPayload.CustomerID, event.EventType)
 	return nil
 }

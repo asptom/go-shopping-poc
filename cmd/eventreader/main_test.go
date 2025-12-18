@@ -5,23 +5,32 @@ import (
 	"testing"
 	"time"
 
-	"go-shopping-poc/internal/platform/config"
 	kafka "go-shopping-poc/internal/platform/event/bus/kafka"
+	kafkaconfig "go-shopping-poc/internal/platform/event/kafka"
 	"go-shopping-poc/internal/service/eventreader"
 	"go-shopping-poc/internal/service/eventreader/eventhandlers"
 )
 
 func TestRegisterEventHandlers(t *testing.T) {
-	// Create a mock event bus for testing
-	eventBus := kafka.NewEventBus(
-		"localhost:9092",
-		[]string{"test-topic"},
-		"test-write-topic",
-		"test-group",
-	)
+	// Create mock Kafka config
+	kafkaCfg := &kafkaconfig.Config{
+		Brokers: []string{"localhost:9092"},
+		Topic:   "test-write-topic",
+		GroupID: "test-group",
+	}
+
+	// Create event bus with config
+	eventBus := kafka.NewEventBus(kafkaCfg)
+
+	// Create mock service config
+	serviceCfg := &eventreader.Config{
+		WriteTopic: "test-write-topic",
+		ReadTopics: []string{"test-topic"},
+		Group:      "test-group",
+	}
 
 	// Create service
-	service := eventreader.NewEventReaderService(eventBus)
+	service := eventreader.NewEventReaderService(eventBus, serviceCfg)
 
 	// Test registering handlers
 	if err := registerEventHandlers(service); err != nil {
@@ -41,31 +50,37 @@ func TestMainFunctionStructure(t *testing.T) {
 	// but we can verify the components work correctly
 
 	// Test configuration loading
-	envFile := config.ResolveEnvFile()
-	if envFile == "" {
-		t.Error("Expected envFile to be non-empty")
+	cfg, err := eventreader.LoadConfig()
+	if err != nil {
+		t.Fatalf("Failed to load eventreader config: %v", err)
 	}
-
-	cfg := config.Load(envFile)
 	if cfg == nil {
 		t.Error("Expected config to be non-nil")
 	}
 
-	// Test event bus creation
-	broker := cfg.GetEventBroker()
-	readTopics := cfg.GetEventReaderReadTopics()
-	writeTopic := cfg.GetEventReaderWriteTopic()
-	group := cfg.GetEventReaderGroup()
+	// Load Kafka config
+	kafkaCfg, err := kafkaconfig.LoadConfig()
+	if err != nil {
+		t.Fatalf("Eventreader: Failed to load Kafka config")
+	}
 
-	eventBus := kafka.NewEventBus(broker, readTopics, writeTopic, group)
+	kafkaCfg.Topic = cfg.WriteTopic
+	kafkaCfg.GroupID = cfg.Group
+
+	eventBus := kafka.NewEventBus(kafkaCfg)
 	if eventBus == nil {
-		t.Error("Expected eventBus to be non-nil")
+		t.Fatalf("Expected eventBus to be non-nil")
 	}
 
 	// Test service creation
-	service := eventreader.NewEventReaderService(eventBus)
+	serviceCfg := &eventreader.Config{
+		WriteTopic: "test-write-topic",
+		ReadTopics: []string{"test-topic"},
+		Group:      "test-group",
+	}
+	service := eventreader.NewEventReaderService(eventBus, serviceCfg)
 	if service == nil {
-		t.Error("Expected service to be non-nil")
+		t.Fatalf("Expected service to be non-nil")
 	}
 
 	// Test handler creation

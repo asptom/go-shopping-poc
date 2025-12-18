@@ -8,7 +8,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	entity "go-shopping-poc/internal/entity/customer"
 	"go-shopping-poc/internal/platform/errors"
 )
 
@@ -21,7 +20,7 @@ func NewCustomerHandler(service *CustomerService) *CustomerHandler {
 }
 
 func (h *CustomerHandler) CreateCustomer(w http.ResponseWriter, r *http.Request) {
-	var customer entity.Customer
+	var customer Customer
 	if err := json.NewDecoder(r.Body).Decode(&customer); err != nil {
 		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Invalid JSON in request body")
 		return
@@ -46,7 +45,7 @@ func (h *CustomerHandler) CreateCustomer(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *CustomerHandler) UpdateCustomer(w http.ResponseWriter, r *http.Request) {
-	var customer entity.Customer
+	var customer Customer
 	if err := json.NewDecoder(r.Body).Decode(&customer); err != nil {
 		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Invalid JSON in request body")
 		return
@@ -175,7 +174,7 @@ func (h *CustomerHandler) AddAddress(w http.ResponseWriter, r *http.Request) {
 		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Missing customer id")
 		return
 	}
-	var addr entity.Address
+	var addr Address
 	if err := json.NewDecoder(r.Body).Decode(&addr); err != nil {
 		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Invalid JSON in request body")
 		return
@@ -195,7 +194,7 @@ func (h *CustomerHandler) UpdateAddress(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	var addr entity.Address
+	var addr Address
 	if err := json.NewDecoder(r.Body).Decode(&addr); err != nil {
 		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Invalid JSON in request body")
 		return
@@ -229,7 +228,7 @@ func (h *CustomerHandler) AddCreditCard(w http.ResponseWriter, r *http.Request) 
 		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Missing customer id")
 		return
 	}
-	var card entity.CreditCard
+	var card CreditCard
 	if err := json.NewDecoder(r.Body).Decode(&card); err != nil {
 		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Invalid JSON in request body")
 		return
@@ -248,7 +247,7 @@ func (h *CustomerHandler) UpdateCreditCard(w http.ResponseWriter, r *http.Reques
 		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Missing card id")
 		return
 	}
-	var card entity.CreditCard
+	var card CreditCard
 	if err := json.NewDecoder(r.Body).Decode(&card); err != nil {
 		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Invalid JSON in request body")
 		return

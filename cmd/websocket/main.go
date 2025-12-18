@@ -1,13 +1,12 @@
 package main
 
 import (
+	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"go-shopping-poc/internal/platform/config"
-	"go-shopping-poc/internal/platform/logging"
 	ws "go-shopping-poc/internal/platform/websocket"
 
 	"github.com/gorilla/websocket"
@@ -17,42 +16,44 @@ func echoHandler(conn *websocket.Conn) {
 	for {
 		mt, msg, err := conn.ReadMessage()
 		if err != nil {
-			logging.Error("Websocket: Read error: %v", err)
+			log.Printf("[ERROR] Websocket: Read error: %v", err)
 			break
 		}
-		logging.Info("Websocket: Received: %s", msg)
+		log.Printf("[INFO] Websocket: Received: %s", msg)
 		// Example business logic: echo back
 		if err := conn.WriteMessage(mt, msg); err != nil {
-			logging.Error("Websocket: Write error: %v", err)
+			log.Printf("[ERROR] Websocket: Write error: %v", err)
 			break
 		}
 	}
 }
 
 func main() {
+	log.SetFlags(log.LstdFlags)
 
-	// Load configuration
+	// Load platform WebSocket configuration
+	wsCfg, err := ws.LoadConfig()
+	if err != nil {
+		log.Printf("[ERROR] Websocket: Failed to load WebSocket config: %v", err)
+		os.Exit(1)
+	}
 
-	envFile := config.ResolveEnvFile()
-	cfg := config.Load(envFile)
-
-	// Optionally set log level from env/config
-	logging.SetLevel("DEBUG")
-
-	// Create WebSocket server
-	server := ws.NewWebSocketServer(cfg)
+	server, err := ws.NewWebSocketServer()
+	if err != nil {
+		log.Printf("[ERROR] Websocket: Failed to create WebSocket server: %v", err)
+		os.Exit(1)
+	}
 
 	http.HandleFunc("/ws", server.Handle(echoHandler))
 
-	logging.Debug("Websocket: The WebSocket server is starting...")
-	//addr := ":80"
-	addr := cfg.GetWebSocketPort()
-	logging.Debug("Websocket: server listening on %s/ws", addr)
+	log.Printf("[DEBUG] Websocket: The WebSocket server is starting...")
+	addr := wsCfg.Port
+	log.Printf("[DEBUG] Websocket: server listening on %s/ws", addr)
 
 	// Start server in a goroutine
 	go func() {
 		if err := http.ListenAndServe(addr, nil); err != nil {
-			logging.Error("Websocket: ListenAndServe: %v", err)
+			log.Printf("[ERROR] Websocket: ListenAndServe: %v", err)
 		}
 	}()
 
@@ -60,5 +61,5 @@ func main() {
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 	<-sig
-	logging.Info("Websocket: Shutting down WebSocket server...")
+	log.Printf("[INFO] Websocket: Shutting down WebSocket server...")
 }

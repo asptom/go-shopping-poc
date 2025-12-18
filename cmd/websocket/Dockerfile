@@ -18,7 +18,8 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /websocket
 FROM scratch
 WORKDIR /
 COPY --from=builder /websocket .
-COPY --from=builder /app/.env.local .
+RUN mkdir -p /config
+COPY --from=builder /app/config/platform-websocket.env /config/
 COPY --from=builder /etc/passwd /etc/passwd
 
 USER nobody

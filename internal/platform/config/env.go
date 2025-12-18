@@ -44,11 +44,11 @@ func ResolveEnvFile() string {
 		filename = ".env.local"
 	}
 
-	// Find project root and return absolute path
+	// Find project root and return absolute path in config/ folder
 	if root := findProjectRoot(); root != "" {
-		return filepath.Join(root, filename)
+		return filepath.Join(root, "config", filename)
 	}
 
 	// Fallback to relative path if project root not found
-	return filename
+	return filepath.Join("config", filename)
 }

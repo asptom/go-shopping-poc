@@ -1,10 +1,8 @@
 package websocket
 
 import (
+	"log"
 	"net/http"
-
-	"go-shopping-poc/internal/platform/config"
-	"go-shopping-poc/internal/platform/logging"
 
 	"github.com/gorilla/websocket"
 )
@@ -14,12 +12,17 @@ type WebSocketClient struct {
 	conn *websocket.Conn
 }
 
-// NewWebSocketClient opens a websocket connection using the URL from config.
-func NewWebSocketClient(cfg *config.Config) (*WebSocketClient, error) {
-	dialer := websocket.Dialer{
-		HandshakeTimeout: cfg.WebSocketTimeout(),
+// NewWebSocketClient opens a websocket connection using the platform WebSocket config.
+func NewWebSocketClient() (*WebSocketClient, error) {
+	wsCfg, err := LoadConfig()
+	if err != nil {
+		return nil, err
 	}
-	conn, _, err := dialer.Dial(cfg.GetWebSocketURL(), nil)
+
+	dialer := websocket.Dialer{
+		HandshakeTimeout: wsCfg.Timeout,
+	}
+	conn, _, err := dialer.Dial(wsCfg.URL, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -47,16 +50,21 @@ type WebSocketServer struct {
 	Clients  map[*websocket.Conn]bool
 }
 
-// NewWebSocketServer creates a new WebSocketServer with config.
-func NewWebSocketServer(cfg *config.Config) *WebSocketServer {
+// NewWebSocketServer creates a new WebSocketServer with platform config.
+func NewWebSocketServer() (*WebSocketServer, error) {
+	wsCfg, err := LoadConfig()
+	if err != nil {
+		return nil, err
+	}
+
 	return &WebSocketServer{
 		Upgrader: websocket.Upgrader{
-			ReadBufferSize:  cfg.WebSocketReadBufferSize(),
-			WriteBufferSize: cfg.WebSocketWriteBufferSize(),
+			ReadBufferSize:  wsCfg.ReadBuffer,
+			WriteBufferSize: wsCfg.WriteBuffer,
 			CheckOrigin:     func(r *http.Request) bool { return true },
 		},
 		Clients: make(map[*websocket.Conn]bool),
-	}
+	}, nil
 }
 
 // HandlerFunc defines the signature for custom connection handlers.
@@ -67,7 +75,7 @@ func (s *WebSocketServer) Handle(customHandler HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		conn, err := s.Upgrader.Upgrade(w, r, nil)
 		if err != nil {
-			logging.Error("Upgrade error: %v", err)
+			log.Printf("[ERROR] Upgrade error: %v", err)
 			return
 		}
 		s.Clients[conn] = true

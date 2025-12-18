@@ -3,27 +3,39 @@ package customer
 import (
 	"context"
 	"testing"
+	"time"
 
-	entity "go-shopping-poc/internal/entity/customer"
 	"go-shopping-poc/internal/platform/service"
 )
 
 // MockCustomerRepository implements CustomerRepository for testing
 type MockCustomerRepository struct{}
 
-func (m *MockCustomerRepository) GetCustomerByEmail(ctx context.Context, email string) (*entity.Customer, error) {
+// mockConfig returns a test config for service tests
+func mockConfig() *Config {
+	return &Config{
+		DatabaseURL:    "postgres://test:test@localhost:5432/test",
+		ServicePort:    ":8080",
+		WriteTopic:     "test-topic",
+		ReadTopics:     []string{},
+		Group:          "test-group",
+		OutboxInterval: 5 * time.Second,
+	}
+}
+
+func (m *MockCustomerRepository) GetCustomerByEmail(ctx context.Context, email string) (*Customer, error) {
 	return nil, nil // Mock implementation
 }
 
-func (m *MockCustomerRepository) GetCustomerByID(ctx context.Context, customerID string) (*entity.Customer, error) {
+func (m *MockCustomerRepository) GetCustomerByID(ctx context.Context, customerID string) (*Customer, error) {
 	return nil, nil // Mock implementation
 }
 
-func (m *MockCustomerRepository) InsertCustomer(ctx context.Context, customer *entity.Customer) error {
+func (m *MockCustomerRepository) InsertCustomer(ctx context.Context, customer *Customer) error {
 	return nil // Mock implementation
 }
 
-func (m *MockCustomerRepository) UpdateCustomer(ctx context.Context, customer *entity.Customer) error {
+func (m *MockCustomerRepository) UpdateCustomer(ctx context.Context, customer *Customer) error {
 	return nil // Mock implementation
 }
 
@@ -31,11 +43,11 @@ func (m *MockCustomerRepository) PatchCustomer(ctx context.Context, customerID s
 	return nil // Mock implementation
 }
 
-func (m *MockCustomerRepository) AddAddress(ctx context.Context, customerID string, addr *entity.Address) (*entity.Address, error) {
+func (m *MockCustomerRepository) AddAddress(ctx context.Context, customerID string, addr *Address) (*Address, error) {
 	return addr, nil // Mock implementation
 }
 
-func (m *MockCustomerRepository) UpdateAddress(ctx context.Context, addressID string, addr *entity.Address) error {
+func (m *MockCustomerRepository) UpdateAddress(ctx context.Context, addressID string, addr *Address) error {
 	return nil // Mock implementation
 }
 
@@ -43,11 +55,11 @@ func (m *MockCustomerRepository) DeleteAddress(ctx context.Context, addressID st
 	return nil // Mock implementation
 }
 
-func (m *MockCustomerRepository) AddCreditCard(ctx context.Context, customerID string, card *entity.CreditCard) (*entity.CreditCard, error) {
+func (m *MockCustomerRepository) AddCreditCard(ctx context.Context, customerID string, card *CreditCard) (*CreditCard, error) {
 	return card, nil // Mock implementation
 }
 
-func (m *MockCustomerRepository) UpdateCreditCard(ctx context.Context, customerID string, card *entity.CreditCard) error {
+func (m *MockCustomerRepository) UpdateCreditCard(ctx context.Context, customerID string, card *CreditCard) error {
 	return nil // Mock implementation
 }
 
@@ -83,7 +95,7 @@ func (m *MockCustomerRepository) ClearDefaultCreditCard(ctx context.Context, cus
 func TestCustomerServicePlatformInterface(t *testing.T) {
 	// Create service with platform base using mock repository
 	mockRepo := &MockCustomerRepository{}
-	customerService := NewCustomerService(mockRepo)
+	customerService := NewCustomerService(mockRepo, mockConfig())
 
 	// Verify service implements platform Service interface
 	var _ service.Service = customerService
@@ -113,7 +125,7 @@ func TestCustomerServicePlatformInterface(t *testing.T) {
 func TestCustomerServiceFunctionality(t *testing.T) {
 	// Create service with platform base using mock repository
 	mockRepo := &MockCustomerRepository{}
-	customerService := NewCustomerService(mockRepo)
+	customerService := NewCustomerService(mockRepo, mockConfig())
 
 	// Test that service methods work as before
 	ctx := context.Background()

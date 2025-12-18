@@ -30,7 +30,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 
-	entity "go-shopping-poc/internal/entity/customer"
 	outbox "go-shopping-poc/internal/platform/outbox"
 	"go-shopping-poc/internal/testutils"
 )
@@ -323,7 +322,14 @@ func TestServiceLayer_DefaultMethods(t *testing.T) {
 	defer db.Close()
 
 	repo := NewCustomerRepository(db, outbox.Writer{})
-	service := NewCustomerService(repo)
+	// Create minimal config for testing
+	config := &Config{
+		DatabaseURL:    "postgres://test:test@localhost:5432/test",
+		ServicePort:    ":8080",
+		WriteTopic:     "test-topic",
+		OutboxInterval: 5 * time.Second,
+	}
+	service := NewCustomerService(repo, config)
 	ctx := context.Background()
 
 	// Create test customer and address
@@ -439,13 +445,13 @@ func TestInsertCustomerWithRelations(t *testing.T) {
 	ctx := context.Background()
 
 	// Create customer with addresses and credit cards
-	customer := &entity.Customer{
+	customer := &Customer{
 		Username:  "testuser",
 		Email:     "test@example.com",
 		FirstName: "Test",
 		LastName:  "User",
 		Phone:     "555-1234",
-		Addresses: []entity.Address{
+		Addresses: []Address{
 			{
 				AddressType: "shipping",
 				FirstName:   "Test",
@@ -456,7 +462,7 @@ func TestInsertCustomerWithRelations(t *testing.T) {
 				Zip:         "12345",
 			},
 		},
-		CreditCards: []entity.CreditCard{
+		CreditCards: []CreditCard{
 			{
 				CardType:       "visa",
 				CardNumber:     "4111111111111111",

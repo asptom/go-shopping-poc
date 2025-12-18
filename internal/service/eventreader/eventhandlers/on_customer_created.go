@@ -5,7 +5,7 @@ import (
 	events "go-shopping-poc/internal/contracts/events"
 	"go-shopping-poc/internal/platform/event/bus"
 	"go-shopping-poc/internal/platform/event/handler"
-	"go-shopping-poc/internal/platform/logging"
+	"log"
 )
 
 // OnCustomerCreated handles CustomerCreated events
@@ -25,12 +25,12 @@ func (h *OnCustomerCreated) Handle(ctx context.Context, event events.Event) erro
 	case *events.CustomerEvent:
 		customerEvent = *e
 	default:
-		logging.Error("Eventreader: Expected CustomerEvent, got %T", event)
+		log.Printf("[ERROR] Eventreader: Expected CustomerEvent, got %T", event)
 		return nil // Don't fail processing, just log and continue
 	}
 
 	if customerEvent.EventType != events.CustomerCreated {
-		logging.Debug("Eventreader: Ignoring non-CustomerCreated event: %s", customerEvent.EventType)
+		log.Printf("[DEBUG] Eventreader: Ignoring non-CustomerCreated event: %s", customerEvent.EventType)
 		return nil
 	}
 

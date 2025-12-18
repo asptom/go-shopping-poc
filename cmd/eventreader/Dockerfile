@@ -15,10 +15,14 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /eventreader
 
 # Final image
 #FROM gcr.io/distroless/base-debian11
-FROM scratch
+#FROM scratch
+FROM alpine:latest
+RUN apk add --no-cache ca-certificates
 WORKDIR /
 COPY --from=builder /eventreader .
-COPY --from=builder /app/.env.local .
+RUN mkdir -p /config
+COPY --from=builder /app/config/eventreader.env /config/
+COPY --from=builder /app/config/platform-kafka.env /config/
 COPY --from=builder /etc/passwd /etc/passwd
 
 USER nobody
