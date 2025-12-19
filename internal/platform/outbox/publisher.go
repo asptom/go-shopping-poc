@@ -102,7 +102,7 @@ func (p *Publisher) processOutbox() {
 		outboxEvent.TimesAttempted++
 		outboxEvent.PublishedAt = sql.NullTime{Time: time.Now(), Valid: true}
 		if _, err := p.db.Exec("UPDATE outbox.outbox SET published_at = $1, times_attempted = $2 WHERE id = $3", outboxEvent.PublishedAt, outboxEvent.TimesAttempted, outboxEvent.ID); err != nil {
-			log.Printf("[ERROR] Outbox Publisher: Failed to mark event %s as published: %v", outboxEvent.ID, err)
+			log.Printf("[ERROR] Outbox Publisher: Failed to mark event %v as published: %v", outboxEvent.ID, err)
 			continue
 		}
 

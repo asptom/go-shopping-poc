@@ -9,10 +9,10 @@ import (
 
 // Config defines shared outbox configuration
 type Config struct {
-	BatchSize       int           `mapstructure:"batch_size" default:"10"`
-	DeleteBatchSize int           `mapstructure:"delete_batch_size" default:"10"`
-	ProcessInterval time.Duration `mapstructure:"process_interval" default:"5s"`
-	MaxRetries      int           `mapstructure:"max_retries" default:"3"`
+	BatchSize       int           `mapstructure:"BATCH_SIZE" default:"10"`
+	DeleteBatchSize int           `mapstructure:"DELETE_BATCH_SIZE" default:"10"`
+	ProcessInterval time.Duration `mapstructure:"PROCESS_INTERVAL" default:"5s"`
+	MaxRetries      int           `mapstructure:"MAX_RETRIES" default:"3"`
 }
 
 // LoadConfig loads shared outbox configuration

@@ -3,25 +3,21 @@ package eventreader
 import (
 	"errors"
 	"fmt"
+
+	"go-shopping-poc/internal/platform/config"
 )
 
 // Config defines eventreader service configuration
 type Config struct {
 	// Kafka configuration
-	WriteTopic string   `mapstructure:"event_reader_write_topic" validate:"required"`
-	ReadTopics []string `mapstructure:"event_reader_read_topics" validate:"required,min=1"`
-	Group      string   `mapstructure:"event_reader_group" validate:"required"`
+	WriteTopic string   `mapstructure:"EVENT_READER_WRITE_TOPIC" validate:"required"`
+	ReadTopics []string `mapstructure:"EVENT_READER_READ_TOPICS" validate:"required,min=1"`
+	Group      string   `mapstructure:"EVENT_READER_GROUP" validate:"required"`
 }
 
 // LoadConfig loads eventreader service configuration
 func LoadConfig() (*Config, error) {
-	// TEMP: Manual config loading for testing
-	cfg := &Config{
-		WriteTopic: "processed-events",
-		ReadTopics: []string{"customer-events"},
-		Group:      "event-reader-group",
-	}
-	return cfg, nil
+	return config.LoadConfig[Config]("eventreader")
 }
 
 // Validate performs eventreader service specific validation
