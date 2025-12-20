@@ -5,29 +5,6 @@ import (
 	"path/filepath"
 )
 
-// findProjectRoot finds the project root by looking for go.mod
-func findProjectRoot() string {
-	dir, err := os.Getwd()
-	if err != nil {
-		return ""
-	}
-
-	for {
-		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
-			return dir
-		}
-
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			// Reached root directory
-			break
-		}
-		dir = parent
-	}
-
-	return ""
-}
-
 // ResolveEnvFile returns the correct .env file path based on APP_ENV.
 func ResolveEnvFile() string {
 	env := os.Getenv("APP_ENV")
@@ -44,11 +21,6 @@ func ResolveEnvFile() string {
 		filename = ".env.local"
 	}
 
-	// Find project root and return absolute path in config/ folder
-	if root := findProjectRoot(); root != "" {
-		return filepath.Join(root, "config", filename)
-	}
-
-	// Fallback to relative path if project root not found
+	// Return relative path to config/ folder
 	return filepath.Join("config", filename)
 }

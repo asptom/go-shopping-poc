@@ -80,7 +80,7 @@ func TestDefaultShippingAddress_Set(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	repo := NewCustomerRepository(db, outbox.Writer{})
+	repo := NewCustomerRepository(db, &outbox.Writer{})
 	ctx := context.Background()
 
 	// Create test customer and address
@@ -119,7 +119,7 @@ func TestDefaultBillingAddress_Set(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	repo := NewCustomerRepository(db, outbox.Writer{})
+	repo := NewCustomerRepository(db, &outbox.Writer{})
 	ctx := context.Background()
 
 	// Create test customer and address
@@ -160,7 +160,7 @@ func TestDefaultCreditCard_Set(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	repo := NewCustomerRepository(db, outbox.Writer{})
+	repo := NewCustomerRepository(db, &outbox.Writer{})
 	ctx := context.Background()
 
 	// Create test customer and credit card
@@ -199,7 +199,7 @@ func TestDefaultShippingAddress_Clear(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	repo := NewCustomerRepository(db, outbox.Writer{})
+	repo := NewCustomerRepository(db, &outbox.Writer{})
 	ctx := context.Background()
 
 	// Create test customer and address
@@ -239,7 +239,7 @@ func TestDefaultBillingAddress_Clear(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	repo := NewCustomerRepository(db, outbox.Writer{})
+	repo := NewCustomerRepository(db, &outbox.Writer{})
 	ctx := context.Background()
 
 	// Create test customer and address
@@ -279,7 +279,7 @@ func TestDefaultCreditCard_Clear(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	repo := NewCustomerRepository(db, outbox.Writer{})
+	repo := NewCustomerRepository(db, &outbox.Writer{})
 	ctx := context.Background()
 
 	// Create test customer and credit card
@@ -321,7 +321,7 @@ func TestServiceLayer_DefaultMethods(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	repo := NewCustomerRepository(db, outbox.Writer{})
+	repo := NewCustomerRepository(db, &outbox.Writer{})
 	// Create minimal config for testing
 	config := &Config{
 		DatabaseURL:    "postgres://test:test@localhost:5432/test",
@@ -365,7 +365,7 @@ func TestDefaultOperations_InvalidUUID(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	repo := NewCustomerRepository(db, outbox.Writer{})
+	repo := NewCustomerRepository(db, &outbox.Writer{})
 	ctx := context.Background()
 
 	// Test with invalid customer ID
@@ -392,7 +392,7 @@ func TestGetCustomerByEmail(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	repo := NewCustomerRepository(db, outbox.Writer{})
+	repo := NewCustomerRepository(db, &outbox.Writer{})
 	ctx := context.Background()
 
 	// Create a test customer
@@ -441,7 +441,7 @@ func TestInsertCustomerWithRelations(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	repo := NewCustomerRepository(db, outbox.Writer{})
+	repo := NewCustomerRepository(db, &outbox.Writer{})
 	ctx := context.Background()
 
 	// Create customer with addresses and credit cards
@@ -531,7 +531,7 @@ func TestDefaultOperations_NonExistentCustomer(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	repo := NewCustomerRepository(db, outbox.Writer{})
+	repo := NewCustomerRepository(db, &outbox.Writer{})
 	ctx := context.Background()
 
 	// Test with non-existent customer

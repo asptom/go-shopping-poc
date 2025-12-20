@@ -28,7 +28,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-
 )
 
 // ===== ERROR TYPES & WRAPPING =====
@@ -160,7 +159,10 @@ func TestFieldUpdates_BasicFields(t *testing.T) {
 		CustomerStatus: &status,
 	}
 
-	service.ApplyFieldUpdates(customer, patchData)
+	err := service.ApplyFieldUpdates(customer, patchData)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if customer.Username != "newuser" {
 		t.Errorf("Expected username 'newuser', got '%s'", customer.Username)
@@ -190,7 +192,10 @@ func TestFieldUpdates_DefaultFields(t *testing.T) {
 		DefaultShippingAddressID: &validUUID,
 	}
 
-	service.ApplyFieldUpdates(customer, patchData)
+	err := service.ApplyFieldUpdates(customer, patchData)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if customer.DefaultShippingAddressID == nil {
 		t.Error("Expected DefaultShippingAddressID to be set")
@@ -214,14 +219,20 @@ func TestFieldUpdates_DefaultFieldClearing(t *testing.T) {
 	patchData := &PatchCustomerRequest{
 		DefaultShippingAddressID: &validUUID,
 	}
-	service.ApplyFieldUpdates(customer, patchData)
+	err := service.ApplyFieldUpdates(customer, patchData)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Then clear it with empty string
 	emptyString := ""
 	patchData = &PatchCustomerRequest{
 		DefaultShippingAddressID: &emptyString,
 	}
-	service.ApplyFieldUpdates(customer, patchData)
+	err = service.ApplyFieldUpdates(customer, patchData)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if customer.DefaultShippingAddressID != nil {
 		t.Error("Expected DefaultShippingAddressID to be nil after clearing")

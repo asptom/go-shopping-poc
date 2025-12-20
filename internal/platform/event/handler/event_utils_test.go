@@ -11,9 +11,11 @@ import (
 
 // mockEvent implements events.Event for testing
 type mockEvent struct {
-	eventType string
-	topic     string
-	payload   any
+	eventType  string
+	topic      string
+	payload    any
+	entityID   string
+	resourceID string
 }
 
 func (m *mockEvent) Type() string {
@@ -30,6 +32,14 @@ func (m *mockEvent) Payload() any {
 
 func (m *mockEvent) ToJSON() ([]byte, error) {
 	return []byte("{}"), nil
+}
+
+func (m *mockEvent) GetEntityID() string {
+	return m.entityID
+}
+
+func (m *mockEvent) GetResourceID() string {
+	return m.resourceID
 }
 
 func TestEventUtils_ValidateEvent(t *testing.T) {

@@ -16,9 +16,6 @@ type Bus interface {
 	// StartConsuming reads messages from all configured topics and dispatches them to handlers
 	StartConsuming(ctx context.Context) error
 
-	// RegisterHandler registers a typed event handler for any event type
-	RegisterHandler(factory any, handler any) error
-
 	// WriteTopic returns the topic used for writing
 	WriteTopic() string
 

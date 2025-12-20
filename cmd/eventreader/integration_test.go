@@ -9,6 +9,7 @@ import (
 
 	events "go-shopping-poc/internal/contracts/events"
 	kafka "go-shopping-poc/internal/platform/event/bus/kafka"
+	kafkaconfig "go-shopping-poc/internal/platform/event/kafka"
 	"go-shopping-poc/internal/service/eventreader"
 	"go-shopping-poc/internal/service/eventreader/eventhandlers"
 	"go-shopping-poc/internal/testutils"
@@ -28,16 +29,19 @@ func TestEventReaderService_Integration(t *testing.T) {
 		t.Fatalf("Failed to load eventreader config: %v", err)
 	}
 
-	// Create event bus
-	broker := cfg.KafkaBroker
-	readTopics := cfg.ReadTopics
-	writeTopic := cfg.WriteTopic
-	group := cfg.Group + "-test"
+	// Load Kafka configuration
+	kafkaCfg, err := kafkaconfig.LoadConfig()
+	if err != nil {
+		t.Fatalf("Failed to load kafka config: %v", err)
+	}
 
-	eventBus := kafka.NewEventBus(broker, readTopics, writeTopic, group)
+	// Create event bus
+	kafkaCfg.Topic = cfg.WriteTopic
+	kafkaCfg.GroupID = cfg.Group + "-test"
+	eventBus := kafka.NewEventBus(kafkaCfg)
 
 	// Create service
-	service := eventreader.NewEventReaderService(eventBus)
+	service := eventreader.NewEventReaderService(eventBus, cfg)
 
 	// Register handlers
 	customerCreatedHandler := eventhandlers.NewOnCustomerCreated()

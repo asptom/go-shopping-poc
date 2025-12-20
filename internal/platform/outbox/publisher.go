@@ -47,7 +47,6 @@ func (p *Publisher) Start() {
 
 		defer ticker.Stop()
 		defer p.wg.Done()
-		defer p.wg.Wait()
 
 		for {
 			select {

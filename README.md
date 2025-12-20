@@ -1,204 +1,136 @@
 # Go Shopping POC
 
-**Project Name**: go-shopping-poc
+A proof-of-concept microservices-based shopping platform built with Go, demonstrating Clean Architecture principles, event-driven design, and Kubernetes deployment.
 
-**Description**: This project is a proof-of-concept implementation of a microservices-based shopping platform built with Go. It demonstrates Clean Architecture principles, event-driven design, and modern Go development practices.
+## Project Overview
+
+This project implements a modern e-commerce platform with:
+- **Event-driven architecture** using Kafka for inter-service communication
+- **Clean Architecture** with strict separation of concerns
+- **Kubernetes deployment** with Rancher Desktop
+- **PostgreSQL** for data persistence
+- **Type-safe event handling** with Go generics
 
 ## Architecture
 
-This project implements Clean Architecture principles with clear separation of concerns:
+### Clean Architecture Layers
 
-- **Contracts Layer** (`internal/contracts/`): Pure data structures and event DTOs
-- **Platform Layer** (`internal/platform/`): Shared infrastructure and reusable utilities
-- **Service Layer** (`internal/service/`): Domain-specific business logic and entities
+```
+internal/
+├── contracts/events/              # Pure DTOs - Event data structures
+├── platform/                      # Shared infrastructure (HOW)
+│   ├── service/                   # Service lifecycle management
+│   ├── event/bus/                 # Message transport abstraction
+│   ├── event/handler/             # Generic event utilities
+│   └── [config, cors, etc.]       # Other shared infrastructure
+└── service/[domain]/              # Business logic + domain entities (WHAT)
+    ├── entity.go                  # Domain models and validation
+    ├── service.go                 # Business logic
+    ├── repository.go              # Data access
+    └── handler.go                 # HTTP handlers
+```
 
 ### Event System
 
-The event system uses a contracts-first approach with type-safe event handling:
+Contracts-first approach with type-safe event handling:
+1. **Event Contracts**: Pure data structures in `internal/contracts/events/`
+2. **Transport Layer**: Kafka behind `internal/platform/event/bus/` interface
+3. **Generic Utilities**: Reusable patterns in `internal/platform/event/handler/`
+4. **Service Integration**: Unified lifecycle via `internal/platform/service/`
 
-1. **Event Contracts**: Define event structures in `internal/contracts/events/`
-2. **Transport Layer**: Kafka implementation abstracted behind interfaces
-3. **Generic Handlers**: Reusable event processing utilities
-4. **Service Integration**: Event-driven services using shared infrastructure
-
-### Services
+## Services
 
 - **Customer Service**: Customer management with PostgreSQL persistence
 - **EventReader Service**: Event processing and handler orchestration
-- **WebSocket Service**: Real-time communication (future)
+- **WebSocket Service**: Real-time communication (future implementation)
 
-### Infrastructure
+## Infrastructure
 
-- **PostgreSQL**: Primary database for customer and order data
+- **PostgreSQL**: Customer and order data storage
 - **Kafka**: Event streaming and message broker
 - **Keycloak**: OIDC authentication and authorization
-- **MinIO**: S3-compatible object storage for product images
+- **MinIO**: S3-compatible object storage
 - **Kubernetes**: Container orchestration with Rancher Desktop
 
-## Event System Usage
-
-### Creating and Publishing Events
-
-```go
-import (
-    "go-shopping-poc/internal/contracts/events"
-    "go-shopping-poc/internal/platform/outbox"
-)
-
-// Create an event (example: customer, order, or any domain event)
-event := events.NewCustomerCreated(customerID, customerData) // Replace with your event type
-
-// Publish via outbox pattern
-publisher := outbox.NewPublisher(eventBus)
-err := publisher.PublishEvent(ctx, event)
-```
-
-### Handling Events with Generic Utilities
-
-```go
-import (
-    "go-shopping-poc/internal/platform/event/handler"
-    "go-shopping-poc/internal/contracts/events"
-)
-
-utils := handler.NewEventUtils()
-err := utils.HandleEventWithValidation(ctx, event, func(ctx context.Context, event events.Event) error {
-    // Your business logic here
-    utils.LogEventProcessing(ctx, event.Type(), utils.GetEventID(event), utils.GetResourceID(event))
-    return nil
-})
-```
-
-### Service Handler Registration
-
-```go
-import (
-    "go-shopping-poc/internal/service/eventreader"
-    "go-shopping-poc/internal/service/yourdomain" // Replace with your domain package
-)
-
-// Register typed event handlers for any event type
-err := eventreader.RegisterHandler(
-    service,
-    yourEventHandler.CreateFactory(),  // Factory for your event type
-    yourEventHandler.CreateHandler(),  // Handler for your event type
-)
-```
-
-## Local Development Setup
+## Quick Start
 
 ### Prerequisites
+- Go 1.21+
+- Rancher Desktop (Kubernetes)
+- kubectl configured
+- Docker
 
-- **Go 1.21+**
-- **Rancher Desktop** (Kubernetes cluster)
-- **kubectl** configured for Rancher Desktop
-- **Docker** (for local builds)
+### Local Development Setup
 
-### Environment Setup
-
-1. **Clone the repository**
+1. **Clone and setup**
    ```bash
    git clone <repository-url>
    cd go-shopping-poc
    ```
 
-2. **Start infrastructure services**
+2. **Deploy infrastructure**
    ```bash
-   # Deploy all services to Kubernetes
-   make deploy-all
-
-   # Or deploy individual components
-   make kafka-deploy
-   make postgres-deploy
-   make keycloak-deploy
-   make minio-deploy
+   make deploy-all  # PostgreSQL, Kafka, Keycloak, MinIO
    ```
 
-3. **Configure environment variables**
+3. **Build and deploy services**
    ```bash
-   # Copy and modify environment files
-   cp resources/kafka/topics.def.example resources/kafka/topics.def
-   cp resources/postgresql/config/postgresql-config.yaml.example resources/postgresql/config/postgresql-config.yaml
-   ```
-
-4. **Build and run services**
-   ```bash
-   # Build all services
    make services-build
-
-   # Deploy application services
    make customer-deploy
    make eventreader-deploy
-   make websocket-deploy
    ```
 
-### Service Verification
+4. **Verify deployment**
+   ```bash
+   kubectl get pods
+   kubectl logs -f deployment/customer
+   ```
 
-```bash
-# Check pod status
-kubectl get pods
+## Event System Usage
 
-# Check service health
-kubectl get services
+### Publishing Events
+```go
+event := events.NewCustomerCreated(customerID, customerData)
+publisher := outbox.NewPublisher(eventBus)
+err := publisher.PublishEvent(ctx, event)
+```
 
-# View logs
-kubectl logs -f deployment/customer
-kubectl logs -f deployment/eventreader
+### Handling Events
+```go
+utils := handler.NewEventUtils()
+err := utils.HandleEventWithValidation(ctx, event, func(ctx context.Context, event events.Event) error {
+    // Business logic here
+    return nil
+})
 ```
 
 ## Testing
 
-### Unit Tests
-
 ```bash
-# Run all tests
+# Unit tests
 make services-test
 
-# Run specific service tests
-go test ./internal/service/customer/...
-
-# Run platform tests
-go test ./internal/platform/...
-```
-
-### Integration Tests
-
-```bash
-# Run integration test suite (requires Kafka)
+# Integration tests (requires Kafka)
 go test -tags=integration ./tests/integration/...
 
-# Run specific integration test
-go test -tags=integration -run TestEndToEndEventFlow ./tests/integration/
-```
-
-### Test Coverage
-
-```bash
-# Generate coverage report
+# Coverage report
 go test -coverprofile=coverage.out ./...
 go tool cover -html=coverage.out
-
-# Minimum coverage requirements: 80% for platform code, 70% for services
 ```
 
-## Development Workflow
+## Development
 
 ### Adding New Event Types
+1. Define event contract in `internal/contracts/events/[domain].go`
+2. Implement Event interface methods
+3. Create EventFactory[T] for reconstruction
+4. Add validation to EventUtils if needed
+5. Add comprehensive tests
 
-1. **Define event contract** in `internal/contracts/events/[domain].go`
-2. **Implement Event interface** with Type(), Topic(), Payload(), ToJSON()
-3. **Create EventFactory[T]** for type-safe JSON reconstruction
-4. **Add validation logic** to `EventUtils.ValidateEvent()` if needed
-5. **Update event type matcher** in `EventTypeMatcher` if needed
-6. **Add comprehensive tests** for new event type
-
-### Service Development
-
+### Service Development Pattern
 ```go
-// For event-driven services:
 type MyService struct {
     *service.EventServiceBase
-    // domain-specific fields
 }
 
 func NewMyService(eventBus bus.Bus) *MyService {
@@ -211,11 +143,10 @@ func NewMyService(eventBus bus.Bus) *MyService {
 ## Build Commands
 
 - `make services-build` - Build all services
-- `make services-test` - Run all tests
-- `make services-lint` - Run golangci-lint
-- `make deploy-all` - Deploy all services to Kubernetes
-- `go run ./cmd/customer` - Run customer service locally
+- `make services-test` - Run tests
+- `make deploy-all` - Deploy to Kubernetes
+- `go run ./cmd/customer` - Run locally
 
 ## Contributing
 
-This project follows Clean Architecture principles. See `AGENTS.md` for detailed maintenance guidelines and contribution standards. 
+Follows Clean Architecture principles. See `AGENTS.md` for detailed guidelines. 

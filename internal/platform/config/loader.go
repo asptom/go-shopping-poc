@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
@@ -37,16 +36,22 @@ func NewViperLoader() *ViperLoader {
 
 // LoadFromFile loads configuration from file into viper
 func (l *ViperLoader) LoadFromFile(filename string, config interface{}) error {
+	fmt.Printf("[DEBUG] Checking config file: %s\n", filename)
+
 	// Read .env file and set viper values directly
 	file, err := os.Open(filename)
 	if err != nil {
 		if os.IsNotExist(err) {
+			fmt.Printf("[DEBUG] Config file does not exist: %s\n", filename)
 			// File doesn't exist, skip silently
 			return nil
 		}
+		fmt.Printf("[DEBUG] Failed to open config file %s: %v\n", filename, err)
 		return fmt.Errorf("failed to open config file %s: %w", filename, err)
 	}
 	defer file.Close()
+
+	fmt.Printf("[DEBUG] Successfully opened config file: %s\n", filename)
 
 	// Parse simple KEY=VALUE format
 	content, err := io.ReadAll(file)
@@ -71,11 +76,8 @@ func (l *ViperLoader) LoadFromFile(filename string, config interface{}) error {
 			// Expand environment variables in the value
 			value = os.ExpandEnv(value)
 
+			fmt.Printf("[DEBUG] Loaded from %s: %s = %s\n", filename, key, value)
 			l.viper.Set(key, value)
-			// Debug
-			if strings.Contains(filename, "eventreader") && key == "EVENT_READER_WRITE_TOPIC" {
-				fmt.Printf("DEBUG: Parsed %s = %s from %s\n", key, value, filename)
-			}
 		}
 	}
 
@@ -90,17 +92,10 @@ func (l *ViperLoader) applyEnvOverrides(config interface{}) error {
 
 // LoadFromEnv loads configuration from environment variables
 func (l *ViperLoader) LoadFromEnv(config interface{}) error {
-	// Debug before unmarshal
-	fmt.Printf("DEBUG: Before unmarshal, viper has EVENT_READER_WRITE_TOPIC: %s\n", l.viper.Get("EVENT_READER_WRITE_TOPIC"))
 
 	err := l.viper.Unmarshal(config)
 	if err != nil {
 		return err
-	}
-
-	// Debug after unmarshal - try to access the config if it's the right type
-	if cfg, ok := config.(*interface{}); ok {
-		fmt.Printf("DEBUG: After unmarshal, config is: %+v\n", cfg)
 	}
 
 	return nil
@@ -137,14 +132,17 @@ func (l *ViperLoader) Validate(config interface{}) error {
 
 // LoadConfig loads configuration with automatic source detection
 func LoadConfig[T any](serviceName string) (*T, error) {
+	fmt.Printf("[DEBUG] Loading config for service: %s\n", serviceName)
 	loader := NewViperLoader()
 
 	// Load files in order (each call uses the same viper instance)
 	files := []string{
-		"config/.env.local",                         // 1. Global local overrides
-		filepath.Join("config", serviceName+".env"), // 2. Service-specific (higher precedence)
-		"config/.env",                               // 3. Global defaults (lowest precedence)
+		"config/.env",                    // 1. Global defaults (lowest precedence)
+		"config/.env.local",              // 2. Global local overrides
+		"config/" + serviceName + ".env", // 3. Service-specific (highest precedence)
 	}
+
+	fmt.Printf("[DEBUG] Config files to check: %v\n", files)
 
 	for _, file := range files {
 		if err := loader.LoadFromFile(file, nil); err != nil {
@@ -152,27 +150,30 @@ func LoadConfig[T any](serviceName string) (*T, error) {
 		}
 	}
 
-	// Debug: check what viper has
-	if serviceName == "eventreader" {
-		fmt.Printf("DEBUG: Before unmarshal, viper EVENT_READER_WRITE_TOPIC: %s\n", loader.viper.Get("EVENT_READER_WRITE_TOPIC"))
-		fmt.Printf("DEBUG: All viper keys: %v\n", loader.viper.AllKeys())
+	// Load environment variables into viper to support lowercase mapstructure tags
+	for _, env := range os.Environ() {
+		if idx := strings.Index(env, "="); idx > 0 {
+			key := env[:idx]
+			value := env[idx+1:]
+			loader.viper.Set(key, value)
+		}
 	}
 
-	// Now unmarshal with all file values loaded
+	// Now unmarshal with all file values and environment variables loaded
 	config := new(T)
 	if err := loader.viper.Unmarshal(config); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
 	}
 
-	// Debug: check config after unmarshal
-	if serviceName == "eventreader" {
-		fmt.Printf("DEBUG: After unmarshal, config type: %T\n", config)
-	}
+	fmt.Printf("[DEBUG] After unmarshaling, WriteTopic value: %v\n", loader.viper.Get("EVENT_READER_WRITE_TOPIC"))
+	fmt.Printf("[DEBUG] All viper keys: %v\n", loader.viper.AllKeys())
 
 	// Apply environment variable overrides
 	if err := loader.applyEnvOverrides(config); err != nil {
 		return nil, fmt.Errorf("failed to apply env overrides: %w", err)
 	}
+
+	fmt.Printf("[DEBUG] After env overrides, WriteTopic value: %v\n", loader.viper.Get("EVENT_READER_WRITE_TOPIC"))
 
 	// Validate and return
 	if err := loader.Validate(config); err != nil {

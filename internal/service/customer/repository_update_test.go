@@ -109,7 +109,7 @@ func createTestCustomerWithFullData(t *testing.T, db *sqlx.DB) *Customer {
 	}
 
 	// Insert customer directly into database for testing
-	repo := NewCustomerRepository(db, outbox.Writer{})
+	repo := NewCustomerRepository(db, &outbox.Writer{})
 	if err := repo.InsertCustomer(context.Background(), customer); err != nil {
 		t.Fatalf("Failed to create test customer: %v", err)
 	}
@@ -136,7 +136,7 @@ func TestPUT_BasicInfoOnly(t *testing.T) {
 	db := setupUpdateTestDB(t)
 	defer db.Close()
 
-	repo := NewCustomerRepository(db, outbox.Writer{})
+	repo := NewCustomerRepository(db, &outbox.Writer{})
 	ctx := context.Background()
 
 	// Create test customer
@@ -199,7 +199,7 @@ func TestPATCH_BasicInfoOnly(t *testing.T) {
 	db := setupUpdateTestDB(t)
 	defer db.Close()
 
-	repo := NewCustomerRepository(db, outbox.Writer{})
+	repo := NewCustomerRepository(db, &outbox.Writer{})
 	ctx := context.Background()
 
 	// Create test customer
@@ -271,7 +271,7 @@ func TestPATCH_DefaultFieldsOnly(t *testing.T) {
 	db := setupUpdateTestDB(t)
 	defer db.Close()
 
-	repo := NewCustomerRepository(db, outbox.Writer{})
+	repo := NewCustomerRepository(db, &outbox.Writer{})
 	ctx := context.Background()
 
 	// Create test customer
@@ -307,7 +307,7 @@ func TestPATCH_Response_IncludesNullDefaults(t *testing.T) {
 	db := setupUpdateTestDB(t)
 	defer db.Close()
 
-	repo := NewCustomerRepository(db, outbox.Writer{})
+	repo := NewCustomerRepository(db, &outbox.Writer{})
 	ctx := context.Background()
 
 	// Create test customer (defaults will be null initially)
@@ -363,7 +363,7 @@ func TestPATCH_Response_IncludesSetDefaults(t *testing.T) {
 	db := setupUpdateTestDB(t)
 	defer db.Close()
 
-	repo := NewCustomerRepository(db, outbox.Writer{})
+	repo := NewCustomerRepository(db, &outbox.Writer{})
 	ctx := context.Background()
 
 	// Create test customer
@@ -442,7 +442,7 @@ func TestGetCustomerByID_CompleteData(t *testing.T) {
 	db := setupUpdateTestDB(t)
 	defer db.Close()
 
-	repo := NewCustomerRepository(db, outbox.Writer{})
+	repo := NewCustomerRepository(db, &outbox.Writer{})
 	ctx := context.Background()
 
 	// Create test customer
@@ -479,7 +479,7 @@ func TestPATCH_SingleField(t *testing.T) {
 	db := setupUpdateTestDB(t)
 	defer db.Close()
 
-	repo := NewCustomerRepository(db, outbox.Writer{})
+	repo := NewCustomerRepository(db, &outbox.Writer{})
 	ctx := context.Background()
 
 	// Create test customer

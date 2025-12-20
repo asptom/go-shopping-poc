@@ -11,6 +11,7 @@ import (
 	events "go-shopping-poc/internal/contracts/events"
 	kafka "go-shopping-poc/internal/platform/event/bus/kafka"
 	"go-shopping-poc/internal/platform/event/handler"
+	kafkaconfig "go-shopping-poc/internal/platform/event/kafka"
 	"go-shopping-poc/internal/service/eventreader"
 	"go-shopping-poc/internal/service/eventreader/eventhandlers"
 	"go-shopping-poc/internal/testutils"
@@ -31,28 +32,28 @@ func TestEndToEndEventFlow_Integration(t *testing.T) {
 		t.Fatalf("Failed to load eventreader config: %v", err)
 	}
 
-	// Create event bus for publishing (simulating customer service)
-	publishBroker := cfg.KafkaBroker
-	publishTopics := []string{cfg.WriteTopic} // Write to customer topic
-	publishWriteTopic := cfg.WriteTopic
-	publishGroup := cfg.Group + "-publisher"
+	// Load Kafka configuration
+	kafkaCfg, kafkaErr := kafkaconfig.LoadConfig()
+	if kafkaErr != nil {
+		t.Fatalf("Failed to load kafka config: %v", kafkaErr)
+	}
 
-	publisherEventBus := kafka.NewEventBus(publishBroker, publishTopics, publishWriteTopic, publishGroup)
+	// Create event bus for publishing (simulating customer service)
+	publishKafkaCfg := *kafkaCfg
+	publishKafkaCfg.GroupID = cfg.Group + "-publisher"
+	publisherEventBus := kafka.NewEventBus(&publishKafkaCfg)
 
 	// Create event bus for consuming (eventreader service)
-	consumeBroker := cfg.KafkaBroker
-	consumeTopics := cfg.ReadTopics
-	consumeWriteTopic := cfg.WriteTopic
-	consumeGroup := cfg.Group + "-consumer"
-
-	consumerEventBus := kafka.NewEventBus(consumeBroker, consumeTopics, consumeWriteTopic, consumeGroup)
+	consumeKafkaCfg := *kafkaCfg
+	consumeKafkaCfg.GroupID = cfg.Group + "-consumer"
+	consumerEventBus := kafka.NewEventBus(&consumeKafkaCfg)
 
 	// Create and configure eventreader service
-	service := eventreader.NewEventReaderService(consumerEventBus)
+	service := eventreader.NewEventReaderService(consumerEventBus, cfg)
 
 	// Register handlers
-	customerCreatedHandler := eventhandlers.NewOnCustomerCreated()
-	err := eventreader.RegisterHandler(
+	var customerCreatedHandler = eventhandlers.NewOnCustomerCreated()
+	err = eventreader.RegisterHandler(
 		service,
 		customerCreatedHandler.CreateFactory(),
 		customerCreatedHandler.CreateHandler(),
@@ -267,16 +268,20 @@ func TestOriginalIssueResolution_Integration(t *testing.T) {
 		t.Fatalf("Failed to load eventreader config: %v", err)
 	}
 
-	// Create event bus
-	broker := cfg.KafkaBroker
-	readTopics := cfg.ReadTopics
-	writeTopic := cfg.WriteTopic
-	group := cfg.Group + "-original-issue-test"
+	// Load Kafka configuration
+	kafkaCfg, kafkaErr := kafkaconfig.LoadConfig()
+	if kafkaErr != nil {
+		t.Fatalf("Failed to load kafka config: %v", kafkaErr)
+	}
 
-	eventBus := kafka.NewEventBus(broker, readTopics, writeTopic, group)
+	// Create event bus config with test-specific group
+	testKafkaCfg := *kafkaCfg
+	testKafkaCfg.GroupID = cfg.Group + "-original-issue-test"
+
+	eventBus := kafka.NewEventBus(&testKafkaCfg)
 
 	// Create service
-	service := eventreader.NewEventReaderService(eventBus)
+	service := eventreader.NewEventReaderService(eventBus, cfg)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -286,7 +291,7 @@ func TestOriginalIssueResolution_Integration(t *testing.T) {
 
 	customerCreatedHandler := eventhandlers.NewOnCustomerCreated()
 
-	err := eventreader.RegisterHandler(
+	err = eventreader.RegisterHandler(
 		service,
 		customerCreatedHandler.CreateFactory(),
 		customerCreatedHandler.CreateHandler(),
@@ -374,16 +379,25 @@ func TestSystemValidation_Integration(t *testing.T) {
 		t.Fatalf("Failed to load eventreader config: %v", err)
 	}
 
+	// Load kafka configuration
+	kafkaCfg, err := kafkaconfig.LoadConfig()
+	if err != nil {
+		t.Fatalf("Failed to load kafka config: %v", err)
+	}
+
 	// Create event bus
-	broker := cfg.KafkaBroker
-	readTopics := cfg.ReadTopics
 	writeTopic := cfg.WriteTopic
 	group := cfg.Group + "-system-validation"
 
-	eventBus := kafka.NewEventBus(broker, readTopics, writeTopic, group)
+	kafkaConfig := &kafkaconfig.Config{
+		Brokers: kafkaCfg.Brokers,
+		Topic:   writeTopic,
+		GroupID: group,
+	}
+	eventBus := kafka.NewEventBus(kafkaConfig)
 
 	// Create service
-	service := eventreader.NewEventReaderService(eventBus)
+	service := eventreader.NewEventReaderService(eventBus, cfg)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
@@ -403,7 +417,7 @@ func TestSystemValidation_Integration(t *testing.T) {
 	customerCreatedHandler := eventhandlers.NewOnCustomerCreated()
 
 	// Register handler using service layer wrapper
-	err := eventreader.RegisterHandler(
+	err = eventreader.RegisterHandler(
 		service,
 		customerCreatedHandler.CreateFactory(),
 		customerCreatedHandler.CreateHandler(),

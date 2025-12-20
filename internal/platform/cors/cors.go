@@ -8,6 +8,13 @@ import (
 // NewFromConfig returns a Chi-compatible middleware function that applies CORS
 // according to the provided configuration.
 func NewFromConfig(corsCfg *Config) func(http.Handler) http.Handler {
+	if corsCfg == nil {
+		// Return a no-op middleware if config is nil
+		return func(next http.Handler) http.Handler {
+			return next
+		}
+	}
+
 	origins := corsCfg.AllowedOrigins
 	methods := strings.Join(corsCfg.AllowedMethods, ",")
 	headers := strings.Join(corsCfg.AllowedHeaders, ",")
@@ -57,18 +64,6 @@ func NewFromConfig(corsCfg *Config) func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 		})
 	}
-}
-
-// parseList splits a comma-separated list and trims entries
-func parseList(s, sep string) []string {
-	if s == "" {
-		return nil
-	}
-	parts := strings.Split(s, sep)
-	for i := range parts {
-		parts[i] = strings.TrimSpace(parts[i])
-	}
-	return parts
 }
 
 func originAllowed(origin string, allowed []string) bool {

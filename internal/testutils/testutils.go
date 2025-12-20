@@ -134,17 +134,8 @@ func SetupTestEnvironment(t *testing.T) {
 	}
 
 	// Check if Kafka configuration is available, skip if not
-
-	if len(cfg.ReadTopics) == 0 {
-		t.Skip("Skipping integration test: Event reader topics configuration is missing")
-	}
-
 	if cfg.WriteTopic == "" {
 		t.Skip("Skipping integration test: Event reader write topic configuration is missing")
-	}
-
-	if cfg.Group == "" {
-		t.Skip("Skipping integration test: Event reader group configuration is missing")
 	}
 
 	t.Log("Test environment setup completed successfully")

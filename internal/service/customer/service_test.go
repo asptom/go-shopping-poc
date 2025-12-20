@@ -17,7 +17,6 @@ func mockConfig() *Config {
 		DatabaseURL:    "postgres://test:test@localhost:5432/test",
 		ServicePort:    ":8080",
 		WriteTopic:     "test-topic",
-		ReadTopics:     []string{},
 		Group:          "test-group",
 		OutboxInterval: 5 * time.Second,
 	}

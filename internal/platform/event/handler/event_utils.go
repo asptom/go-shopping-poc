@@ -11,7 +11,7 @@
 //	utils := handler.NewEventUtils()
 //	err := utils.HandleEventWithValidation(ctx, event, func(ctx context.Context, event events.Event) error {
 //	    // Business logic here
-//	    utils.LogEventProcessing(ctx, event.Type(), utils.GetEventType(event), utils.GetEventTopic(event))
+//	    utils.LogEventProcessing(ctx, event.Type(), utils.GetEntityID(event), utils.GetResourceID(event))
 //	    return nil
 //	})
 package handler
@@ -111,8 +111,23 @@ func (u *EventUtils) SafeEventProcessing(
 	return processor(ctx, event)
 }
 
-// GetEventType returns the event type for logging purposes
-// This provides a generic way to get event type information
+// GetEntityID extracts the entity ID from the event
+// This provides a generic way to get the primary entity ID from any event
+func (u *EventUtils) GetEntityID(event events.Event) string {
+	if event == nil {
+		return ""
+	}
+	return event.GetEntityID()
+}
+
+// GetEventID extracts the entity ID from the event (alias for GetEntityID)
+// This provides backward compatibility for existing code
+func (u *EventUtils) GetEventID(event events.Event) string {
+	return u.GetEntityID(event)
+}
+
+// GetEventType extracts the event type from the event
+// This provides a generic way to get the event type from any event
 func (u *EventUtils) GetEventType(event events.Event) string {
 	if event == nil {
 		return "unknown"
@@ -120,13 +135,22 @@ func (u *EventUtils) GetEventType(event events.Event) string {
 	return event.Type()
 }
 
-// GetEventTopic returns the event topic for logging purposes
-// This provides a generic way to get topic information
+// GetEventTopic extracts the topic from the event
+// This provides a generic way to get the topic from any event
 func (u *EventUtils) GetEventTopic(event events.Event) string {
 	if event == nil {
 		return "unknown"
 	}
 	return event.Topic()
+}
+
+// GetResourceID extracts the resource ID from the event
+// This provides a generic way to get the secondary resource ID from any event
+func (u *EventUtils) GetResourceID(event events.Event) string {
+	if event == nil {
+		return ""
+	}
+	return event.GetResourceID()
 }
 
 // EventTypeMatcher provides generic event type matching utilities
@@ -161,4 +185,10 @@ func (m *EventTypeMatcher) IsEventType(event events.Event, eventType string) boo
 		return false
 	}
 	return event.Type() == eventType
+}
+
+// IsCustomerEvent checks if the event is a customer event
+// This is a convenience method for the most common event type check
+func (m *EventTypeMatcher) IsCustomerEvent(event events.Event) bool {
+	return m.IsEventType(event, string(events.CustomerCreated))
 }

@@ -50,6 +50,19 @@ type WebSocketServer struct {
 	Clients  map[*websocket.Conn]bool
 }
 
+// createCheckOrigin creates a CheckOrigin function that validates against allowed origins.
+func createCheckOrigin(allowedOrigins []string) func(r *http.Request) bool {
+	return func(r *http.Request) bool {
+		origin := r.Header.Get("Origin")
+		for _, allowed := range allowedOrigins {
+			if origin == allowed {
+				return true
+			}
+		}
+		return false
+	}
+}
+
 // NewWebSocketServer creates a new WebSocketServer with platform config.
 func NewWebSocketServer() (*WebSocketServer, error) {
 	wsCfg, err := LoadConfig()
@@ -61,7 +74,7 @@ func NewWebSocketServer() (*WebSocketServer, error) {
 		Upgrader: websocket.Upgrader{
 			ReadBufferSize:  wsCfg.ReadBuffer,
 			WriteBufferSize: wsCfg.WriteBuffer,
-			CheckOrigin:     func(r *http.Request) bool { return true },
+			CheckOrigin:     createCheckOrigin(wsCfg.AllowedOrigins),
 		},
 		Clients: make(map[*websocket.Conn]bool),
 	}, nil

@@ -146,7 +146,7 @@ func (s *CustomerService) ValidatePatchData(patchData *PatchCustomerRequest) err
 }
 
 // ApplyFieldUpdates applies basic field updates to the customer
-func (s *CustomerService) ApplyFieldUpdates(customer *Customer, patchData *PatchCustomerRequest) {
+func (s *CustomerService) ApplyFieldUpdates(customer *Customer, patchData *PatchCustomerRequest) error {
 	if patchData.UserName != nil {
 		customer.Username = *patchData.UserName
 	}
@@ -171,29 +171,36 @@ func (s *CustomerService) ApplyFieldUpdates(customer *Customer, patchData *Patch
 		if *patchData.DefaultShippingAddressID == "" {
 			customer.DefaultShippingAddressID = nil
 		} else {
-			if uuid, err := uuid.Parse(*patchData.DefaultShippingAddressID); err == nil {
-				customer.DefaultShippingAddressID = &uuid
+			uuid, err := uuid.Parse(*patchData.DefaultShippingAddressID)
+			if err != nil {
+				return fmt.Errorf("invalid default_shipping_address_id: %w", err)
 			}
+			customer.DefaultShippingAddressID = &uuid
 		}
 	}
 	if patchData.DefaultBillingAddressID != nil {
 		if *patchData.DefaultBillingAddressID == "" {
 			customer.DefaultBillingAddressID = nil
 		} else {
-			if uuid, err := uuid.Parse(*patchData.DefaultBillingAddressID); err == nil {
-				customer.DefaultBillingAddressID = &uuid
+			uuid, err := uuid.Parse(*patchData.DefaultBillingAddressID)
+			if err != nil {
+				return fmt.Errorf("invalid default_billing_address_id: %w", err)
 			}
+			customer.DefaultBillingAddressID = &uuid
 		}
 	}
 	if patchData.DefaultCreditCardID != nil {
 		if *patchData.DefaultCreditCardID == "" {
 			customer.DefaultCreditCardID = nil
 		} else {
-			if uuid, err := uuid.Parse(*patchData.DefaultCreditCardID); err == nil {
-				customer.DefaultCreditCardID = &uuid
+			uuid, err := uuid.Parse(*patchData.DefaultCreditCardID)
+			if err != nil {
+				return fmt.Errorf("invalid default_credit_card_id: %w", err)
 			}
+			customer.DefaultCreditCardID = &uuid
 		}
 	}
+	return nil
 }
 
 // TransformAddressesFromPatch converts patch address requests to entity addresses

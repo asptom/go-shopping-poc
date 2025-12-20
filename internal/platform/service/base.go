@@ -4,6 +4,7 @@ import (
 	"context"
 	"go-shopping-poc/internal/contracts/events"
 	"go-shopping-poc/internal/platform/event/bus"
+	kafka "go-shopping-poc/internal/platform/event/bus/kafka"
 	"reflect"
 )
 
@@ -31,20 +32,23 @@ func (s *EventServiceBase) Start(ctx context.Context) error {
 
 // RegisterHandler adds a typed event handler for any event type to the service
 func RegisterHandler[T events.Event](s Service, factory events.EventFactory[T], handler bus.HandlerFunc[T]) error {
-	if eventService, ok := s.(EventService); ok {
-		// Store the registration in the service for introspection
-		// This works for both direct EventServiceBase and embedded cases
-		storeHandlerInService(s, factory, handler)
+	// Store the registration in the service for introspection
+	storeHandlerInService(s, factory, handler)
 
-		// Use interface method for registration (works across all environments)
-		return eventService.EventBus().RegisterHandler(factory, handler)
+	// Get the event bus from the service
+	var eventBus bus.Bus
+	if es, ok := s.(EventService); ok {
+		eventBus = es.EventBus()
+	} else {
+		return &ServiceError{Service: s.Name(), Op: "RegisterHandler", Err: ErrUnsupportedEventBus}
 	}
 
-	return &ServiceError{
-		Service: s.Name(),
-		Op:      "RegisterHandler",
-		Err:     ErrUnsupportedEventBus,
+	// Cast to concrete EventBus type and call SubscribeTyped directly
+	if eb, ok := eventBus.(*kafka.EventBus); ok {
+		kafka.SubscribeTyped(eb, factory, handler)
+		return nil
 	}
+	return &ServiceError{Service: s.Name(), Op: "RegisterHandler", Err: ErrUnsupportedEventBus}
 }
 
 // storeHandlerInService stores a handler registration in the service for introspection

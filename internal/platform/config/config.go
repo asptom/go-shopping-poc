@@ -9,9 +9,9 @@ import (
 
 func getEnv(key, fallback string) string {
 	if value := os.Getenv(key); value != "" {
-		return os.ExpandEnv(value) // Expand environment variables in the value
+		return os.ExpandEnv(value)
 	}
-	return os.ExpandEnv(fallback) // Also expand variables in fallback
+	return fallback
 }
 
 func getEnvArray(key string, fallback []string) []string {
@@ -26,7 +26,6 @@ func getEnvArray(key string, fallback []string) []string {
 				parts = append(parts, trimmed)
 			}
 		}
-		// Debug logging removed to avoid import cycle with platform packages
 		return parts
 	}
 	return fallback

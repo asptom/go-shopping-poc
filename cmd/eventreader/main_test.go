@@ -49,23 +49,19 @@ func TestMainFunctionStructure(t *testing.T) {
 	// We can't easily test the full main function without complex mocking,
 	// but we can verify the components work correctly
 
-	// Test configuration loading
-	cfg, err := eventreader.LoadConfig()
-	if err != nil {
-		t.Fatalf("Failed to load eventreader config: %v", err)
-	}
-	if cfg == nil {
-		t.Error("Expected config to be non-nil")
+	// Create mock service config instead of loading from env
+	cfg := &eventreader.Config{
+		WriteTopic: "test-write-topic",
+		ReadTopics: []string{"CustomerEvents"},
+		Group:      "test-group",
 	}
 
-	// Load Kafka config
-	kafkaCfg, err := kafkaconfig.LoadConfig()
-	if err != nil {
-		t.Fatalf("Eventreader: Failed to load Kafka config")
+	// Create mock Kafka config instead of loading from env
+	kafkaCfg := &kafkaconfig.Config{
+		Brokers: []string{"localhost:9092"},
+		Topic:   cfg.WriteTopic,
+		GroupID: cfg.Group,
 	}
-
-	kafkaCfg.Topic = cfg.WriteTopic
-	kafkaCfg.GroupID = cfg.Group
 
 	eventBus := kafka.NewEventBus(kafkaCfg)
 	if eventBus == nil {

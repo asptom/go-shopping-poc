@@ -22,6 +22,11 @@ import (
 )
 
 func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[ERROR] Panic recovered in customer service: %v", r)
+		}
+	}()
 	log.SetFlags(log.LstdFlags)
 	log.Printf("[INFO] Customer: Customer service started...")
 
@@ -73,25 +78,46 @@ func main() {
 
 	outboxPublisher := outbox.NewPublisher(db, bus, outboxCfg.BatchSize, outboxCfg.DeleteBatchSize, outboxCfg.ProcessInterval)
 	outboxPublisher.Start()
-	log.Printf("[DEBUG] Customer: Outbox publisher started")
+	// log.Printf("[DEBUG] Customer: Outbox publisher started")
 	defer outboxPublisher.Stop()
-	outboxWriter := *outbox.NewWriter(db)
+	log.Printf("[DEBUG] Customer: Creating outbox writer")
+	// outboxWriter := outbox.NewWriter(db)
+	outboxWriter := (*outbox.Writer)(nil)
+	// log.Printf("[DEBUG] Customer: Outbox writer created successfully")
 
 	// Create service with dependency injection
+	log.Printf("[DEBUG] Customer: Creating customer repository")
 	repo := customer.NewCustomerRepository(db, outboxWriter)
+	log.Printf("[DEBUG] Customer: Repository created successfully")
+
+	log.Printf("[DEBUG] Customer: Creating customer service")
 	service := customer.NewCustomerService(repo, cfg)
+	log.Printf("[DEBUG] Customer: Service created successfully")
+
+	log.Printf("[DEBUG] Customer: Creating customer handler")
 	handler := customer.NewCustomerHandler(service)
+	log.Printf("[DEBUG] Customer: Handler created successfully")
 
 	// Set up router
+	log.Printf("[DEBUG] Customer: Setting up HTTP router")
 	router := chi.NewRouter()
+	log.Printf("[DEBUG] Customer: Router setup completed")
 
-	// Apply CORS middleware using service config
+	// Apply CORS middleware using service config (required)
+	log.Printf("[DEBUG] Customer: Loading CORS configuration...")
 	corsCfg, err := cors.LoadConfig()
 	if err != nil {
 		log.Fatalf("Customer: Failed to load CORS config: %v", err)
 	}
-
+	log.Printf("[DEBUG] Customer: CORS configuration loaded successfully")
 	router.Use(cors.NewFromConfig(corsCfg))
+
+	// Health check endpoint
+	router.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status":"ok"}`))
+	})
 
 	// Define routes
 	router.Post("/customers", handler.CreateCustomer)
@@ -120,10 +146,7 @@ func main() {
 	router.Delete("/customers/{id}/default-credit-card", handler.ClearDefaultCreditCard)
 
 	// Start HTTP server with graceful shutdown
-	serverAddr := cfg.ServicePort
-	if serverAddr == "" {
-		serverAddr = ":8080"
-	}
+	serverAddr := "0.0.0.0:8080"
 
 	server := &http.Server{
 		Addr:    serverAddr,

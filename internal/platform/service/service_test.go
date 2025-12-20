@@ -6,8 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"go-shopping-poc/internal/contracts/events"
+	events "go-shopping-poc/internal/contracts/events"
 	"go-shopping-poc/internal/platform/event/bus"
+	kafka "go-shopping-poc/internal/platform/event/bus/kafka"
+	kafkaconfig "go-shopping-poc/internal/platform/event/kafka"
 )
 
 // MockEventBus for testing
@@ -47,10 +49,18 @@ func (m *MockEventBus) PublishRaw(ctx context.Context, topic string, eventType s
 // MockEventBusKafka extends MockEventBus to simulate kafka.EventBus behavior
 type MockEventBusKafka struct {
 	MockEventBus
+	registeredHandlers []any
 }
 
 func (m *MockEventBusKafka) RegisterHandler(factory any, handler any) error {
 	// Simulate successful registration for kafka-like bus
+	m.registeredHandlers = append(m.registeredHandlers, struct {
+		factory any
+		handler any
+	}{
+		factory: factory,
+		handler: handler,
+	})
 	return nil
 }
 
@@ -141,15 +151,15 @@ func TestEventServiceBase_Start_Error(t *testing.T) {
 }
 
 func TestRegisterHandler_Success(t *testing.T) {
-	// Test that RegisterHandler works with interface-based registration
-	mockBus := &MockEventBusKafka{
-		MockEventBus: MockEventBus{
-			readTopics: []string{"topic1"},
-			writeTopic: "write-topic",
-		},
+	// Test that RegisterHandler works with real kafka.EventBus
+	kafkaCfg := &kafkaconfig.Config{
+		Brokers: []string{"localhost:9092"},
+		Topic:   "test-events",
+		GroupID: "test-group",
 	}
+	kafkaBus := kafka.NewEventBus(kafkaCfg)
 
-	service := NewEventServiceBase("event-service", mockBus)
+	service := NewEventServiceBase("event-service", kafkaBus)
 
 	factory := events.CustomerEventFactory{}
 	handler := bus.HandlerFunc[events.CustomerEvent](func(ctx context.Context, evt events.CustomerEvent) error {

@@ -86,6 +86,14 @@ func (e CustomerEvent) ToJSON() ([]byte, error) {
 	return json.Marshal(e)
 }
 
+func (e CustomerEvent) GetEntityID() string {
+	return e.EventPayload.CustomerID
+}
+
+func (e CustomerEvent) GetResourceID() string {
+	return e.EventPayload.ResourceID
+}
+
 // Convenience constructors
 
 func NewCustomerCreatedEvent(customerID string, details map[string]string) *CustomerEvent {

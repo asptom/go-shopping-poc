@@ -73,7 +73,7 @@ type CustomerRepository interface {
 // for reliable event publishing.
 type customerRepository struct {
 	db           *sqlx.DB
-	outboxWriter outbox.Writer
+	outboxWriter *outbox.Writer
 }
 
 // NewCustomerRepository creates a new customer repository instance.
@@ -83,7 +83,7 @@ type customerRepository struct {
 //   - outbox: Writer for publishing domain events via the outbox pattern
 //
 // Returns a configured customer repository ready for use.
-func NewCustomerRepository(db *sqlx.DB, outbox outbox.Writer) *customerRepository {
+func NewCustomerRepository(db *sqlx.DB, outbox *outbox.Writer) *customerRepository {
 	return &customerRepository{db: db, outboxWriter: outbox}
 }
 

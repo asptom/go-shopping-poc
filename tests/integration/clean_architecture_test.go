@@ -10,6 +10,7 @@ import (
 	events "go-shopping-poc/internal/contracts/events"
 	kafka "go-shopping-poc/internal/platform/event/bus/kafka"
 	"go-shopping-poc/internal/platform/event/handler"
+	kafkaconfig "go-shopping-poc/internal/platform/event/kafka"
 	"go-shopping-poc/internal/service/eventreader"
 	"go-shopping-poc/internal/service/eventreader/eventhandlers"
 	"go-shopping-poc/internal/testutils"
@@ -30,20 +31,21 @@ func TestCleanArchitecture_Integration(t *testing.T) {
 		t.Fatalf("Failed to load eventreader config: %v", err)
 	}
 
-	// Create event bus
-	broker := cfg.KafkaBroker
-	readTopics := cfg.ReadTopics
-	writeTopic := cfg.WriteTopic
-	group := cfg.Group + "-clean-arch-test"
+	// Load Kafka configuration
+	kafkaCfg, err := kafkaconfig.LoadConfig()
+	if err != nil {
+		t.Fatalf("Failed to load kafka config: %v", err)
+	}
 
-	eventBus := kafka.NewEventBus(broker, readTopics, writeTopic, group)
+	// Create event bus
+	eventBus := kafka.NewEventBus(kafkaCfg)
 
 	// Create service with clean architecture
-	service := eventreader.NewEventReaderService(eventBus)
+	service := eventreader.NewEventReaderService(eventBus, cfg)
 
 	// Register handlers using the new clean architecture pattern
 	customerCreatedHandler := eventhandlers.NewOnCustomerCreated()
-	err := eventreader.RegisterHandler(
+	err = eventreader.RegisterHandler(
 		service,
 		customerCreatedHandler.CreateFactory(),
 		customerCreatedHandler.CreateHandler(),
@@ -97,15 +99,15 @@ func TestCleanArchitecture_Integration(t *testing.T) {
 	}
 
 	// Test event type matching
-	isCustomerEvent := matcher.IsCustomerEvent(testEvent)
-	if !isCustomerEvent {
-		t.Error("Expected event to be identified as customer event")
+	isCustomer := matcher.MatchEventType(testEvent, string(events.CustomerCreated))
+	if !isCustomer {
+		t.Error("Failed to identify customer event correctly")
 	}
 
 	// Test event ID extraction
-	eventID := utils.GetEventID(testEvent)
+	eventID := utils.GetEventType(testEvent)
 	if eventID != testCustomerID {
-		t.Errorf("Expected event ID %s, got %s", testCustomerID, eventID)
+		t.Errorf("Expected customer ID %s, got %s", testCustomerID, eventID)
 	}
 
 	// Test 3: Test service health and information
@@ -150,16 +152,17 @@ func TestHandlerRegistration_Integration(t *testing.T) {
 		t.Fatalf("Failed to load eventreader config: %v", err)
 	}
 
-	// Create event bus
-	broker := cfg.KafkaBroker
-	readTopics := cfg.ReadTopics
-	writeTopic := cfg.WriteTopic
-	group := cfg.Group + "-registration-test"
+	// Load Kafka configuration
+	kafkaCfg, err := kafkaconfig.LoadConfig()
+	if err != nil {
+		t.Fatalf("Failed to load kafka config: %v", err)
+	}
 
-	eventBus := kafka.NewEventBus(broker, readTopics, writeTopic, group)
+	// Create event bus
+	eventBus := kafka.NewEventBus(kafkaCfg)
 
 	// Create service
-	service := eventreader.NewEventReaderService(eventBus)
+	service := eventreader.NewEventReaderService(eventBus, cfg)
 
 	// Test initial state - no handlers
 	handlerCount := service.HandlerCount()
@@ -238,7 +241,7 @@ func TestPlatformUtilities_Integration(t *testing.T) {
 	}
 
 	// Test 3: Event type matching
-	isCustomer := matcher.IsCustomerEvent(customerEvent)
+	isCustomer := matcher.MatchEventType(customerEvent, string(events.CustomerCreated))
 	if !isCustomer {
 		t.Error("Failed to identify customer event correctly")
 	}
@@ -251,12 +254,12 @@ func TestPlatformUtilities_Integration(t *testing.T) {
 	}
 
 	// Test 4: Event ID and resource extraction
-	eventID := utils.GetEventID(customerEvent)
+	eventID := utils.GetEventType(customerEvent)
 	if eventID != "util-test-customer" {
 		t.Errorf("Expected event ID 'util-test-customer', got '%s'", eventID)
 	}
 
-	resourceID := utils.GetResourceID(customerEvent)
+	resourceID := utils.GetEventTopic(customerEvent)
 	// Resource ID might be empty, that's fine for this test
 
 	// Test 5: Logging utilities
@@ -265,7 +268,7 @@ func TestPlatformUtilities_Integration(t *testing.T) {
 
 	// Test 6: Safe event processing
 	processor := func(ctx context.Context, event events.Event) error {
-		utils.LogEventProcessing(ctx, event.Type(), utils.GetEventID(event), utils.GetResourceID(event))
+		utils.LogEventProcessing(ctx, event.Type(), utils.GetEventType(event), utils.GetEventTopic(event))
 		return nil
 	}
 
@@ -286,7 +289,7 @@ func TestPlatformUtilities_Integration(t *testing.T) {
 
 	// Test 8: Handle event with validation
 	validationProcessor := func(ctx context.Context, event events.Event) error {
-		utils.LogEventProcessing(ctx, event.Type(), utils.GetEventID(event), utils.GetResourceID(event))
+		utils.LogEventProcessing(ctx, event.Type(), utils.GetEventType(event), utils.GetEventTopic(event))
 		return nil
 	}
 
@@ -383,16 +386,17 @@ func TestErrorHandlingAndRecovery_Integration(t *testing.T) {
 		t.Fatalf("Failed to load eventreader config: %v", err)
 	}
 
-	// Create event bus
-	broker := cfg.KafkaBroker
-	readTopics := cfg.ReadTopics
-	writeTopic := cfg.WriteTopic
-	group := cfg.Group + "-error-test"
+	// Load Kafka configuration
+	kafkaCfg, err := kafkaconfig.LoadConfig()
+	if err != nil {
+		t.Fatalf("Failed to load kafka config: %v", err)
+	}
 
-	eventBus := kafka.NewEventBus(broker, readTopics, writeTopic, group)
+	// Create event bus
+	eventBus := kafka.NewEventBus(kafkaCfg)
 
 	// Create service
-	service := eventreader.NewEventReaderService(eventBus)
+	service := eventreader.NewEventReaderService(eventBus, cfg)
 
 	// Test 1: Service health without handlers
 	healthErr := service.Health()

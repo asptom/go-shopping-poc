@@ -3,7 +3,6 @@ package kafka
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"sync"
 
@@ -20,6 +19,7 @@ type EventBus struct {
 	writer        *kafka.Writer
 	readers       map[string]*kafka.Reader
 	typedHandlers map[string][]func(ctx context.Context, data []byte) error
+	kafkaCfg      *kafkaconfig.Config
 	mu            sync.RWMutex
 }
 
@@ -31,22 +31,11 @@ func NewEventBus(kafkaCfg *kafkaconfig.Config) *EventBus {
 		Balancer: &kafka.LeastBytes{},
 	}
 
-	readers := make(map[string]*kafka.Reader)
-	// Use the configured topic for both reading and writing for now
-	// This can be extended to support separate read/write topics
-	topic := kafkaCfg.Topic
-	log.Printf("[DEBUG] Eventbus - Creating Kafka reader for topic: %s", topic)
-	readers[topic] = kafka.NewReader(kafka.ReaderConfig{
-		Brokers:     kafkaCfg.Brokers,
-		GroupID:     kafkaCfg.GroupID,
-		GroupTopics: []string{topic}, // Use GroupTopics with GroupID
-		Dialer:      &kafka.Dialer{},
-	})
-
 	return &EventBus{
 		writer:        writer,
-		readers:       readers,
+		readers:       make(map[string]*kafka.Reader),
 		typedHandlers: make(map[string][]func(ctx context.Context, data []byte) error),
+		kafkaCfg:      kafkaCfg,
 	}
 }
 
@@ -64,49 +53,29 @@ func (eb *EventBus) ReadTopics() []string {
 
 // SubscribeTyped adds a type-safe handler for events of type T.
 // The topic is automatically determined from event's Topic() method.
+// If no reader exists for the topic, a new Kafka reader is created.
 func SubscribeTyped[T events.Event](eb *EventBus, factory events.EventFactory[T], handler bus.HandlerFunc[T]) {
 	// Create a dummy event to get topic
 	dummy := *new(T)
 	topic := dummy.Topic()
 
-	typedHandler := NewTypedHandler(factory, handler)
-
 	eb.mu.Lock()
 	defer eb.mu.Unlock()
+
+	// Check if reader exists for this topic, create if not
+	if _, exists := eb.readers[topic]; !exists {
+		reader := kafka.NewReader(kafka.ReaderConfig{
+			Brokers: eb.kafkaCfg.Brokers,
+			Topic:   topic,
+			GroupID: eb.kafkaCfg.GroupID,
+		})
+		eb.readers[topic] = reader
+		log.Printf("[DEBUG] Eventbus: created new Kafka reader for topic: %s", topic)
+	}
+
+	typedHandler := NewTypedHandler(factory, handler)
 	eb.typedHandlers[topic] = append(eb.typedHandlers[topic], typedHandler.Handle)
 	log.Printf("[INFO] Eventbus: subscribed to topic: %s with typed handler", topic)
-}
-
-// RegisterHandler allows registering handlers via interface
-// This method supports registering handlers for any event type by using type assertions.
-// When new event types are added, extend this method with additional cases.
-func (eb *EventBus) RegisterHandler(factory any, handler any) error {
-	// Handle CustomerEvent - the primary event type currently supported
-	if f, ok := factory.(events.EventFactory[events.CustomerEvent]); ok {
-		if h, ok := handler.(bus.HandlerFunc[events.CustomerEvent]); ok {
-			SubscribeTyped(eb, f, h)
-			return nil
-		}
-	}
-
-	// Handle concrete CustomerEventFactory type
-	if f, ok := factory.(events.CustomerEventFactory); ok {
-		if h, ok := handler.(bus.HandlerFunc[events.CustomerEvent]); ok {
-			SubscribeTyped(eb, f, h)
-			return nil
-		}
-	}
-
-	// TODO: Add support for other event types here as they are implemented
-	// Example:
-	// if f, ok := factory.(events.EventFactory[events.OrderEvent]); ok {
-	//     if h, ok := handler.(bus.HandlerFunc[events.OrderEvent]); ok {
-	//         SubscribeTyped(eb, f, h)
-	//         return nil
-	//     }
-	// }
-
-	return fmt.Errorf("unsupported factory type: %T", factory)
 }
 
 // Publish sends an event to a specified Kafka topic.
@@ -187,18 +156,4 @@ func (eb *EventBus) StartConsuming(ctx context.Context) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	}
-}
-
-// ErrUnknownTopic is returned when a topic is not configured for writing.
-type ErrUnknownTopic string
-
-func (e ErrUnknownTopic) Error() string {
-	return "Eventbus - Unknown topic: " + string(e)
-}
-
-// ErrInvalidPayloadType is returned when the event payload is not a []byte.
-type ErrInvalidPayloadType string
-
-func (e ErrInvalidPayloadType) Error() string {
-	return "Eventbus - Invalid payload type for event: " + string(e)
 }

@@ -29,6 +29,8 @@ type Event interface {
 	Topic() string
 	Payload() any
 	ToJSON() ([]byte, error)
+	GetEntityID() string
+	GetResourceID() string
 }
 
 // EventFactory defines interface for reconstructing events from JSON

@@ -10,16 +10,15 @@ import (
 // Config defines customer service configuration
 type Config struct {
 	// Database configuration
-	DatabaseURL string `mapstructure:"PSQL_CUSTOMER_DB_URL" validate:"required"`
+	DatabaseURL string `mapstructure:"psql_customer_db_url" validate:"required"`
 
 	// HTTP server configuration
-	ServicePort string `mapstructure:"CUSTOMER_SERVICE_PORT" validate:"required"`
+	ServicePort string `mapstructure:"customer_service_port" validate:"required"`
 
 	// Kafka configuration
-	WriteTopic     string        `mapstructure:"CUSTOMER_WRITE_TOPIC" validate:"required"`
-	ReadTopics     []string      `mapstructure:"CUSTOMER_READ_TOPICS"`
-	Group          string        `mapstructure:"CUSTOMER_GROUP"`
-	OutboxInterval time.Duration `mapstructure:"CUSTOMER_OUTBOX_PROCESSING_INTERVAL" validate:"required"`
+	WriteTopic     string        `mapstructure:"customer_write_topic" validate:"required"`
+	Group          string        `mapstructure:"customer_group"`
+	OutboxInterval time.Duration `mapstructure:"customer_outbox_processing_interval" validate:"required"`
 }
 
 // LoadConfig loads customer service configuration
