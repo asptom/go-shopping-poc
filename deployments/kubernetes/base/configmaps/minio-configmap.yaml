@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: minio-config
+  namespace: pocstore
+  labels:
+    app: go-shopping-poc
+    component: minio
+data:
+  MINIO_ROOT_USER: "minioadmin"

@@ -3,8 +3,6 @@ package outbox
 import (
 	"fmt"
 	"time"
-
-	"go-shopping-poc/internal/platform/config"
 )
 
 // Config defines shared outbox configuration
@@ -13,11 +11,6 @@ type Config struct {
 	DeleteBatchSize int           `mapstructure:"OUTBOX_DELETE_BATCH_SIZE" default:"10"`
 	ProcessInterval time.Duration `mapstructure:"OUTBOX_PROCESS_INTERVAL" default:"5s"`
 	MaxRetries      int           `mapstructure:"OUTBOX_MAX_RETRIES" default:"3"`
-}
-
-// LoadConfig loads shared outbox configuration
-func LoadConfig() (*Config, error) {
-	return config.LoadConfig[Config]("platform-outbox")
 }
 
 // Validate performs outbox-specific validation

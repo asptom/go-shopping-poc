@@ -22,3 +22,8 @@ spec:
         - name: store-eventreader
           image: localhost:5000/go-shopping-poc/eventreader:1.0
           imagePullPolicy: Always
+          envFrom:
+            - configMapRef:
+                name: platform-config
+            - configMapRef:
+                name: eventreader-config

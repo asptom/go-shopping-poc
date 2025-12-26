@@ -5,6 +5,7 @@
 package customer
 
 import (
+	"fmt"
 	"log"
 )
 
@@ -42,8 +43,8 @@ func (u *CustomerServiceUtils) ValidateCustomerID(customerID string) error {
 func NewCustomerError(message string, cause error) error {
 	if cause != nil {
 		log.Printf("[ERROR] CustomerService: %s: %v", message, cause)
-		return cause // In a real implementation, you'd wrap with domain-specific error
+		return fmt.Errorf("%s: %w", message, cause) // Wrap with domain-specific error
 	}
 	log.Printf("[ERROR] CustomerService: %s", message)
-	return cause // In a real implementation, you'd return a domain-specific error
+	return fmt.Errorf("%s", message) // Return domain-specific error
 }

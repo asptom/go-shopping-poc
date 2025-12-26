@@ -11,15 +11,15 @@ func TestLoadConfig_WriteTopicPopulation(t *testing.T) {
 	originalEnv := os.Getenv("event_reader_write_topic")
 	defer func() {
 		if originalEnv == "" {
-			os.Unsetenv("event_reader_write_topic")
+			_ = os.Unsetenv("event_reader_write_topic")
 		} else {
-			os.Setenv("event_reader_write_topic", originalEnv)
+			_ = os.Setenv("event_reader_write_topic", originalEnv)
 		}
 	}()
 
 	// Set test environment variable
 	testWriteTopic := "test-customer-events"
-	os.Setenv("event_reader_write_topic", testWriteTopic)
+	_ = os.Setenv("event_reader_write_topic", testWriteTopic)
 
 	// Load configuration
 	cfg, err := LoadConfig()
@@ -45,21 +45,21 @@ func TestLoadConfig_ReadTopicsPopulation(t *testing.T) {
 	originalWriteTopic := os.Getenv("event_reader_write_topic")
 	defer func() {
 		if originalReadTopics == "" {
-			os.Unsetenv("event_reader_read_topics")
+			_ = os.Unsetenv("event_reader_read_topics")
 		} else {
-			os.Setenv("event_reader_read_topics", originalReadTopics)
+			_ = os.Setenv("event_reader_read_topics", originalReadTopics)
 		}
 		if originalWriteTopic == "" {
-			os.Unsetenv("event_reader_write_topic")
+			_ = os.Unsetenv("event_reader_write_topic")
 		} else {
-			os.Setenv("event_reader_write_topic", originalWriteTopic)
+			_ = os.Setenv("event_reader_write_topic", originalWriteTopic)
 		}
 	}()
 
 	// Set test environment variables
 	testReadTopics := "topic1,topic2,topic3"
-	os.Setenv("event_reader_read_topics", testReadTopics)
-	os.Setenv("event_reader_write_topic", "dummy-write-topic") // Required for validation
+	_ = os.Setenv("event_reader_read_topics", testReadTopics)
+	_ = os.Setenv("event_reader_write_topic", "dummy-write-topic") // Required for validation
 
 	// Load configuration
 	cfg, err := LoadConfig()
@@ -88,14 +88,14 @@ func TestLoadConfig_GroupPopulation(t *testing.T) {
 	originalWriteTopic := os.Getenv("event_reader_write_topic")
 	defer func() {
 		if originalGroup == "" {
-			os.Unsetenv("event_reader_group")
+			_ = os.Unsetenv("event_reader_group")
 		} else {
-			os.Setenv("event_reader_group", originalGroup)
+			_ = os.Setenv("event_reader_group", originalGroup)
 		}
 		if originalWriteTopic == "" {
-			os.Unsetenv("event_reader_write_topic")
+			_ = os.Unsetenv("event_reader_write_topic")
 		} else {
-			os.Setenv("event_reader_write_topic", originalWriteTopic)
+			_ = os.Setenv("event_reader_write_topic", originalWriteTopic)
 		}
 	}()
 
@@ -122,14 +122,14 @@ func TestLoadConfig_Validation(t *testing.T) {
 	originalEnv := os.Getenv("event_reader_write_topic")
 	defer func() {
 		if originalEnv == "" {
-			os.Unsetenv("event_reader_write_topic")
+			_ = os.Unsetenv("event_reader_write_topic")
 		} else {
-			os.Setenv("event_reader_write_topic", originalEnv)
+			_ = os.Setenv("event_reader_write_topic", originalEnv)
 		}
 	}()
 
 	// Clear WriteTopic to test validation
-	os.Unsetenv("event_reader_write_topic")
+	_ = os.Unsetenv("event_reader_write_topic")
 
 	// Load configuration - this should fail validation
 	_, err := LoadConfig()

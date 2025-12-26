@@ -39,7 +39,7 @@ CREATE TABLE products.Products (
     root_category VARCHAR(100),
     category VARCHAR(100),
     brand VARCHAR(100),
-    other_attributes JSONB,
+    other_attributes TEXT,
     all_available_sizes JSONB,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

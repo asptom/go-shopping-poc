@@ -2,8 +2,6 @@ package cors
 
 import (
 	"fmt"
-
-	"go-shopping-poc/internal/platform/config"
 )
 
 // Config defines shared CORS configuration
@@ -13,11 +11,6 @@ type Config struct {
 	AllowedHeaders   []string `mapstructure:"CORS_ALLOWED_HEADERS" validate:"required,min=1"`
 	AllowCredentials bool     `mapstructure:"CORS_ALLOW_CREDENTIALS" default:"true"`
 	MaxAge           string   `mapstructure:"CORS_MAX_AGE" default:"3600"`
-}
-
-// LoadConfig loads shared CORS configuration
-func LoadConfig() (*Config, error) {
-	return config.LoadConfig[Config]("platform-cors")
 }
 
 // Validate performs CORS-specific validation

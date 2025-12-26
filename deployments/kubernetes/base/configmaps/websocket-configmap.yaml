@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: websocket-config
+  namespace: pocstore
+  labels:
+    app: go-shopping-poc
+    component: websocket
+data:
+  # WebSocket Service Settings
+  WEBSOCKET_URL: "ws://localhost:8080/ws"
+  WEBSOCKET_TIMEOUT: "30s"
+  WEBSOCKET_READ_BUFFER: "1024"
+  WEBSOCKET_WRITE_BUFFER: "1024"
+  WEBSOCKET_PORT: ":8080"
+  WEBSOCKET_PATH: "/ws"
+
+  # WebSocket CORS Settings
+  WEBSOCKET_ALLOWED_ORIGINS: "http://localhost:4200,http://localhost:3000"

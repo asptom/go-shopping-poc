@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: product-config
+  namespace: pocstore
+  labels:
+    app: go-shopping-poc
+    component: product
+data:
+  # Product Database Settings
+  PSQL_PRODUCT_DB: "productsdb"
+  PSQL_PRODUCT_ROLE: "productsuser"
+
+  # Product Service Port
+  PRODUCT_SERVICE_PORT: ":8080"
+
+  # Product Service Configuration
+  IMAGE_CACHE_DIR: "/tmp/product-cache"
+  IMAGE_CACHE_MAX_AGE: "24h"
+  IMAGE_CACHE_MAX_SIZE: "0"
+  CSV_BATCH_SIZE: "100"
+
+  # MinIO Product Settings
+  MINIO_BUCKET: "productimages"
+
+  # Product Kafka Settings
+  PRODUCT_WRITE_TOPIC: "ProductEvents"
+  PRODUCT_READ_TOPICS: ""
+  PRODUCT_GROUP: "ProductGroup"

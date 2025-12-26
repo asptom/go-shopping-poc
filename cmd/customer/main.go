@@ -10,15 +10,13 @@ import (
 	"time"
 
 	"go-shopping-poc/internal/platform/cors"
-	bus "go-shopping-poc/internal/platform/event/bus/kafka"
-	"go-shopping-poc/internal/platform/event/kafka"
+	"go-shopping-poc/internal/platform/database"
+	"go-shopping-poc/internal/platform/event"
 	"go-shopping-poc/internal/platform/outbox"
 
 	"go-shopping-poc/internal/service/customer"
 
 	"github.com/go-chi/chi/v5"
-	_ "github.com/jackc/pgx/v5/stdlib"
-	"github.com/jmoiron/sqlx"
 )
 
 func main() {
@@ -38,60 +36,63 @@ func main() {
 
 	log.Printf("[DEBUG] Customer: Configuration loaded successfully")
 
-	// Connect to Postgres (maintain DATABASE_URL backward compatibility)
+	// Get database URL from service config
 	dbURL := cfg.DatabaseURL
-	if envURL := os.Getenv("DATABASE_URL"); envURL != "" {
-		dbURL = envURL
-		log.Printf("[INFO] Customer: Using DATABASE_URL from environment")
-	}
 	if dbURL == "" {
-		log.Fatal("Customer: Database URL not set")
+		log.Fatalf("Customer: Database URL is required in service config")
 	}
 
-	log.Printf("[DEBUG] Customer: Connecting to database at %s", dbURL)
-	db, err := sqlx.Connect("pgx", dbURL)
+	// Create database provider
+	log.Printf("[DEBUG] Customer: Creating database provider")
+	dbProvider, err := database.NewDatabaseProvider(dbURL)
 	if err != nil {
-		log.Fatalf("Customer: Failed to connect to DB: %v", err)
+		log.Fatalf("Customer: Failed to create database provider: %v", err)
 	}
+	db := dbProvider.GetDatabase()
 	defer func() {
 		if err := db.Close(); err != nil {
 			log.Printf("[ERROR] Customer: Error closing database connection: %v", err)
 		}
 	}()
 
-	// Connect to Kafka
-	kafkaCfg, err := kafka.LoadConfig()
-	if err != nil {
-		log.Fatalf("Customer: Failed to load Kafka config: %v", err)
+	// Create event bus provider
+	log.Printf("[DEBUG] Customer: Creating event bus provider")
+	eventBusConfig := event.EventBusConfig{
+		WriteTopic: cfg.WriteTopic,
+		GroupID:    cfg.Group,
 	}
-
-	kafkaCfg.Topic = cfg.WriteTopic
-	kafkaCfg.GroupID = cfg.Group
-	bus := bus.NewEventBus(kafkaCfg)
-
-	// Initialize outbox
-	log.Printf("[DEBUG] Customer: Initializing outbox")
-	outboxCfg, err := outbox.LoadConfig()
+	eventBusProvider, err := event.NewEventBusProvider(eventBusConfig)
 	if err != nil {
-		log.Fatalf("Customer: Failed to load outbox config: %v", err)
+		log.Fatalf("Customer: Failed to create event bus provider: %v", err)
 	}
+	eventBus := eventBusProvider.GetEventBus()
 
-	outboxPublisher := outbox.NewPublisher(db, bus, outboxCfg.BatchSize, outboxCfg.DeleteBatchSize, outboxCfg.ProcessInterval)
+	// Create outbox provider
+	log.Printf("[DEBUG] Customer: Creating outbox provider")
+	outboxProvider, err := outbox.NewOutboxProvider(db, eventBus)
+	if err != nil {
+		log.Fatalf("Customer: Failed to create outbox provider: %v", err)
+	}
+	outboxPublisher := outboxProvider.GetOutboxPublisher()
 	outboxPublisher.Start()
-	// log.Printf("[DEBUG] Customer: Outbox publisher started")
 	defer outboxPublisher.Stop()
-	log.Printf("[DEBUG] Customer: Creating outbox writer")
-	// outboxWriter := outbox.NewWriter(db)
-	outboxWriter := (*outbox.Writer)(nil)
-	// log.Printf("[DEBUG] Customer: Outbox writer created successfully")
+	outboxWriter := outboxProvider.GetOutboxWriter()
 
-	// Create service with dependency injection
-	log.Printf("[DEBUG] Customer: Creating customer repository")
-	repo := customer.NewCustomerRepository(db, outboxWriter)
-	log.Printf("[DEBUG] Customer: Repository created successfully")
+	// Create CORS provider
+	log.Printf("[DEBUG] Customer: Creating CORS provider")
+	corsProvider, err := cors.NewCORSProvider()
+	if err != nil {
+		log.Fatalf("Customer: Failed to create CORS provider: %v", err)
+	}
+	corsHandler := corsProvider.GetCORSHandler()
+
+	// Create customer infrastructure
+	log.Printf("[DEBUG] Customer: Creating customer infrastructure")
+	infrastructure := customer.NewCustomerInfrastructure(db, eventBus, outboxWriter, outboxPublisher, corsHandler)
+	log.Printf("[DEBUG] Customer: Infrastructure created successfully")
 
 	log.Printf("[DEBUG] Customer: Creating customer service")
-	service := customer.NewCustomerService(repo, cfg)
+	service := customer.NewCustomerService(infrastructure, cfg)
 	log.Printf("[DEBUG] Customer: Service created successfully")
 
 	log.Printf("[DEBUG] Customer: Creating customer handler")
@@ -103,20 +104,14 @@ func main() {
 	router := chi.NewRouter()
 	log.Printf("[DEBUG] Customer: Router setup completed")
 
-	// Apply CORS middleware using service config (required)
-	log.Printf("[DEBUG] Customer: Loading CORS configuration...")
-	corsCfg, err := cors.LoadConfig()
-	if err != nil {
-		log.Fatalf("Customer: Failed to load CORS config: %v", err)
-	}
-	log.Printf("[DEBUG] Customer: CORS configuration loaded successfully")
-	router.Use(cors.NewFromConfig(corsCfg))
+	// Apply CORS middleware using service infrastructure
+	router.Use(corsHandler)
 
 	// Health check endpoint
 	router.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"ok"}`))
+		_, _ = w.Write([]byte(`{"status":"ok"}`))
 	})
 
 	// Define routes
@@ -149,8 +144,11 @@ func main() {
 	serverAddr := "0.0.0.0:8080"
 
 	server := &http.Server{
-		Addr:    serverAddr,
-		Handler: router,
+		Addr:         serverAddr,
+		Handler:      router,
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  120 * time.Second,
 	}
 
 	// Channel to listen for interrupt signal
@@ -173,11 +171,11 @@ func main() {
 	log.Printf("[INFO] Customer: Shutting down server...")
 
 	// Create a deadline for shutdown
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer shutdownCancel()
 
 	// Attempt graceful shutdown
-	if err := server.Shutdown(ctx); err != nil {
+	if err := server.Shutdown(shutdownCtx); err != nil {
 		log.Fatalf("Customer: Server forced to shutdown: %v", err)
 	}
 

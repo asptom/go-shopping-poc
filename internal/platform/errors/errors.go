@@ -34,7 +34,7 @@ func SendError(w http.ResponseWriter, statusCode int, errorType, message string)
 		Error:   errorType,
 		Message: message,
 	}
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 // SendErrorWithCode sends a structured JSON error response with error code
@@ -46,5 +46,5 @@ func SendErrorWithCode(w http.ResponseWriter, statusCode int, errorType, message
 		Message: message,
 		Code:    code,
 	}
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response)
 }

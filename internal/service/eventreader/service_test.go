@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	events "go-shopping-poc/internal/contracts/events"
 	"go-shopping-poc/internal/platform/event/bus"
 	kafka "go-shopping-poc/internal/platform/event/bus/kafka"
@@ -19,9 +20,9 @@ func mockConfig() *Config {
 	}
 }
 
-// createTestKafkaEventBus creates a concrete kafka.EventBus for testing
-// This allows RegisterHandler tests to work with the concrete type requirements
-func createTestKafkaEventBus() *kafka.EventBus {
+// createTestInfrastructure creates EventReaderInfrastructure for testing
+// This allows RegisterHandler tests to work with the infrastructure pattern
+func createTestInfrastructure() *EventReaderInfrastructure {
 	// Create test Kafka config with localhost brokers (no real connection needed for registration)
 	kafkaCfg := &kafkaconfig.Config{
 		Brokers: []string{"localhost:9092"},
@@ -30,13 +31,16 @@ func createTestKafkaEventBus() *kafka.EventBus {
 	}
 
 	// Create concrete EventBus instance
-	return kafka.NewEventBus(kafkaCfg)
+	eventBus := kafka.NewEventBus(kafkaCfg)
+
+	// Create infrastructure
+	return NewEventReaderInfrastructure(eventBus)
 }
 
 func TestEventReaderService_RegisterHandler(t *testing.T) {
-	// Use concrete kafka.EventBus for testing RegisterHandler functionality
-	concreteBus := createTestKafkaEventBus()
-	eventService := NewEventReaderService(concreteBus, mockConfig())
+	// Use infrastructure for testing RegisterHandler functionality
+	infrastructure := createTestInfrastructure()
+	eventService := NewEventReaderService(infrastructure, mockConfig())
 
 	factory := events.CustomerEventFactory{}
 	handler := bus.HandlerFunc[events.CustomerEvent](func(ctx context.Context, evt events.CustomerEvent) error {
@@ -57,8 +61,8 @@ func TestEventReaderService_RegisterHandler(t *testing.T) {
 }
 
 func TestEventReaderService_Start(t *testing.T) {
-	concreteBus := createTestKafkaEventBus()
-	eventService := NewEventReaderService(concreteBus, mockConfig())
+	infrastructure := createTestInfrastructure()
+	eventService := NewEventReaderService(infrastructure, mockConfig())
 
 	// Use a cancelled context to prevent actual Kafka connection
 	ctx, cancel := context.WithCancel(context.Background())
@@ -73,8 +77,8 @@ func TestEventReaderService_Start(t *testing.T) {
 }
 
 func TestEventReaderService_Stop(t *testing.T) {
-	concreteBus := createTestKafkaEventBus()
-	eventService := NewEventReaderService(concreteBus, mockConfig())
+	infrastructure := createTestInfrastructure()
+	eventService := NewEventReaderService(infrastructure, mockConfig())
 
 	ctx := context.Background()
 	err := eventService.Stop(ctx)
@@ -85,19 +89,15 @@ func TestEventReaderService_Stop(t *testing.T) {
 }
 
 func TestNewEventReaderService(t *testing.T) {
-	concreteBus := createTestKafkaEventBus()
-	eventService := NewEventReaderService(concreteBus, mockConfig())
+	infrastructure := createTestInfrastructure()
+	eventService := NewEventReaderService(infrastructure, mockConfig())
+	require.NotNil(t, eventService)
 
-	if eventService == nil {
-		t.Error("Expected service to be non-nil")
-	}
-
-	// #nosec G601 - eventService is checked for nil above
 	if eventService.Name() != "eventreader" {
 		t.Errorf("Expected service name 'eventreader', got '%s'", eventService.Name())
 	}
 
-	if eventService.EventBus() != concreteBus {
+	if eventService.EventBus() != infrastructure.EventBus {
 		t.Error("Expected eventBus to be set correctly")
 	}
 
@@ -107,8 +107,8 @@ func TestNewEventReaderService(t *testing.T) {
 }
 
 func TestEventReaderService_Health(t *testing.T) {
-	concreteBus := createTestKafkaEventBus()
-	eventService := NewEventReaderService(concreteBus, mockConfig())
+	infrastructure := createTestInfrastructure()
+	eventService := NewEventReaderService(infrastructure, mockConfig())
 
 	err := eventService.Health()
 	if err != nil {

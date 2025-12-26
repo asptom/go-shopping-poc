@@ -9,8 +9,7 @@ import (
 	"syscall"
 
 	"go-shopping-poc/internal/contracts/events"
-	bus "go-shopping-poc/internal/platform/event/bus/kafka"
-	kafkaconfig "go-shopping-poc/internal/platform/event/kafka"
+	"go-shopping-poc/internal/platform/event"
 	"go-shopping-poc/internal/service/eventreader"
 	"go-shopping-poc/internal/service/eventreader/eventhandlers"
 )
@@ -31,18 +30,25 @@ func main() {
 	log.Printf("[DEBUG] Eventreader: Read Topics: %v, Write Topic: %v, Group: %s",
 		cfg.ReadTopics, cfg.WriteTopic, cfg.Group)
 
-	// Connect to Kafka
-	kafkaCfg, err := kafkaconfig.LoadConfig()
+	// Create event bus provider
+	eventBusConfig := event.EventBusConfig{
+		WriteTopic: cfg.WriteTopic,
+		GroupID:    cfg.Group,
+	}
+	eventBusProvider, err := event.NewEventBusProvider(eventBusConfig)
 	if err != nil {
-		log.Printf("[ERROR] Eventreader: Failed to load Kafka config: %v", err)
+		log.Printf("[ERROR] Eventreader: Failed to create event bus provider: %v", err)
+		os.Exit(1)
 	}
 
-	kafkaCfg.Topic = cfg.WriteTopic
-	kafkaCfg.GroupID = cfg.Group
-	eventBus := bus.NewEventBus(kafkaCfg)
+	// Get event bus from provider
+	eventBus := eventBusProvider.GetEventBus()
+
+	// Create infrastructure from provider
+	infrastructure := eventreader.NewEventReaderInfrastructure(eventBus)
 
 	// Create service
-	service := eventreader.NewEventReaderService(eventBus, cfg)
+	service := eventreader.NewEventReaderService(infrastructure, cfg)
 
 	// Register event handlers with validation
 	if err := registerEventHandlers(service); err != nil {

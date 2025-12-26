@@ -37,20 +37,27 @@ spec:
         app.kubernetes.io/name: store-customer
         app.kubernetes.io/version: v1.0
     spec:
-       containers:
-         - name: store-customer
-           image: localhost:5000/go-shopping-poc/customer:1.0
-           imagePullPolicy: Always
-           ports:
-             - containerPort: 8080
-           readinessProbe:
-             httpGet:
-               path: /health
-               port: 8080
-             initialDelaySeconds: 5
-             periodSeconds: 10
-             timeoutSeconds: 5
-             failureThreshold: 3
+        containers:
+          - name: store-customer
+            image: localhost:5000/go-shopping-poc/customer:1.0
+            imagePullPolicy: Always
+            envFrom:
+              - configMapRef:
+                  name: platform-config
+              - configMapRef:
+                  name: customer-config
+              - secretRef:
+                  name: customer-secret
+            ports:
+              - containerPort: 8080
+            readinessProbe:
+              httpGet:
+                path: /health
+                port: 8080
+              initialDelaySeconds: 5
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 3
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress

@@ -5,22 +5,14 @@ import (
 	"testing"
 	"time"
 
-	kafka "go-shopping-poc/internal/platform/event/bus/kafka"
-	kafkaconfig "go-shopping-poc/internal/platform/event/kafka"
+	"go-shopping-poc/internal/platform/event"
 	"go-shopping-poc/internal/service/eventreader"
 	"go-shopping-poc/internal/service/eventreader/eventhandlers"
 )
 
 func TestRegisterEventHandlers(t *testing.T) {
-	// Create mock Kafka config
-	kafkaCfg := &kafkaconfig.Config{
-		Brokers: []string{"localhost:9092"},
-		Topic:   "test-write-topic",
-		GroupID: "test-group",
-	}
-
-	// Create event bus with config
-	eventBus := kafka.NewEventBus(kafkaCfg)
+	// Set required environment variable for Kafka config
+	t.Setenv("KAFKA_BROKERS", "localhost:9092")
 
 	// Create mock service config
 	serviceCfg := &eventreader.Config{
@@ -29,8 +21,22 @@ func TestRegisterEventHandlers(t *testing.T) {
 		Group:      "test-group",
 	}
 
+	// Create event bus provider
+	eventBusConfig := event.EventBusConfig{
+		WriteTopic: serviceCfg.WriteTopic,
+		GroupID:    serviceCfg.Group,
+	}
+	eventBusProvider, err := event.NewEventBusProvider(eventBusConfig)
+	if err != nil {
+		t.Fatalf("Failed to create event bus provider: %v", err)
+	}
+	eventBus := eventBusProvider.GetEventBus()
+
+	// Create infrastructure
+	infrastructure := eventreader.NewEventReaderInfrastructure(eventBus)
+
 	// Create service
-	service := eventreader.NewEventReaderService(eventBus, serviceCfg)
+	service := eventreader.NewEventReaderService(infrastructure, serviceCfg)
 
 	// Test registering handlers
 	if err := registerEventHandlers(service); err != nil {
@@ -45,6 +51,9 @@ func TestRegisterEventHandlers(t *testing.T) {
 }
 
 func TestMainFunctionStructure(t *testing.T) {
+	// Set required environment variable for Kafka config
+	t.Setenv("KAFKA_BROKERS", "localhost:9092")
+
 	// This test verifies that the main function structure is correct
 	// We can't easily test the full main function without complex mocking,
 	// but we can verify the components work correctly
@@ -56,16 +65,21 @@ func TestMainFunctionStructure(t *testing.T) {
 		Group:      "test-group",
 	}
 
-	// Create mock Kafka config instead of loading from env
-	kafkaCfg := &kafkaconfig.Config{
-		Brokers: []string{"localhost:9092"},
-		Topic:   cfg.WriteTopic,
-		GroupID: cfg.Group,
+	// Create event bus provider
+	eventBusConfig := event.EventBusConfig{
+		WriteTopic: cfg.WriteTopic,
+		GroupID:    cfg.Group,
 	}
+	eventBusProvider, err := event.NewEventBusProvider(eventBusConfig)
+	if err != nil {
+		t.Fatalf("Failed to create event bus provider: %v", err)
+	}
+	eventBus := eventBusProvider.GetEventBus()
 
-	eventBus := kafka.NewEventBus(kafkaCfg)
-	if eventBus == nil {
-		t.Fatalf("Expected eventBus to be non-nil")
+	// Test infrastructure creation
+	infrastructure := eventreader.NewEventReaderInfrastructure(eventBus)
+	if infrastructure == nil {
+		t.Fatalf("Expected infrastructure to be non-nil")
 	}
 
 	// Test service creation
@@ -74,7 +88,7 @@ func TestMainFunctionStructure(t *testing.T) {
 		ReadTopics: []string{"test-topic"},
 		Group:      "test-group",
 	}
-	service := eventreader.NewEventReaderService(eventBus, serviceCfg)
+	service := eventreader.NewEventReaderService(infrastructure, serviceCfg)
 	if service == nil {
 		t.Fatalf("Expected service to be non-nil")
 	}

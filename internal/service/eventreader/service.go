@@ -33,6 +33,29 @@ import (
 	"go-shopping-poc/internal/platform/service"
 )
 
+// EventReaderInfrastructure defines the infrastructure components required by the eventreader service.
+//
+// This struct encapsulates all external dependencies that the eventreader service needs
+// to function, primarily the event bus for consuming and processing events from Kafka.
+// It follows clean architecture principles by clearly defining the infrastructure
+// boundaries that the service depends on.
+type EventReaderInfrastructure struct {
+	// EventBus handles consuming and processing events from the message broker
+	EventBus bus.Bus
+}
+
+// NewEventReaderInfrastructure creates a new EventReaderInfrastructure instance with the provided components.
+//
+// Parameters:
+//   - eventBus: Event bus for consuming and processing events from Kafka
+//
+// Returns a configured EventReaderInfrastructure ready for use by the eventreader service.
+func NewEventReaderInfrastructure(eventBus bus.Bus) *EventReaderInfrastructure {
+	return &EventReaderInfrastructure{
+		EventBus: eventBus,
+	}
+}
+
 // Service defines the interface for event reader business operations
 // This extends the platform service interface with domain-specific methods
 type Service interface {
@@ -48,13 +71,15 @@ func RegisterHandler[T events.Event](s Service, factory events.EventFactory[T], 
 // EventReaderService implements the Service interface using platform infrastructure
 type EventReaderService struct {
 	*service.EventServiceBase
-	config *Config // Store config for potential future use
+	infrastructure *EventReaderInfrastructure // Infrastructure components
+	config         *Config                    // Store config for potential future use
 }
 
 // NewEventReaderService creates a new event reader service instance
-func NewEventReaderService(eventBus bus.Bus, config *Config) *EventReaderService {
+func NewEventReaderService(infrastructure *EventReaderInfrastructure, config *Config) *EventReaderService {
 	return &EventReaderService{
-		EventServiceBase: service.NewEventServiceBase("eventreader", eventBus),
+		EventServiceBase: service.NewEventServiceBase("eventreader", infrastructure.EventBus),
+		infrastructure:   infrastructure,
 		config:           config,
 	}
 }

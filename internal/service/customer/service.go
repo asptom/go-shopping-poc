@@ -8,10 +8,64 @@ package customer
 import (
 	"context"
 	"fmt"
+	"net/http"
+
+	"go-shopping-poc/internal/platform/database"
+	"go-shopping-poc/internal/platform/event/bus"
+	"go-shopping-poc/internal/platform/outbox"
 	"go-shopping-poc/internal/platform/service"
 
 	"github.com/google/uuid"
 )
+
+// CustomerInfrastructure defines the infrastructure components required by the customer service.
+//
+// This struct encapsulates all external dependencies that the customer service needs
+// to function, including database connectivity, event publishing, outbox pattern,
+// and HTTP middleware. It follows clean architecture principles by clearly defining
+// the infrastructure boundaries that the service depends on.
+type CustomerInfrastructure struct {
+	// Database provides data persistence and transaction management for customer data
+	Database database.Database
+
+	// EventBus handles publishing customer domain events to the message broker
+	EventBus bus.Bus
+
+	// OutboxWriter writes customer events to the outbox table for reliable publishing
+	OutboxWriter *outbox.Writer
+
+	// OutboxPublisher publishes outbox events to Kafka with retry logic and batching
+	OutboxPublisher *outbox.Publisher
+
+	// CORSHandler provides HTTP CORS middleware for cross-origin requests
+	CORSHandler func(http.Handler) http.Handler
+}
+
+// NewCustomerInfrastructure creates a new CustomerInfrastructure instance with the provided components.
+//
+// Parameters:
+//   - db: Database connection for customer data operations
+//   - eventBus: Event bus for publishing customer domain events
+//   - outboxWriter: Writer for storing events in the outbox table
+//   - outboxPublisher: Publisher for sending outbox events to message broker
+//   - corsHandler: CORS middleware handler for HTTP requests
+//
+// Returns a configured CustomerInfrastructure ready for use by the customer service.
+func NewCustomerInfrastructure(
+	db database.Database,
+	eventBus bus.Bus,
+	outboxWriter *outbox.Writer,
+	outboxPublisher *outbox.Publisher,
+	corsHandler func(http.Handler) http.Handler,
+) *CustomerInfrastructure {
+	return &CustomerInfrastructure{
+		Database:        db,
+		EventBus:        eventBus,
+		OutboxWriter:    outboxWriter,
+		OutboxPublisher: outboxPublisher,
+		CORSHandler:     corsHandler,
+	}
+}
 
 // PatchCustomerRequest represents a typed request for patching customer data
 type PatchCustomerRequest struct {
@@ -56,16 +110,32 @@ type PatchCreditCardRequest struct {
 // logic, validation, and data transformation.
 type CustomerService struct {
 	*service.BaseService
-	repo   CustomerRepository
-	config *Config // Store config for potential future use
+	repo           CustomerRepository
+	infrastructure *CustomerInfrastructure
+	config         *Config // Store config for potential future use
 }
 
 // NewCustomerService creates a new customer service instance.
-func NewCustomerService(repo CustomerRepository, config *Config) *CustomerService {
+func NewCustomerService(infrastructure *CustomerInfrastructure, config *Config) *CustomerService {
+	// Create repository from infrastructure components
+	repo := NewCustomerRepository(infrastructure.Database, infrastructure.OutboxWriter)
+
 	return &CustomerService{
-		BaseService: service.NewBaseService("customer"),
-		repo:        repo,
-		config:      config,
+		BaseService:    service.NewBaseService("customer"),
+		repo:           repo,
+		infrastructure: infrastructure,
+		config:         config,
+	}
+}
+
+// NewCustomerServiceWithRepo creates a new customer service instance with a custom repository.
+// This is primarily used for testing to inject mock repositories.
+func NewCustomerServiceWithRepo(repo CustomerRepository, infrastructure *CustomerInfrastructure, config *Config) *CustomerService {
+	return &CustomerService{
+		BaseService:    service.NewBaseService("customer"),
+		repo:           repo,
+		infrastructure: infrastructure,
+		config:         config,
 	}
 }
 

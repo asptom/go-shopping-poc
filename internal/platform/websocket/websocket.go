@@ -94,7 +94,7 @@ func (s *WebSocketServer) Handle(customHandler HandlerFunc) http.HandlerFunc {
 		s.Clients[conn] = true
 		go func() {
 			defer func() {
-				conn.Close()
+				_ = conn.Close()
 				delete(s.Clients, conn)
 			}()
 			customHandler(conn)

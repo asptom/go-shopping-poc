@@ -6,19 +6,20 @@
 package testutils
 
 import (
+	"context"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v5/stdlib"
-	"github.com/jmoiron/sqlx"
 
+	"go-shopping-poc/internal/platform/database"
 	"go-shopping-poc/internal/service/eventreader"
 )
 
 // SetupTestDB creates a test database connection
-func SetupTestDB(t *testing.T) *sqlx.DB {
+func SetupTestDB(t *testing.T) database.Database {
 	t.Helper()
 
 	// Get current working directory for debugging
@@ -34,31 +35,39 @@ func SetupTestDB(t *testing.T) *sqlx.DB {
 
 	t.Logf("Using DATABASE_URL environment variable: %s", dbURL)
 
-	db, err := sqlx.Connect("pgx", dbURL)
+	db, err := database.NewPostgreSQLClient(dbURL)
 	if err != nil {
+		t.Skipf("Skipping test, failed to create database client: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := db.Connect(ctx); err != nil {
 		t.Skipf("Skipping test, database not available: %v", err)
 	}
+
 	return db
 }
 
 // CreateTestCustomer creates a test customer in the database
-func CreateTestCustomer(t *testing.T, db *sqlx.DB) string {
+func CreateTestCustomer(t *testing.T, db database.Database) string {
 	t.Helper()
 
+	ctx := context.Background()
 	customerID := uuid.New()
 	query := `INSERT INTO customers.Customer (customer_id, user_name, email, first_name, last_name, phone, customer_since, customer_status, status_date_time)
 	          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
 
-	_, err := db.Exec(query, customerID, "testuser", "test@example.com", "Test", "User", "555-1234", time.Now(), "active", time.Now())
+	_, err := db.Exec(ctx, query, customerID, "testuser", "test@example.com", "Test", "User", "555-1234", time.Now(), "active", time.Now())
 	if err != nil {
 		t.Fatalf("Failed to create test customer: %v", err)
 	}
-
 	return customerID.String()
 }
 
 // CreateTestAddress creates a test address for a customer
-func CreateTestAddress(t *testing.T, db *sqlx.DB, customerID string) string {
+func CreateTestAddress(t *testing.T, db database.Database, customerID string) string {
 	t.Helper()
 
 	addressID := uuid.New()
@@ -70,7 +79,8 @@ func CreateTestAddress(t *testing.T, db *sqlx.DB, customerID string) string {
 	query := `INSERT INTO customers.Address (address_id, customer_id, address_type, first_name, last_name, address_1, city, state, zip)
 	          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
 
-	_, err = db.Exec(query, addressID, custUUID, "shipping", "Test", "User", "123 Main St", "Test City", "TS", "12345")
+	ctx := context.Background()
+	_, err = db.Exec(ctx, query, addressID, custUUID, "shipping", "Test", "User", "123 Main St", "Test City", "TS", "12345")
 	if err != nil {
 		t.Fatalf("Failed to create test address: %v", err)
 	}
@@ -79,7 +89,7 @@ func CreateTestAddress(t *testing.T, db *sqlx.DB, customerID string) string {
 }
 
 // CreateTestCreditCard creates a test credit card for a customer
-func CreateTestCreditCard(t *testing.T, db *sqlx.DB, customerID string) string {
+func CreateTestCreditCard(t *testing.T, db database.Database, customerID string) string {
 	t.Helper()
 
 	cardID := uuid.New()
@@ -91,7 +101,8 @@ func CreateTestCreditCard(t *testing.T, db *sqlx.DB, customerID string) string {
 	query := `INSERT INTO customers.CreditCard (card_id, customer_id, card_type, card_number, card_holder_name, card_expires, card_cvv)
 	          VALUES ($1, $2, $3, $4, $5, $6, $7)`
 
-	_, err = db.Exec(query, cardID, custUUID, "visa", "4111111111111111", "Test User", "12/25", "123")
+	ctx := context.Background()
+	_, err = db.Exec(ctx, query, cardID, custUUID, "visa", "4111111111111111", "Test User", "12/25", "123")
 	if err != nil {
 		t.Fatalf("Failed to create test credit card: %v", err)
 	}
@@ -100,7 +111,7 @@ func CreateTestCreditCard(t *testing.T, db *sqlx.DB, customerID string) string {
 }
 
 // CleanupTestData removes test data from the database
-func CleanupTestData(t *testing.T, db *sqlx.DB, customerID string) {
+func CleanupTestData(t *testing.T, db database.Database, customerID string) {
 	t.Helper()
 
 	custUUID, err := uuid.Parse(customerID)
@@ -116,8 +127,12 @@ func CleanupTestData(t *testing.T, db *sqlx.DB, customerID string) {
 		`DELETE FROM customers.Customer WHERE customer_id = $1`,
 	}
 
+	// Use timeout context for cleanup operations
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	for _, query := range queries {
-		if _, err := db.Exec(query, custUUID); err != nil {
+		if _, err := db.Exec(ctx, query, custUUID); err != nil {
 			t.Logf("Warning: Failed to cleanup test data: %v", err)
 		}
 	}

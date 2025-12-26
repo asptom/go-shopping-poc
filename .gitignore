@@ -26,6 +26,19 @@ go.work.sum
 .env
 .env.development
 .env.local
+config/*.env
+
+# Private keys and certificates
+*.key
+*.p12
+*.pem
+*.crt
+*.cer
+
+# Secrets and credentials
+*secret*
+*credential*
+*password*
 
 # Makefile generated files
 *.mk.env.tmp
@@ -38,3 +51,5 @@ go.work.sum
 resources/security/tls_certificates/certificates/*
 bin/
 docs/generated/
+cache/
+manifests/

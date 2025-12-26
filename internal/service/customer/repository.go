@@ -14,10 +14,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
 
 	events "go-shopping-poc/internal/contracts/events"
 
+	"go-shopping-poc/internal/platform/database"
 	"go-shopping-poc/internal/platform/outbox"
 )
 
@@ -69,10 +69,10 @@ type CustomerRepository interface {
 // customerRepository implements CustomerRepository using PostgreSQL.
 //
 // This struct provides the concrete implementation of customer data access
-// operations using sqlx for database interactions and the outbox pattern
-// for reliable event publishing.
+// operations using the platform database abstraction for database interactions
+// and the outbox pattern for reliable event publishing.
 type customerRepository struct {
-	db           *sqlx.DB
+	db           database.Database
 	outboxWriter *outbox.Writer
 }
 
@@ -83,7 +83,7 @@ type customerRepository struct {
 //   - outbox: Writer for publishing domain events via the outbox pattern
 //
 // Returns a configured customer repository ready for use.
-func NewCustomerRepository(db *sqlx.DB, outbox *outbox.Writer) *customerRepository {
+func NewCustomerRepository(db database.Database, outbox *outbox.Writer) *customerRepository {
 	return &customerRepository{db: db, outboxWriter: outbox}
 }
 
@@ -111,11 +111,16 @@ func (r *customerRepository) InsertCustomer(ctx context.Context, customer *Custo
 
 // insertCustomerWithRelations handles the complete customer creation process
 func (r *customerRepository) insertCustomerWithRelations(ctx context.Context, customer *Customer) error {
-	tx, err := r.db.BeginTxx(ctx, nil)
+	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
 
 	// Insert basic customer record
 	if err := r.insertCustomerRecordInTransaction(ctx, tx, customer); err != nil {
@@ -162,6 +167,7 @@ func (r *customerRepository) insertCustomerWithRelations(ctx context.Context, cu
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
+	committed = true
 
 	// Load all data back to ensure consistency
 	if err := r.LoadCustomerRelations(ctx, customer); err != nil {
@@ -172,7 +178,7 @@ func (r *customerRepository) insertCustomerWithRelations(ctx context.Context, cu
 }
 
 // insertCustomerRecordInTransaction inserts customer record within a transaction
-func (r *customerRepository) insertCustomerRecordInTransaction(ctx context.Context, tx *sqlx.Tx, customer *Customer) error {
+func (r *customerRepository) insertCustomerRecordInTransaction(ctx context.Context, tx database.Tx, customer *Customer) error {
 	customerQuery := `INSERT INTO customers.Customer (customer_id, user_name, email, first_name, last_name, phone, customer_since, customer_status, status_date_time) VALUES (:customer_id, :user_name, :email, :first_name, :last_name, :phone, :customer_since, :customer_status, :status_date_time)`
 
 	_, err := tx.NamedExecContext(ctx, customerQuery, customer)
@@ -201,11 +207,16 @@ func (r *customerRepository) PrepareCustomerDefaults(customer *Customer) {
 func (r *customerRepository) InsertCustomerRecord(ctx context.Context, customer *Customer) error {
 	customerQuery := `INSERT INTO customers.Customer (customer_id, user_name, email, first_name, last_name, phone, customer_since, customer_status, status_date_time) VALUES (:customer_id, :user_name, :email, :first_name, :last_name, :phone, :customer_since, :customer_status, :status_date_time)`
 
-	tx, err := r.db.BeginTxx(ctx, nil)
+	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
 
 	_, err = tx.NamedExecContext(ctx, customerQuery, customer)
 	if err != nil {
@@ -222,6 +233,7 @@ func (r *customerRepository) InsertCustomerRecord(ctx context.Context, customer 
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
+	committed = true
 
 	return nil
 }
@@ -397,11 +409,16 @@ func (r *customerRepository) validateCustomerForUpdate(customer *Customer) error
 
 // executeCustomerUpdate performs the actual database update within a transaction
 func (r *customerRepository) executeCustomerUpdate(ctx context.Context, customer *Customer, id uuid.UUID) error {
-	tx, err := r.db.BeginTxx(ctx, nil)
+	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("%w: failed to begin transaction: %v", ErrTransactionFailed, err)
 	}
-	defer tx.Rollback()
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
 
 	// Update customer record
 	if err := r.updateCustomerRecord(ctx, tx, customer); err != nil {
@@ -418,11 +435,16 @@ func (r *customerRepository) executeCustomerUpdate(ctx context.Context, customer
 		return err
 	}
 
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("%w: failed to commit transaction: %v", ErrTransactionFailed, err)
+	}
+	committed = true
+
+	return nil
 }
 
 // updateCustomerRecord updates the main customer record
-func (r *customerRepository) updateCustomerRecord(ctx context.Context, tx *sqlx.Tx, customer *Customer) error {
+func (r *customerRepository) updateCustomerRecord(ctx context.Context, tx database.Tx, customer *Customer) error {
 	customerQuery := `UPDATE customers.Customer
 		SET user_name = :user_name, email = :email, first_name = :first_name,
 		last_name = :last_name, phone = :phone, customer_since = :customer_since,
@@ -449,7 +471,7 @@ func (r *customerRepository) updateCustomerRecord(ctx context.Context, tx *sqlx.
 }
 
 // replaceCustomerRelations replaces all addresses, credit cards, and status history
-func (r *customerRepository) replaceCustomerRelations(ctx context.Context, tx *sqlx.Tx, customer *Customer, id uuid.UUID) error {
+func (r *customerRepository) replaceCustomerRelations(ctx context.Context, tx database.Tx, customer *Customer, id uuid.UUID) error {
 	// Delete existing relations
 	if err := r.deleteExistingRelations(ctx, tx, id); err != nil {
 		return err
@@ -464,7 +486,7 @@ func (r *customerRepository) replaceCustomerRelations(ctx context.Context, tx *s
 }
 
 // deleteExistingRelations removes all existing related records
-func (r *customerRepository) deleteExistingRelations(ctx context.Context, tx *sqlx.Tx, customerID uuid.UUID) error {
+func (r *customerRepository) deleteExistingRelations(ctx context.Context, tx database.Tx, customerID uuid.UUID) error {
 	queries := []string{
 		`DELETE FROM customers.Address WHERE customer_id = $1`,
 		`DELETE FROM customers.CreditCard WHERE customer_id = $1`,
@@ -481,7 +503,7 @@ func (r *customerRepository) deleteExistingRelations(ctx context.Context, tx *sq
 }
 
 // deleteAddresses removes all existing addresses for a customer
-func (r *customerRepository) deleteAddresses(ctx context.Context, tx *sqlx.Tx, customerID uuid.UUID) error {
+func (r *customerRepository) deleteAddresses(ctx context.Context, tx database.Tx, customerID uuid.UUID) error {
 	query := `DELETE FROM customers.Address WHERE customer_id = $1`
 	_, err := tx.ExecContext(ctx, query, customerID)
 	if err != nil {
@@ -491,7 +513,7 @@ func (r *customerRepository) deleteAddresses(ctx context.Context, tx *sqlx.Tx, c
 }
 
 // deleteCreditCards removes all existing credit cards for a customer
-func (r *customerRepository) deleteCreditCards(ctx context.Context, tx *sqlx.Tx, customerID uuid.UUID) error {
+func (r *customerRepository) deleteCreditCards(ctx context.Context, tx database.Tx, customerID uuid.UUID) error {
 	query := `DELETE FROM customers.CreditCard WHERE customer_id = $1`
 	_, err := tx.ExecContext(ctx, query, customerID)
 	if err != nil {
@@ -501,7 +523,7 @@ func (r *customerRepository) deleteCreditCards(ctx context.Context, tx *sqlx.Tx,
 }
 
 // insertNewRelations inserts new addresses, credit cards, and status history
-func (r *customerRepository) insertNewRelations(ctx context.Context, tx *sqlx.Tx, customer *Customer, id uuid.UUID) error {
+func (r *customerRepository) insertNewRelations(ctx context.Context, tx database.Tx, customer *Customer, id uuid.UUID) error {
 	if err := r.insertAddresses(ctx, tx, customer.Addresses, id); err != nil {
 		return err
 	}
@@ -518,7 +540,7 @@ func (r *customerRepository) insertNewRelations(ctx context.Context, tx *sqlx.Tx
 }
 
 // insertAddresses inserts new address records
-func (r *customerRepository) insertAddresses(ctx context.Context, tx *sqlx.Tx, addresses []Address, customerID uuid.UUID) error {
+func (r *customerRepository) insertAddresses(ctx context.Context, tx database.Tx, addresses []Address, customerID uuid.UUID) error {
 	addressQuery := `INSERT INTO customers.Address (
 		address_id, customer_id, address_type, first_name, last_name,
 		address_1, address_2, city, state, zip
@@ -539,7 +561,7 @@ func (r *customerRepository) insertAddresses(ctx context.Context, tx *sqlx.Tx, a
 }
 
 // insertCreditCards inserts new credit card records
-func (r *customerRepository) insertCreditCards(ctx context.Context, tx *sqlx.Tx, cards []CreditCard, customerID uuid.UUID) error {
+func (r *customerRepository) insertCreditCards(ctx context.Context, tx database.Tx, cards []CreditCard, customerID uuid.UUID) error {
 	cardQuery := `INSERT INTO customers.CreditCard (
 		card_id, customer_id, card_type, card_number, card_holder_name,
 		card_expires, card_cvv
@@ -560,7 +582,7 @@ func (r *customerRepository) insertCreditCards(ctx context.Context, tx *sqlx.Tx,
 }
 
 // insertStatusHistory inserts new status history records
-func (r *customerRepository) insertStatusHistory(ctx context.Context, tx *sqlx.Tx, history []CustomerStatus, customerID uuid.UUID) error {
+func (r *customerRepository) insertStatusHistory(ctx context.Context, tx database.Tx, history []CustomerStatus, customerID uuid.UUID) error {
 	statusQuery := `INSERT INTO customers.CustomerStatusHistory (
 		customer_id, old_status, new_status, changed_at
 	) VALUES (
@@ -581,7 +603,7 @@ func (r *customerRepository) insertStatusHistory(ctx context.Context, tx *sqlx.T
 }
 
 // publishCustomerUpdateEvent publishes the customer update event
-func (r *customerRepository) publishCustomerUpdateEvent(ctx context.Context, tx *sqlx.Tx, customer *Customer) error {
+func (r *customerRepository) publishCustomerUpdateEvent(ctx context.Context, tx database.Tx, customer *Customer) error {
 	customerEvent := events.NewCustomerUpdatedEvent(customer.CustomerID, nil)
 	if err := r.outboxWriter.WriteEvent(ctx, tx, customerEvent); err != nil {
 		return fmt.Errorf("failed to publish customer update event: %w", err)
@@ -704,11 +726,16 @@ func (r *customerRepository) PatchCustomer(ctx context.Context, customerID strin
 
 // executePatchCustomer performs selective PATCH updates in a transaction
 func (r *customerRepository) executePatchCustomer(ctx context.Context, customer *Customer, id uuid.UUID, newAddresses []Address, newCreditCards []CreditCard) error {
-	tx, err := r.db.BeginTxx(ctx, nil)
+	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("%w: failed to begin transaction: %v", ErrTransactionFailed, err)
 	}
-	defer tx.Rollback()
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
 
 	// Update customer record
 	if err := r.updateCustomerRecord(ctx, tx, customer); err != nil {
@@ -740,7 +767,12 @@ func (r *customerRepository) executePatchCustomer(ctx context.Context, customer 
 		return err
 	}
 
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("%w: failed to commit transaction: %v", ErrTransactionFailed, err)
+	}
+	committed = true
+
+	return nil
 }
 
 func (r *customerRepository) AddAddress(ctx context.Context, customerID string, addr *Address) (*Address, error) {
@@ -754,11 +786,16 @@ func (r *customerRepository) AddAddress(ctx context.Context, customerID string, 
 	addr.CustomerID = custUUID
 	addr.AddressID = uuid.New()
 
-	tx, err := r.db.BeginTxx(ctx, nil)
+	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback()
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
 
 	query := `
         INSERT INTO customers.Address (
@@ -795,6 +832,7 @@ func (r *customerRepository) AddAddress(ctx context.Context, customerID string, 
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
+	committed = true
 	return addr, nil
 }
 
@@ -807,11 +845,16 @@ func (r *customerRepository) UpdateAddress(ctx context.Context, addressID string
 	}
 	addr.AddressID = id
 
-	tx, err := r.db.BeginTxx(ctx, nil)
+	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
 
 	query := `
         UPDATE customers.Address
@@ -842,7 +885,12 @@ func (r *customerRepository) UpdateAddress(ctx context.Context, addressID string
 		return err
 	}
 
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	committed = true
+
+	return nil
 }
 
 func (r *customerRepository) DeleteAddress(ctx context.Context, addressID string) error {
@@ -853,11 +901,16 @@ func (r *customerRepository) DeleteAddress(ctx context.Context, addressID string
 		return err
 	}
 
-	tx, err := r.db.BeginTxx(ctx, nil)
+	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
 
 	res, err := tx.ExecContext(ctx, `DELETE FROM customers.Address WHERE address_id = $1`, id)
 	if err != nil {
@@ -876,7 +929,12 @@ func (r *customerRepository) DeleteAddress(ctx context.Context, addressID string
 		return err
 	}
 
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	committed = true
+
+	return nil
 }
 
 func (r *customerRepository) AddCreditCard(ctx context.Context, customerID string, card *CreditCard) (*CreditCard, error) {
@@ -890,11 +948,16 @@ func (r *customerRepository) AddCreditCard(ctx context.Context, customerID strin
 	card.CustomerID = custUUID
 	card.CardID = uuid.New()
 
-	tx, err := r.db.BeginTxx(ctx, nil)
+	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback()
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
 
 	query := `
         INSERT INTO customers.CreditCard (
@@ -929,6 +992,7 @@ func (r *customerRepository) AddCreditCard(ctx context.Context, customerID strin
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
+	committed = true
 	return card, nil
 }
 
@@ -941,11 +1005,16 @@ func (r *customerRepository) UpdateCreditCard(ctx context.Context, cardID string
 	}
 	card.CardID = id
 
-	tx, err := r.db.BeginTxx(ctx, nil)
+	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
 
 	query := `
         UPDATE customers.CreditCard
@@ -972,7 +1041,12 @@ func (r *customerRepository) UpdateCreditCard(ctx context.Context, cardID string
 		return err
 	}
 
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	committed = true
+
+	return nil
 }
 
 func (r *customerRepository) DeleteCreditCard(ctx context.Context, cardID string) error {
@@ -983,11 +1057,16 @@ func (r *customerRepository) DeleteCreditCard(ctx context.Context, cardID string
 		return err
 	}
 
-	tx, err := r.db.BeginTxx(ctx, nil)
+	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
 
 	res, err := tx.ExecContext(ctx, `DELETE FROM customers.CreditCard WHERE card_id = $1`, id)
 	if err != nil {
@@ -1006,7 +1085,12 @@ func (r *customerRepository) DeleteCreditCard(ctx context.Context, cardID string
 		return err
 	}
 
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	committed = true
+
+	return nil
 }
 
 func (r *customerRepository) UpdateDefaultShippingAddress(ctx context.Context, customerID, addressID string) error {
@@ -1024,11 +1108,16 @@ func (r *customerRepository) UpdateDefaultShippingAddress(ctx context.Context, c
 
 	query := `UPDATE customers.Customer SET default_shipping_address_id = $1 WHERE customer_id = $2`
 
-	tx, err := r.db.BeginTxx(ctx, nil)
+	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
 
 	result, err := tx.ExecContext(ctx, query, addrUUID, custUUID)
 	if err != nil {
@@ -1048,7 +1137,12 @@ func (r *customerRepository) UpdateDefaultShippingAddress(ctx context.Context, c
 		return err
 	}
 
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	committed = true
+
+	return nil
 }
 
 func (r *customerRepository) UpdateDefaultBillingAddress(ctx context.Context, customerID, addressID string) error {
@@ -1066,11 +1160,16 @@ func (r *customerRepository) UpdateDefaultBillingAddress(ctx context.Context, cu
 
 	query := `UPDATE customers.Customer SET default_billing_address_id = $1 WHERE customer_id = $2`
 
-	tx, err := r.db.BeginTxx(ctx, nil)
+	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
 
 	result, err := tx.ExecContext(ctx, query, addrUUID, custUUID)
 	if err != nil {
@@ -1090,7 +1189,12 @@ func (r *customerRepository) UpdateDefaultBillingAddress(ctx context.Context, cu
 		return err
 	}
 
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	committed = true
+
+	return nil
 }
 
 func (r *customerRepository) UpdateDefaultCreditCard(ctx context.Context, customerID, cardID string) error {
@@ -1108,11 +1212,16 @@ func (r *customerRepository) UpdateDefaultCreditCard(ctx context.Context, custom
 
 	query := `UPDATE customers.Customer SET default_credit_card_id = $1 WHERE customer_id = $2`
 
-	tx, err := r.db.BeginTxx(ctx, nil)
+	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
 
 	result, err := tx.ExecContext(ctx, query, cardUUID, custUUID)
 	if err != nil {
@@ -1132,7 +1241,12 @@ func (r *customerRepository) UpdateDefaultCreditCard(ctx context.Context, custom
 		return err
 	}
 
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	committed = true
+
+	return nil
 }
 
 func (r *customerRepository) ClearDefaultShippingAddress(ctx context.Context, customerID string) error {
@@ -1145,11 +1259,16 @@ func (r *customerRepository) ClearDefaultShippingAddress(ctx context.Context, cu
 
 	query := `UPDATE customers.Customer SET default_shipping_address_id = NULL WHERE customer_id = $1`
 
-	tx, err := r.db.BeginTxx(ctx, nil)
+	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
 
 	result, err := tx.ExecContext(ctx, query, custUUID)
 	if err != nil {
@@ -1169,7 +1288,12 @@ func (r *customerRepository) ClearDefaultShippingAddress(ctx context.Context, cu
 		return err
 	}
 
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	committed = true
+
+	return nil
 }
 
 func (r *customerRepository) ClearDefaultBillingAddress(ctx context.Context, customerID string) error {
@@ -1182,11 +1306,16 @@ func (r *customerRepository) ClearDefaultBillingAddress(ctx context.Context, cus
 
 	query := `UPDATE customers.Customer SET default_billing_address_id = NULL WHERE customer_id = $1`
 
-	tx, err := r.db.BeginTxx(ctx, nil)
+	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
 
 	result, err := tx.ExecContext(ctx, query, custUUID)
 	if err != nil {
@@ -1206,7 +1335,12 @@ func (r *customerRepository) ClearDefaultBillingAddress(ctx context.Context, cus
 		return err
 	}
 
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	committed = true
+
+	return nil
 }
 
 func (r *customerRepository) ClearDefaultCreditCard(ctx context.Context, customerID string) error {
@@ -1219,11 +1353,16 @@ func (r *customerRepository) ClearDefaultCreditCard(ctx context.Context, custome
 
 	query := `UPDATE customers.Customer SET default_credit_card_id = NULL WHERE customer_id = $1`
 
-	tx, err := r.db.BeginTxx(ctx, nil)
+	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
 
 	result, err := tx.ExecContext(ctx, query, custUUID)
 	if err != nil {
@@ -1243,5 +1382,10 @@ func (r *customerRepository) ClearDefaultCreditCard(ctx context.Context, custome
 		return err
 	}
 
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	committed = true
+
+	return nil
 }

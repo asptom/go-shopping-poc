@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: eventreader-config
+  namespace: pocstore
+  labels:
+    app: go-shopping-poc
+    component: eventreader
+data:
+  # EventReader Kafka Settings
+  EVENT_READER_WRITE_TOPIC: "ReaderEvents"
+  EVENT_READER_READ_TOPICS: "CustomerEvents,OrderEvents,ProductEvents"
+  EVENT_READER_GROUP: "EventReaderGroup"

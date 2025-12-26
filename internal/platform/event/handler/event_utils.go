@@ -186,9 +186,3 @@ func (m *EventTypeMatcher) IsEventType(event events.Event, eventType string) boo
 	}
 	return event.Type() == eventType
 }
-
-// IsCustomerEvent checks if the event is a customer event
-// This is a convenience method for the most common event type check
-func (m *EventTypeMatcher) IsCustomerEvent(event events.Event) bool {
-	return m.IsEventType(event, string(events.CustomerCreated))
-}

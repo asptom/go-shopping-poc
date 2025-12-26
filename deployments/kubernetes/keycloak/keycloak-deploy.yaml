@@ -53,6 +53,12 @@ spec:
         - name: keycloak
           image: quay.io/keycloak/keycloak:26.4.2
           args: ["start", "--import-realm"]
+          envFrom:
+            - configMapRef:
+                name: keycloak-config
+            - secretRef:
+                name: keycloak-secret
+                optional: true
           env:
             - name: KC_BOOTSTRAP_ADMIN_USERNAME
               value: admin

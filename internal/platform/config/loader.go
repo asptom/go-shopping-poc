@@ -18,10 +18,16 @@ type ConfigLoader interface {
 	Validate(config interface{}) error
 }
 
+// Global cache removed - no longer loading shared configuration files
+
 // ViperLoader implements ConfigLoader using Viper
 type ViperLoader struct {
 	viper *viper.Viper
 }
+
+// Global config cache removed - no longer loading shared config files
+
+// Removed loadConfigFileToMap - no longer needed without global caching
 
 // NewViperLoader creates a new Viper-based loader
 func NewViperLoader() *ViperLoader {
@@ -38,7 +44,6 @@ func NewViperLoader() *ViperLoader {
 func (l *ViperLoader) LoadFromFile(filename string, config interface{}) error {
 	fmt.Printf("[DEBUG] Checking config file: %s\n", filename)
 
-	// Read .env file and set viper values directly
 	file, err := os.Open(filename)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -49,7 +54,7 @@ func (l *ViperLoader) LoadFromFile(filename string, config interface{}) error {
 		fmt.Printf("[DEBUG] Failed to open config file %s: %v\n", filename, err)
 		return fmt.Errorf("failed to open config file %s: %w", filename, err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	fmt.Printf("[DEBUG] Successfully opened config file: %s\n", filename)
 
@@ -130,25 +135,13 @@ func (l *ViperLoader) Validate(config interface{}) error {
 	return nil
 }
 
-// LoadConfig loads configuration with automatic source detection
+// Global config cache removed - no longer needed
+
+// LoadConfig loads configuration from environment variables only
 func LoadConfig[T any](serviceName string) (*T, error) {
 	fmt.Printf("[DEBUG] Loading config for service: %s\n", serviceName)
+
 	loader := NewViperLoader()
-
-	// Load files in order (each call uses the same viper instance)
-	files := []string{
-		"config/.env",                    // 1. Global defaults (lowest precedence)
-		"config/.env.local",              // 2. Global local overrides
-		"config/" + serviceName + ".env", // 3. Service-specific (highest precedence)
-	}
-
-	fmt.Printf("[DEBUG] Config files to check: %v\n", files)
-
-	for _, file := range files {
-		if err := loader.LoadFromFile(file, nil); err != nil {
-			return nil, fmt.Errorf("failed to load %s: %w", file, err)
-		}
-	}
 
 	// Load environment variables into viper to support lowercase mapstructure tags
 	for _, env := range os.Environ() {
@@ -159,21 +152,11 @@ func LoadConfig[T any](serviceName string) (*T, error) {
 		}
 	}
 
-	// Now unmarshal with all file values and environment variables loaded
+	// Unmarshal configuration from environment variables
 	config := new(T)
 	if err := loader.viper.Unmarshal(config); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
 	}
-
-	fmt.Printf("[DEBUG] After unmarshaling, WriteTopic value: %v\n", loader.viper.Get("EVENT_READER_WRITE_TOPIC"))
-	fmt.Printf("[DEBUG] All viper keys: %v\n", loader.viper.AllKeys())
-
-	// Apply environment variable overrides
-	if err := loader.applyEnvOverrides(config); err != nil {
-		return nil, fmt.Errorf("failed to apply env overrides: %w", err)
-	}
-
-	fmt.Printf("[DEBUG] After env overrides, WriteTopic value: %v\n", loader.viper.Get("EVENT_READER_WRITE_TOPIC"))
 
 	// Validate and return
 	if err := loader.Validate(config); err != nil {

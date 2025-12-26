@@ -9,6 +9,7 @@ import (
 	"time"
 
 	events "go-shopping-poc/internal/contracts/events"
+	"go-shopping-poc/internal/platform/config"
 	kafka "go-shopping-poc/internal/platform/event/bus/kafka"
 	"go-shopping-poc/internal/platform/event/handler"
 	kafkaconfig "go-shopping-poc/internal/platform/event/kafka"
@@ -33,7 +34,7 @@ func TestEndToEndEventFlow_Integration(t *testing.T) {
 	}
 
 	// Load Kafka configuration
-	kafkaCfg, kafkaErr := kafkaconfig.LoadConfig()
+	kafkaCfg, kafkaErr := config.LoadConfig[kafkaconfig.Config]("platform-kafka")
 	if kafkaErr != nil {
 		t.Fatalf("Failed to load kafka config: %v", kafkaErr)
 	}
@@ -48,8 +49,11 @@ func TestEndToEndEventFlow_Integration(t *testing.T) {
 	consumeKafkaCfg.GroupID = cfg.Group + "-consumer"
 	consumerEventBus := kafka.NewEventBus(&consumeKafkaCfg)
 
+	// Create infrastructure
+	infrastructure := eventreader.NewEventReaderInfrastructure(consumerEventBus)
+
 	// Create and configure eventreader service
-	service := eventreader.NewEventReaderService(consumerEventBus, cfg)
+	service := eventreader.NewEventReaderService(infrastructure, cfg)
 
 	// Register handlers
 	var customerCreatedHandler = eventhandlers.NewOnCustomerCreated()
@@ -176,7 +180,7 @@ func TestEndToEndEventFlow_Integration(t *testing.T) {
 		}
 
 		// Test type matching
-		isCustomer := matcher.IsCustomerEvent(testEvent)
+		isCustomer := matcher.IsEventType(testEvent, "customer.created")
 		if !isCustomer {
 			t.Error("Failed to identify customer event")
 		}
@@ -269,7 +273,7 @@ func TestOriginalIssueResolution_Integration(t *testing.T) {
 	}
 
 	// Load Kafka configuration
-	kafkaCfg, kafkaErr := kafkaconfig.LoadConfig()
+	kafkaCfg, kafkaErr := config.LoadConfig[kafkaconfig.Config]("platform-kafka")
 	if kafkaErr != nil {
 		t.Fatalf("Failed to load kafka config: %v", kafkaErr)
 	}
@@ -280,8 +284,11 @@ func TestOriginalIssueResolution_Integration(t *testing.T) {
 
 	eventBus := kafka.NewEventBus(&testKafkaCfg)
 
+	// Create infrastructure
+	infrastructure := eventreader.NewEventReaderInfrastructure(eventBus)
+
 	// Create service
-	service := eventreader.NewEventReaderService(eventBus, cfg)
+	service := eventreader.NewEventReaderService(infrastructure, cfg)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -380,7 +387,7 @@ func TestSystemValidation_Integration(t *testing.T) {
 	}
 
 	// Load kafka configuration
-	kafkaCfg, err := kafkaconfig.LoadConfig()
+	kafkaCfg, err := config.LoadConfig[kafkaconfig.Config]("platform-kafka")
 	if err != nil {
 		t.Fatalf("Failed to load kafka config: %v", err)
 	}
@@ -396,8 +403,11 @@ func TestSystemValidation_Integration(t *testing.T) {
 	}
 	eventBus := kafka.NewEventBus(kafkaConfig)
 
+	// Create infrastructure
+	infrastructure := eventreader.NewEventReaderInfrastructure(eventBus)
+
 	// Create service
-	service := eventreader.NewEventReaderService(eventBus, cfg)
+	service := eventreader.NewEventReaderService(infrastructure, cfg)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
@@ -540,7 +550,7 @@ func TestSystemValidation_Integration(t *testing.T) {
 	}
 
 	// Test type matching
-	isCustomer := matcher.IsCustomerEvent(utilityTestEvent)
+	isCustomer := matcher.IsEventType(utilityTestEvent, "customer.created")
 	if !isCustomer {
 		t.Error("FAILED: Platform utilities type matching failed")
 	}

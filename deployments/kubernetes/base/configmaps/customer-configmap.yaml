@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: customer-config
+  namespace: pocstore
+  labels:
+    app: go-shopping-poc
+    component: customer
+data:
+  # Customer Database Settings
+  PSQL_CUSTOMER_DB: "customersdb"
+  PSQL_CUSTOMER_ROLE: "customersuser"
+
+  # Customer Service Port
+  CUSTOMER_SERVICE_PORT: ":8080"
+
+  # Customer Kafka Settings
+  CUSTOMER_WRITE_TOPIC: "CustomerEvents"
+  CUSTOMER_READ_TOPICS: ""
+  CUSTOMER_GROUP: "CustomerGroup"
+
+  # Customer Outbox Processing
+  CUSTOMER_OUTBOX_PROCESSING_INTERVAL: "10s"

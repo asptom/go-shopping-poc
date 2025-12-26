@@ -22,6 +22,9 @@ spec:
         - name: store-websocket
           image: localhost:5000/go-shopping-poc/websocket:1.0
           imagePullPolicy: Always
+          envFrom:
+            - configMapRef:
+                name: websocket-config
           ports:
             - name: http
               containerPort: 80

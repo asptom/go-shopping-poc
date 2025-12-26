@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: eventwriter-config
+  namespace: pocstore
+  labels:
+    app: go-shopping-poc
+    component: eventwriter
+data:
+  # EventWriter Service Settings
+  EVENT_WRITER_WRITE_TOPIC: "ReaderEvents"
+  EVENT_WRITER_READ_TOPICS: ""

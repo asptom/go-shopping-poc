@@ -20,9 +20,6 @@ FROM alpine:latest
 RUN apk add --no-cache ca-certificates
 WORKDIR /
 COPY --from=builder /eventreader .
-RUN mkdir -p /config
-COPY --from=builder /app/config/eventreader.env /config/
-COPY --from=builder /app/config/platform-kafka.env /config/
 COPY --from=builder /etc/passwd /etc/passwd
 
 USER nobody

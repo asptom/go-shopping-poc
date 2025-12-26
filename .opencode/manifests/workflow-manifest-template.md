@@ -12,7 +12,7 @@
 
 ## Context
 - **Key**: Value (e.g., db_schema: postgres)
-- **AnotherKey**: Multi-line value or code block if needed:
+- **AnotherKey**: Multi-line value or code block if needed.
 
 ## Logs
 - Optional free-form section for debugging without polluting phases. This isolates problematic content.

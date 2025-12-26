@@ -8,6 +8,7 @@ import (
 	"time"
 
 	events "go-shopping-poc/internal/contracts/events"
+	"go-shopping-poc/internal/platform/config"
 	kafka "go-shopping-poc/internal/platform/event/bus/kafka"
 	kafkaconfig "go-shopping-poc/internal/platform/event/kafka"
 	"go-shopping-poc/internal/service/eventreader"
@@ -30,7 +31,7 @@ func TestEventReaderService_Integration(t *testing.T) {
 	}
 
 	// Load Kafka configuration
-	kafkaCfg, err := kafkaconfig.LoadConfig()
+	kafkaCfg, err := config.LoadConfig[kafkaconfig.Config]("platform-kafka")
 	if err != nil {
 		t.Fatalf("Failed to load kafka config: %v", err)
 	}

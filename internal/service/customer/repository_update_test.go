@@ -29,8 +29,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
 
+	"go-shopping-poc/internal/platform/database"
 	outbox "go-shopping-poc/internal/platform/outbox"
 	"go-shopping-poc/internal/testutils"
 )
@@ -38,12 +38,12 @@ import (
 // ===== SETUP & HELPERS =====
 
 // setupUpdateTestDB creates a test database connection for update operations
-func setupUpdateTestDB(t *testing.T) *sqlx.DB {
+func setupUpdateTestDB(t *testing.T) database.Database {
 	return testutils.SetupTestDB(t)
 }
 
 // createTestCustomerWithFullData creates a test customer with addresses and credit cards for update testing
-func createTestCustomerWithFullData(t *testing.T, db *sqlx.DB) *Customer {
+func createTestCustomerWithFullData(t *testing.T, db database.Database) *Customer {
 	customerID := uuid.New()
 	shippingAddrID := uuid.New()
 	billingAddrID := uuid.New()

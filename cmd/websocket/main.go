@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	ws "go-shopping-poc/internal/platform/websocket"
 
@@ -38,21 +40,29 @@ func main() {
 		os.Exit(1)
 	}
 
-	server, err := ws.NewWebSocketServer()
+	wsServer, err := ws.NewWebSocketServer()
 	if err != nil {
 		log.Printf("[ERROR] Websocket: Failed to create WebSocket server: %v", err)
 		os.Exit(1)
 	}
 
-	http.HandleFunc("/ws", server.Handle(echoHandler))
-
 	log.Printf("[DEBUG] Websocket: The WebSocket server is starting...")
 	addr := wsCfg.Port
 	log.Printf("[DEBUG] Websocket: server listening on %s/ws", addr)
 
+	// Create HTTP server with timeouts
+	httpServer := &http.Server{
+		Addr:         addr,
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  120 * time.Second,
+	}
+
+	http.HandleFunc("/ws", wsServer.Handle(echoHandler))
+
 	// Start server in a goroutine
 	go func() {
-		if err := http.ListenAndServe(addr, nil); err != nil {
+		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Printf("[ERROR] Websocket: ListenAndServe: %v", err)
 		}
 	}()
@@ -62,4 +72,11 @@ func main() {
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 	<-sig
 	log.Printf("[INFO] Websocket: Shutting down WebSocket server...")
+
+	// Graceful shutdown
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := httpServer.Shutdown(shutdownCtx); err != nil {
+		log.Printf("[ERROR] Websocket: Server forced to shutdown: %v", err)
+	}
 }

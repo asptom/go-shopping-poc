@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgresql-config
+  namespace: pocstore
+  labels:
+    app: go-shopping-poc
+    component: postgresql
+data:
+  POSTGRES_DB: "postgresdb"
+  POSTGRES_USER: "postgresadmin"

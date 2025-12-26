@@ -28,31 +28,31 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
 
-	outbox "go-shopping-poc/internal/platform/outbox"
+	"go-shopping-poc/internal/platform/database"
+	"go-shopping-poc/internal/platform/outbox"
 	"go-shopping-poc/internal/testutils"
 )
 
 // ===== SETUP & HELPERS =====
 
 // setupTestDB creates a test database connection
-func setupTestDB(t *testing.T) *sqlx.DB {
+func setupTestDB(t *testing.T) database.Database {
 	return testutils.SetupTestDB(t)
 }
 
 // createTestCustomer creates a test customer in the database
-func createTestCustomer(t *testing.T, db *sqlx.DB) string {
+func createTestCustomer(t *testing.T, db database.Database) string {
 	return testutils.CreateTestCustomer(t, db)
 }
 
 // createTestAddress creates a test address for a customer
-func createTestAddress(t *testing.T, db *sqlx.DB, customerID string) string {
+func createTestAddress(t *testing.T, db database.Database, customerID string) string {
 	return testutils.CreateTestAddress(t, db, customerID)
 }
 
 // createTestCreditCard creates a test credit card for a customer
-func createTestCreditCard(t *testing.T, db *sqlx.DB, customerID string) string {
+func createTestCreditCard(t *testing.T, db database.Database, customerID string) string {
 	cardID := uuid.New()
 	custUUID, err := uuid.Parse(customerID)
 	if err != nil {
@@ -62,7 +62,7 @@ func createTestCreditCard(t *testing.T, db *sqlx.DB, customerID string) string {
 	query := `INSERT INTO customers.CreditCard (card_id, customer_id, card_type, card_number, card_holder_name, card_expires, card_cvv)
 	          VALUES ($1, $2, $3, $4, $5, $6, $7)`
 
-	_, err = db.Exec(query, cardID, custUUID, "visa", "4111111111111111", "Test User", "12/25", "123")
+	_, err = db.Exec(context.Background(), query, cardID, custUUID, "visa", "4111111111111111", "Test User", "12/25", "123")
 	if err != nil {
 		t.Fatalf("Failed to create test credit card: %v", err)
 	}
@@ -96,7 +96,7 @@ func TestDefaultShippingAddress_Set(t *testing.T) {
 	// Verify the default was set
 	var defaultAddrID *uuid.UUID
 	query := `SELECT default_shipping_address_id FROM customers.Customer WHERE customer_id = $1`
-	err = db.Get(&defaultAddrID, query, customerID)
+	err = db.GetContext(context.Background(), &defaultAddrID, query, customerID)
 	if err != nil {
 		t.Fatalf("Failed to query default shipping address: %v", err)
 	}
@@ -135,7 +135,7 @@ func TestDefaultBillingAddress_Set(t *testing.T) {
 	// Verify the default was set
 	var defaultAddrID *uuid.UUID
 	query := `SELECT default_billing_address_id FROM customers.Customer WHERE customer_id = $1`
-	err = db.Get(&defaultAddrID, query, customerID)
+	err = db.GetContext(context.Background(), &defaultAddrID, query, customerID)
 	if err != nil {
 		t.Fatalf("Failed to query default billing address: %v", err)
 	}
@@ -176,7 +176,7 @@ func TestDefaultCreditCard_Set(t *testing.T) {
 	// Verify the default was set
 	var defaultCardID *uuid.UUID
 	query := `SELECT default_credit_card_id FROM customers.Customer WHERE customer_id = $1`
-	err = db.Get(&defaultCardID, query, customerID)
+	err = db.GetContext(context.Background(), &defaultCardID, query, customerID)
 	if err != nil {
 		t.Fatalf("Failed to query default credit card: %v", err)
 	}
@@ -221,7 +221,7 @@ func TestDefaultShippingAddress_Clear(t *testing.T) {
 	// Verify the default was cleared
 	var defaultAddrID *uuid.UUID
 	query := `SELECT default_shipping_address_id FROM customers.Customer WHERE customer_id = $1`
-	err = db.Get(&defaultAddrID, query, customerID)
+	err = db.GetContext(context.Background(), &defaultAddrID, query, customerID)
 	if err != nil {
 		t.Fatalf("Failed to query default shipping address: %v", err)
 	}
@@ -261,7 +261,7 @@ func TestDefaultBillingAddress_Clear(t *testing.T) {
 	// Verify the default was cleared
 	var defaultAddrID *uuid.UUID
 	query := `SELECT default_billing_address_id FROM customers.Customer WHERE customer_id = $1`
-	err = db.Get(&defaultAddrID, query, customerID)
+	err = db.GetContext(context.Background(), &defaultAddrID, query, customerID)
 	if err != nil {
 		t.Fatalf("Failed to query default billing address: %v", err)
 	}
@@ -301,7 +301,7 @@ func TestDefaultCreditCard_Clear(t *testing.T) {
 	// Verify the default was cleared
 	var defaultCardID *uuid.UUID
 	query := `SELECT default_credit_card_id FROM customers.Customer WHERE customer_id = $1`
-	err = db.Get(&defaultCardID, query, customerID)
+	err = db.GetContext(context.Background(), &defaultCardID, query, customerID)
 	if err != nil {
 		t.Fatalf("Failed to query default credit card: %v", err)
 	}
@@ -321,7 +321,15 @@ func TestServiceLayer_DefaultMethods(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	repo := NewCustomerRepository(db, &outbox.Writer{})
+	// Create infrastructure for integration test
+	infrastructure := &CustomerInfrastructure{
+		Database:        db,
+		EventBus:        nil, // Not needed for this test
+		OutboxWriter:    &outbox.Writer{},
+		OutboxPublisher: nil, // Not needed for this test
+		CORSHandler:     nil, // Not needed for this test
+	}
+
 	// Create minimal config for testing
 	config := &Config{
 		DatabaseURL:    "postgres://test:test@localhost:5432/test",
@@ -329,7 +337,7 @@ func TestServiceLayer_DefaultMethods(t *testing.T) {
 		WriteTopic:     "test-topic",
 		OutboxInterval: 5 * time.Second,
 	}
-	service := NewCustomerService(repo, config)
+	service := NewCustomerService(infrastructure, config)
 	ctx := context.Background()
 
 	// Create test customer and address
@@ -345,7 +353,7 @@ func TestServiceLayer_DefaultMethods(t *testing.T) {
 	// Verify through repository
 	var defaultAddrID *uuid.UUID
 	query := `SELECT default_shipping_address_id FROM customers.Customer WHERE customer_id = $1`
-	err = db.Get(&defaultAddrID, query, customerID)
+	err = db.GetContext(context.Background(), &defaultAddrID, query, customerID)
 	if err != nil {
 		t.Fatalf("Failed to query default shipping address: %v", err)
 	}
@@ -401,7 +409,7 @@ func TestGetCustomerByEmail(t *testing.T) {
 	query := `INSERT INTO customers.Customer (customer_id, user_name, email, first_name, last_name, phone, customer_since, customer_status, status_date_time)
 	          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
 
-	_, err := db.Exec(query, customerID, "testuser", testEmail, "Test", "User", "555-1234", time.Now(), "active", time.Now())
+	_, err := db.Exec(context.Background(), query, customerID, "testuser", testEmail, "Test", "User", "555-1234", time.Now(), "active", time.Now())
 	if err != nil {
 		t.Fatalf("Failed to create test customer: %v", err)
 	}
@@ -519,7 +527,7 @@ func TestInsertCustomerWithRelations(t *testing.T) {
 }
 
 // cleanupTestData removes test data from the database
-func cleanupTestData(t *testing.T, db *sqlx.DB, customerID string) {
+func cleanupTestData(t *testing.T, db database.Database, customerID string) {
 	testutils.CleanupTestData(t, db, customerID)
 }
 

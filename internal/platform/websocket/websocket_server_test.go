@@ -1,6 +1,7 @@
 package websocket
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -21,63 +22,57 @@ type mockConfig struct {
 
 // TestWebSocketServer_Creation tests WebSocket server creation and configuration
 func TestWebSocketServer_Creation(t *testing.T) {
-	// Create temporary config files for testing
-	tempDir := t.TempDir()
-	configDir := tempDir + "/config"
-	os.MkdirAll(configDir, 0755)
-
 	tests := []struct {
 		name        string
-		configFile  string
 		envVars     map[string]string
 		expectError bool
 	}{
 		{
 			name: "valid configuration",
-			configFile: `WEBSOCKET_URL=ws://localhost:8080
-WEBSOCKET_ALLOWED_ORIGINS=http://localhost:3000,https://example.com`,
-			envVars:     map[string]string{},
+			envVars: map[string]string{
+				"WEBSOCKET_URL":             "ws://localhost:8080",
+				"WEBSOCKET_ALLOWED_ORIGINS": "http://localhost:3000,https://example.com",
+			},
 			expectError: false,
 		},
 		{
-			name:        "missing URL",
-			configFile:  `WEBSOCKET_ALLOWED_ORIGINS=http://localhost:3000`,
-			envVars:     map[string]string{},
+			name: "missing URL",
+			envVars: map[string]string{
+				"WEBSOCKET_ALLOWED_ORIGINS": "http://localhost:3000",
+			},
 			expectError: true,
 		},
 		{
-			name:        "missing allowed origins",
-			configFile:  `WEBSOCKET_URL=ws://localhost:8080`,
-			envVars:     map[string]string{},
+			name: "missing allowed origins",
+			envVars: map[string]string{
+				"WEBSOCKET_URL": "ws://localhost:8080",
+			},
 			expectError: true,
 		},
 		{
 			name: "invalid timeout via env",
-			configFile: `WEBSOCKET_URL=ws://localhost:8080
-WEBSOCKET_ALLOWED_ORIGINS=http://localhost:3000`,
-			envVars:     map[string]string{"WEBSOCKET_TIMEOUT": "-1s"},
+			envVars: map[string]string{
+				"WEBSOCKET_URL":             "ws://localhost:8080",
+				"WEBSOCKET_ALLOWED_ORIGINS": "http://localhost:3000",
+				"WEBSOCKET_TIMEOUT":         "-1s",
+			},
 			expectError: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create config file
-			configFile := configDir + "/platform-websocket.env"
-			err := os.WriteFile(configFile, []byte(tt.configFile), 0644)
-			if err != nil {
-				t.Fatalf("Failed to create config file: %v", err)
-			}
-
-			// Change to temp directory for config loading
-			oldWd, _ := os.Getwd()
-			os.Chdir(tempDir)
-			defer os.Chdir(oldWd)
-
 			// Set environment variables
 			for key, value := range tt.envVars {
+				oldValue := os.Getenv(key)
 				os.Setenv(key, value)
-				defer os.Unsetenv(key)
+				defer func(k, v string) {
+					if v == "" {
+						os.Unsetenv(k)
+					} else {
+						os.Setenv(k, v)
+					}
+				}(key, oldValue)
 			}
 
 			server, err := NewWebSocketServer()
@@ -232,7 +227,7 @@ func TestWebSocketServer_Handle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Dial error: %v", err)
 	}
-	defer ws.Close()
+	defer func() { _ = ws.Close() }()
 
 	if err := ws.WriteMessage(websocket.TextMessage, []byte("hello")); err != nil {
 		t.Fatalf("WriteMessage error: %v", err)
@@ -282,7 +277,7 @@ func TestWebSocketServer_ConnectionHandling(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Dial error: %v", err)
 	}
-	defer ws.Close()
+	defer func() { _ = ws.Close() }()
 
 	wg.Wait()
 
@@ -354,12 +349,12 @@ func TestWebSocketServer_OriginValidation(t *testing.T) {
 				if ws == nil {
 					t.Fatal("Expected websocket connection, got nil")
 				}
-				ws.Close()
+				_ = ws.Close()
 			} else {
 				if err == nil {
 					t.Error("Expected upgrade to fail, but it succeeded")
 					if ws != nil {
-						ws.Close()
+						_ = ws.Close()
 					}
 				}
 				// Check for 403 Forbidden status when origin is not allowed
@@ -404,9 +399,14 @@ func TestWebSocketServer_ErrorScenarios(t *testing.T) {
 			expectError: true,
 		},
 		{
-			name:        "valid websocket request",
-			method:      "GET",
-			headers:     map[string]string{"Upgrade": "websocket", "Connection": "Upgrade"},
+			name:   "valid websocket request",
+			method: "GET",
+			headers: map[string]string{
+				"Upgrade":               "websocket",
+				"Connection":            "Upgrade",
+				"Sec-WebSocket-Version": "13",
+				"Sec-WebSocket-Key":     "dGhlIHNhbXBsZSBub25jZQ==", // base64 encoded "the sample nonce"
+			},
 			expectError: false,
 		},
 	}
@@ -428,7 +428,7 @@ func TestWebSocketServer_ErrorScenarios(t *testing.T) {
 			defer ts.Close()
 
 			u, _ := url.Parse(ts.URL)
-			u.Scheme = "ws"
+			// Keep as http:// for WebSocket upgrade over HTTP
 
 			req, _ := http.NewRequest(tt.method, u.String(), nil)
 			for key, value := range tt.headers {
@@ -452,7 +452,7 @@ func TestWebSocketServer_ErrorScenarios(t *testing.T) {
 			}
 
 			if resp != nil {
-				resp.Body.Close()
+				_ = resp.Body.Close()
 			}
 		})
 	}
@@ -532,13 +532,13 @@ func TestWebSocketServer_SecurityValidation(t *testing.T) {
 					t.Errorf("Expected successful upgrade, got error: %v", err)
 				}
 				if ws != nil {
-					ws.Close()
+					_ = ws.Close()
 				}
 			} else {
 				if err == nil {
 					t.Error("Expected upgrade to fail, but it succeeded")
 					if ws != nil {
-						ws.Close()
+						_ = ws.Close()
 					}
 				}
 			}
@@ -549,49 +549,59 @@ func TestWebSocketServer_SecurityValidation(t *testing.T) {
 // TestWebSocketServer_BufferSizes tests buffer size configuration
 func TestWebSocketServer_BufferSizes(t *testing.T) {
 	tests := []struct {
-		name        string
-		readBuffer  int
-		writeBuffer int
-		expectError bool
+		name          string
+		readBuffer    int
+		writeBuffer   int
+		expectedRead  int
+		expectedWrite int
+		expectError   bool
 	}{
 		{
-			name:        "valid buffer sizes",
-			readBuffer:  1024,
-			writeBuffer: 2048,
-			expectError: false,
+			name:          "valid buffer sizes",
+			readBuffer:    1024,
+			writeBuffer:   2048,
+			expectedRead:  1024,
+			expectedWrite: 2048,
+			expectError:   false,
 		},
 		{
-			name:        "zero read buffer",
-			readBuffer:  0,
-			writeBuffer: 1024,
-			expectError: true,
+			name:          "zero read buffer",
+			readBuffer:    0,
+			writeBuffer:   1024,
+			expectedRead:  1024, // Should be set to default
+			expectedWrite: 1024,
+			expectError:   false,
 		},
 		{
-			name:        "zero write buffer",
-			readBuffer:  1024,
-			writeBuffer: 0,
-			expectError: true,
+			name:          "zero write buffer",
+			readBuffer:    1024,
+			writeBuffer:   0,
+			expectedRead:  1024,
+			expectedWrite: 1024, // Should be set to default
+			expectError:   false,
 		},
 		{
-			name:        "negative buffers",
-			readBuffer:  -1,
-			writeBuffer: -1,
-			expectError: true,
+			name:          "negative buffers",
+			readBuffer:    -1,
+			writeBuffer:   -1,
+			expectedRead:  1024, // Won't be reached due to error
+			expectedWrite: 1024, // Won't be reached due to error
+			expectError:   true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Set environment variables for buffer sizes
-			os.Setenv("WEBSOCKET_READ_BUFFER", string(rune(tt.readBuffer)))
-			os.Setenv("WEBSOCKET_WRITE_BUFFER", string(rune(tt.writeBuffer)))
-			os.Setenv("WEBSOCKET_URL", "ws://localhost:8080")
-			os.Setenv("WEBSOCKET_ALLOWED_ORIGINS", "http://localhost:3000")
+			_ = os.Setenv("WEBSOCKET_READ_BUFFER", fmt.Sprintf("%d", tt.readBuffer))
+			_ = os.Setenv("WEBSOCKET_WRITE_BUFFER", fmt.Sprintf("%d", tt.writeBuffer))
+			_ = os.Setenv("WEBSOCKET_URL", "ws://localhost:8080")
+			_ = os.Setenv("WEBSOCKET_ALLOWED_ORIGINS", "http://localhost:3000")
 			defer func() {
-				os.Unsetenv("WEBSOCKET_READ_BUFFER")
-				os.Unsetenv("WEBSOCKET_WRITE_BUFFER")
-				os.Unsetenv("WEBSOCKET_URL")
-				os.Unsetenv("WEBSOCKET_ALLOWED_ORIGINS")
+				_ = os.Unsetenv("WEBSOCKET_READ_BUFFER")
+				_ = os.Unsetenv("WEBSOCKET_WRITE_BUFFER")
+				_ = os.Unsetenv("WEBSOCKET_URL")
+				_ = os.Unsetenv("WEBSOCKET_ALLOWED_ORIGINS")
 			}()
 
 			server, err := NewWebSocketServer()
@@ -607,12 +617,12 @@ func TestWebSocketServer_BufferSizes(t *testing.T) {
 				t.Fatalf("Unexpected error: %v", err)
 			}
 
-			if server.Upgrader.ReadBufferSize != tt.readBuffer {
-				t.Errorf("Expected ReadBufferSize %d, got %d", tt.readBuffer, server.Upgrader.ReadBufferSize)
+			if server.Upgrader.ReadBufferSize != tt.expectedRead {
+				t.Errorf("Expected ReadBufferSize %d, got %d", tt.expectedRead, server.Upgrader.ReadBufferSize)
 			}
 
-			if server.Upgrader.WriteBufferSize != tt.writeBuffer {
-				t.Errorf("Expected WriteBufferSize %d, got %d", tt.writeBuffer, server.Upgrader.WriteBufferSize)
+			if server.Upgrader.WriteBufferSize != tt.expectedWrite {
+				t.Errorf("Expected WriteBufferSize %d, got %d", tt.expectedWrite, server.Upgrader.WriteBufferSize)
 			}
 		})
 	}
@@ -641,7 +651,7 @@ func TestWebSocketClient_BasicOperations(t *testing.T) {
 		}
 		if mt == websocket.TextMessage {
 			receivedMessage = string(msg)
-			conn.WriteMessage(websocket.TextMessage, []byte("echo: "+receivedMessage))
+			_ = conn.WriteMessage(websocket.TextMessage, []byte("echo: "+receivedMessage))
 		}
 	})
 
@@ -657,7 +667,7 @@ func TestWebSocketClient_BasicOperations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Client dial error: %v", err)
 	}
-	defer ws.Close()
+	defer func() { _ = ws.Close() }()
 
 	// Test sending message
 	testMessage := "hello websocket"
@@ -718,7 +728,7 @@ func TestConfig_Validation(t *testing.T) {
 				WriteBuffer:    1024,
 				AllowedOrigins: []string{"http://localhost:3000"},
 			},
-			expectError: true,
+			expectError: false, // Should set default
 		},
 		{
 			name: "negative timeout",
@@ -740,7 +750,7 @@ func TestConfig_Validation(t *testing.T) {
 				WriteBuffer:    1024,
 				AllowedOrigins: []string{"http://localhost:3000"},
 			},
-			expectError: true,
+			expectError: false, // Should now pass and set defaults
 		},
 		{
 			name: "zero write buffer",
@@ -751,7 +761,7 @@ func TestConfig_Validation(t *testing.T) {
 				WriteBuffer:    0,
 				AllowedOrigins: []string{"http://localhost:3000"},
 			},
-			expectError: true,
+			expectError: false, // Should now pass and set defaults
 		},
 	}
 

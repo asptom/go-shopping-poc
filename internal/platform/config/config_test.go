@@ -294,6 +294,43 @@ func TestGetEnvBool_EmptyString(t *testing.T) {
 	}
 }
 
+// ===== CONFIG LOADING TESTS =====
+
+// TestServiceSpecificConfigLoading tests that config loads from environment variables only
+func TestServiceSpecificConfigLoading(t *testing.T) {
+	// Set environment variable for testing
+	oldValue := os.Getenv("SERVICE_VAR")
+	defer func() {
+		if oldValue != "" {
+			os.Setenv("SERVICE_VAR", oldValue)
+		} else {
+			os.Unsetenv("SERVICE_VAR")
+		}
+	}()
+
+	// Set test environment variable
+	os.Setenv("SERVICE_VAR", "specific_value")
+
+	type TestConfig struct {
+		GlobalVar  string `mapstructure:"global_var"`
+		ServiceVar string `mapstructure:"service_var"`
+	}
+
+	// Load config - should load from environment variables only
+	config, err := LoadConfig[TestConfig]("test-service")
+	if err != nil {
+		t.Fatalf("Config load failed: %v", err)
+	}
+
+	// Verify config was loaded from environment
+	if config.GlobalVar != "" {
+		t.Errorf("Global config was loaded when it shouldn't be: %s", config.GlobalVar)
+	}
+	if config.ServiceVar != "specific_value" {
+		t.Errorf("Service config not loaded correctly: expected 'specific_value', got '%s'", config.ServiceVar)
+	}
+}
+
 // ===== UTILITY FUNCTION TESTS ONLY =====
 // All old monolithic config tests have been removed as the system now uses
 // service-specific configurations with the new LoadConfig[T] architecture.

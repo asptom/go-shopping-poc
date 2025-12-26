@@ -25,6 +25,15 @@ type EventBus struct {
 
 // NewEventBus creates a Kafka event bus using the provided configuration.
 func NewEventBus(kafkaCfg *kafkaconfig.Config) *EventBus {
+	if kafkaCfg == nil {
+		// Return a minimal eventbus that won't panic but won't work
+		return &EventBus{
+			readers:       make(map[string]*kafka.Reader),
+			typedHandlers: make(map[string][]func(ctx context.Context, data []byte) error),
+			kafkaCfg:      nil,
+		}
+	}
+
 	writer := &kafka.Writer{
 		Addr:     kafka.TCP(kafkaCfg.Brokers...),
 		Topic:    kafkaCfg.Topic,
@@ -40,6 +49,9 @@ func NewEventBus(kafkaCfg *kafkaconfig.Config) *EventBus {
 }
 
 func (eb *EventBus) WriteTopic() string {
+	if eb.writer == nil {
+		return ""
+	}
 	return eb.writer.Topic
 }
 
