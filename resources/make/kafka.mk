@@ -19,7 +19,6 @@ kafka-info: ## Show Kafka configuration details
 	@echo "Project Home: $$PROJECT_HOME"
 	@echo "Namespace: $$KAFKA_CLUSTER_NAMESPACE"
 	@echo "Broker: $$KAFKA_BROKER"
-	@echo "Deployment Dir: $$KAFKA_DEPLOYMENT_DIR"
 	@echo "Resources Dir: $$KAFKA_RESOURCES_DIR"
 	@echo "Topics File: $$KAFKA_TOPICS_FILE"
 	@echo "-------------------------"
@@ -75,24 +74,11 @@ kafka-create-topics:
 	'
 
 # ------------------------------------------------------------------
-# Install (calls the above sequentially, inlined)
+# Initialize (calls the above sequentially, inlined)
 # ------------------------------------------------------------------
-kafka-install: ## Deploy Kafka and create topics
+kafka-initialize: ## Deploy Kafka and create topics
 	@$(MAKE) separator
-	@echo "Starting Kafka install..."
-	@[ -d "$$KAFKA_DEPLOYMENT_DIR" ] || { echo "Deployment dir missing: $$KAFKA_DEPLOYMENT_DIR"; exit 1; }
-	@[ -d "$$KAFKA_RESOURCES_DIR" ] || { echo "Resources dir missing: $$KAFKA_RESOURCES_DIR"; exit 1; }
-	@[ -f "$$KAFKA_TOPICS_FILE" ] || { echo "Topics file missing: $$KAFKA_TOPICS_FILE"; exit 1; }
-	@kubectl apply -f "$$KAFKA_DEPLOYMENT_DIR/kafka-deploy.yaml"
 	@$(MAKE) kafka-wait
 	@$(MAKE) kafka-create-topics
 	@echo "Kafka install complete."
-
-# ------------------------------------------------------------------
-# Uninstall Kafka
-# ------------------------------------------------------------------
-kafka-uninstall: ## Remove Kafka deployment
-	@$(MAKE) separator
-	@echo "Deleting Kafka deployment(namespace: $$KAFKA_CLUSTER_NAMESPACE)..."
-	@kubectl -n $$KAFKA_CLUSTER_NAMESPACE delete -f "$$KAFKA_DEPLOYMENT_DIR/kafka-deploy.yaml" || true
-	@echo "Uninstall complete."
+	@echo

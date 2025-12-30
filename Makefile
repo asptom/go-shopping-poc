@@ -90,23 +90,17 @@ ifneq ($(strip $(PROJECT_HOME)),)
 	else
 		$(warning $(PROJECT_HOME)/resources/make/certificates.mk not found — certificates targets not loaded)
 	endif
-
-	ifneq ($(wildcard $(PROJECT_HOME)/resources/make/namespaces.mk),)
-		include $(PROJECT_HOME)/resources/make/namespaces.mk
-	else
-		$(warning $(PROJECT_HOME)/resources/make/namespaces.mk not found — namespaces targets not loaded)
-	endif
-	
-	ifneq ($(wildcard $(PROJECT_HOME)/resources/make/keycloak.mk),)
-		include $(PROJECT_HOME)/resources/make/keycloak.mk
-	else
-		$(warning $(PROJECT_HOME)/resources/make/keycloak.mk not found — keycloak targets not loaded)
-	endif
 	
 	ifneq ($(wildcard $(PROJECT_HOME)/resources/make/minio.mk),)
 		include $(PROJECT_HOME)/resources/make/minio.mk
 	else
 		$(warning $(PROJECT_HOME)/resources/make/minio.mk not found — minio targets not loaded)
+	endif
+
+	ifneq ($(wildcard $(PROJECT_HOME)/resources/make/kubernetes.mk),)
+		include $(PROJECT_HOME)/resources/make/kubernetes.mk
+	else
+		$(warning $(PROJECT_HOME)/resources/make/kubernetes.mk not found — kubernetes targets not loaded)
 	endif
 
 	ifneq ($(wildcard $(PROJECT_HOME)/resources/make/product_loader.mk),)
@@ -119,7 +113,7 @@ else
 endif
 # ------------------------------------------------------------------
 
-SERVICES := customer eventreader product
+SERVICES := customer eventreader
 
 MODELS := $(shell find resources/postgresql/models/ -mindepth 1 -maxdepth 1 -type d -exec basename {} \;)
 
@@ -128,7 +122,7 @@ MODELS := $(shell find resources/postgresql/models/ -mindepth 1 -maxdepth 1 -typ
 # ------------------------------------------------------------------
 
 .PHONY: info install services-build services-run services-test services-lint services-clean \
-        services-docker-build services-install services-uninstall \
+        services-docker-build \
 		separator
 
 info: ## Show project configuration details
@@ -146,13 +140,11 @@ separator:
 	@echo
 	@echo "**************************************************************"
 	@echo
-	
-install: services-clean services-build services-docker-build namespaces-create postgres-install kafka-install \
-certificates-install keycloak-install minio-install services-install \
-## Full setup: clean, build, docker-build, create namespaces, install postgres, kafka, certificates, keycloak, minio, and services
 
+install: services-clean services-build services-docker-build k8s-install \
+		certificates-install postgres-initialize kafka-initialize minio-initialize k8s-install-domain-services ## Full setup: build and deploy all components
 
-uninstall: services-uninstall keycloak-uninstall kafka-uninstall postgres-uninstall certificates-uninstall namespaces-delete ## Uninstall all services and all supporting components
+uninstall: k8s-uninstall ## Uninstall all services and all supporting components
 
 services-build: ## Build all services defined in SERVICES variable
 	@$(MAKE) separator
@@ -204,40 +196,6 @@ services-docker-build: ## Build and push Docker images for all services
 	    docker push localhost:5000/go-shopping-poc/$$svc:1.0; \
 	    echo "Docker image for $$svc built and pushed."; \
 	done
-
-services-install: ## Deploy all services to Kubernetes
-	@$(MAKE) separator
-	@echo "Deploying services to Kubernetes..."
-	@echo "--------------------------------------"
-	@for svc in $(SERVICES); do \
-	    echo "-> Deploying $$svc..."; \
-	    if [ -f deployments/kubernetes/$$svc/$$svc-deploy.yaml ]; then \
-	        echo "--> Deploying $$svc as StatefulSet"; \
-	        kubectl apply -f deployments/kubernetes/$$svc/$$svc-deploy.yaml; \
-	    else \
-	        echo "--> Deployment file for $$svc not found, skipping..."; \
-	    fi; \
-	    echo "--> $$svc deployed to Kubernetes."; \
-	    echo "--------------------------------"; \
-	done
-	@echo "All services deployed to Kubernetes with configurations from deployments/kubernetes."
-	@echo
-
-services-uninstall: ## Uninstall all services from Kubernetes
-	@$(MAKE) separator
-	@echo
-	@echo "Uninstalling services from Kubernetes..."
-	@echo "----------------------------------------"
-	@for svc in $(SERVICES); do \
-	    echo "--> Deleting $$svc..."; \
-	    if [ -f deployments/kubernetes/$$svc/$$svc-deploy.yaml ]; then \
-	        kubectl delete -f deployments/kubernetes/$$svc/$$svc-deploy.yaml --ignore-not-found=true; \
-	    fi; \
-	    echo "--> Uninstalled $$svc from kubernetes."; \
-	    echo "-------------------------------------"; \
-	done
-	@echo "All services uninstalled from Kubernetes."
-	@echo "----------------------------------------"
 
 # ------------------------------------------------------------------
 # --- Enhanced Help System (Grouped and Clean)

@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: websocket-config
-  namespace: pocstore
+  namespace: shopping
   labels:
     app: go-shopping-poc
     component: websocket

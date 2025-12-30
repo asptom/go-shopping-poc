@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: keycloak-config
-  namespace: pocstore
+  namespace: keycloak
   labels:
     app: go-shopping-poc
     component: keycloak

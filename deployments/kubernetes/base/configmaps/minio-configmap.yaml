@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: minio-config
-  namespace: pocstore
+  namespace: minio
   labels:
     app: go-shopping-poc
     component: minio

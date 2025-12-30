@@ -1,34 +1,4 @@
 # MinIO Deployment for Kubernetes
-# This deployment uses a StatefulSet with a headless service to manage MinIO instances.
-# It also includes Ingress resources to expose the MinIO API and Console.
-# Note:
-# To create the required secret for MinIO credentials, use the following command:
-# kubectl create secret generic minio-credentials \
-# --from-literal=root-user=<base64-encoded-root-user> \
-# --from-literal=root-password=<base64-encoded-root-password> \
-# --namespace=minio
-
-# Change the values to secure ones (avoid defaults in production). Base64-encode them:
-
-#Root user: echo -n 'minioadmin' | base64 → bWluaW9hZG1pbg==
-#Root password: echo -n 'minioadmin' | base64 → bWluaW9hZG1pbg==
-
-# apiVersion: v1
-# kind: Secret
-# metadata:
-#   name: minio-credentials
-#   namespace: minio
-# type: Opaque
-# data:
-#   root-user: bWluaW9hZG1pbg==  # Base64-encoded 'minioadmin' (change)
-#   root-password: bWluaW9hZG1pbg==  # Base64-encoded 'minioadmin' (change)
-
-
----
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: minio
 ---
 apiVersion: v1
 kind: Service

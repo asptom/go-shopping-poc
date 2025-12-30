@@ -6,8 +6,8 @@ SHELL := /usr/bin/env bash
 .SHELLFLAGS := -euo pipefail -c
 .ONESHELL:
 
-.PHONY: postgres-info postgres-install postgres-wait \
-        postgres-create-dbs postgres-create-schemas postgres-uninstall
+.PHONY: postgres-info postgres-initialize postgres-wait \
+        postgres-create-dbs postgres-create-schemas
 
 # ------------------------------------------------------------------
 # Info target
@@ -18,7 +18,6 @@ postgres-info: ## Show PostgreSQL configuration details
 	@echo "-------------------------"
 	@echo "Project Home: $$PROJECT_HOME"
 	@echo "Namespace: $$PSQL_NAMESPACE"
-	@echo "Deployment Dir: $$PSQL_DEPLOYMENT_DIR"
 	@echo "Models Dir: $$PSQL_MODELS_DIR"
 	@echo "-------------------------"
 	@echo
@@ -95,25 +94,13 @@ postgres-create-schemas:
 	@echo "Schemas created."
 
 # ------------------------------------------------------------------
-# Install (calls the above sequentially, inlined)
+# Initialize (calls the above sequentially, inlined)
 # ------------------------------------------------------------------
-postgres-install: ## Deploy PostgreSQL and initialize databases
+postgres-initialize: ## Initialize databases
 	@$(MAKE) separator
 	@echo "Starting PostgreSQL install..."
-	@[ -d "$$PSQL_DEPLOYMENT_DIR" ] || { echo "Deployment dir missing: $$PSQL_DEPLOYMENT_DIR"; exit 1; }
 	@[ -d "$$PSQL_MODELS_DIR" ] || { echo "Models dir missing: $$PSQL_MODELS_DIR"; exit 1; }
-	@kubectl apply -f "$$PSQL_DEPLOYMENT_DIR/postgresql-deploy.yaml"
 	@$(MAKE) postgres-wait
 	@$(MAKE) postgres-create-dbs
 	@$(MAKE) postgres-create-schemas
-	@echo "Postgres install complete."
-
-# ------------------------------------------------------------------
-# Uninstall PostgreSQL
-# ------------------------------------------------------------------
-postgres-uninstall: ## Remove PostgreSQL deployment and PVCs
-	@$(MAKE) separator
-	@echo "Deleting PostgreSQL deployment and PVCs (namespace: $$PSQL_NAMESPACE)..."
-	@kubectl -n $$PSQL_NAMESPACE delete -f "$$PSQL_DEPLOYMENT_DIR/postgresql-deploy.yaml" || true
-	@kubectl -n $$PSQL_NAMESPACE delete pvc -l app=postgres || true
-	@echo "Uninstall complete."
+	@echo "Postgres initialization complete."

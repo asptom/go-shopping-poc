@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: postgresql-config
-  namespace: pocstore
+  namespace: postgres
   labels:
     app: go-shopping-poc
     component: postgresql
