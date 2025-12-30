@@ -47,9 +47,15 @@ product-loader-test: product-loader-build ## Run tests for Product Loader
 product-loader-run: ## Run Product Loader locally
 	@$(MAKE) separator
 	@echo "Running Product Loader locally..."
-	@if [ -f .env ]; then set -a; source .env; set +a; fi
-	@if [ -f .env.local ]; then set -a; source .env.local; set +a; fi
+	@if [ -f .env ]; then \
+		set -a; \
+		source .env; \
+		set +a; \
+	fi && \
+	if [ -f .env.local ]; then \
+		set -a; \
+		source .env.local; \
+		set +a; \
+	fi && \
 	go run ./cmd/product-loader
-
-
-
+	@echo "Product Loader run complete."

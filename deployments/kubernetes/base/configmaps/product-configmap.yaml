@@ -27,6 +27,3 @@ data:
   PRODUCT_WRITE_TOPIC: "ProductEvents"
   PRODUCT_READ_TOPICS: ""
   PRODUCT_GROUP: "ProductGroup"
-
-  # Product Outbox Processing
-  PRODUCT_OUTBOX_PROCESSING_INTERVAL: "30s"

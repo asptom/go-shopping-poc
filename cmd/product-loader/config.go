@@ -10,15 +10,15 @@ import (
 // Config defines product loader configuration
 type Config struct {
 	// Database configuration
-	DatabaseURL string `mapstructure:"database_url" validate:"required"`
+	DatabaseURL string `mapstructure:"psql_product_db_url" validate:"required"`
 
 	// HTTP server configuration (not used by loader)
 	ServicePort string `mapstructure:"product_service_port"`
 
 	// Image processing configuration
-	CacheDir     string        `mapstructure:"cache_dir" validate:"required"`
-	CacheMaxAge  time.Duration `mapstructure:"cache_max_age"`
-	CacheMaxSize int64         `mapstructure:"cache_max_size"`
+	CacheDir     string        `mapstructure:"image_cache_dir" validate:"required"`
+	CacheMaxAge  time.Duration `mapstructure:"image_cache_max_age"`
+	CacheMaxSize int64         `mapstructure:"image_cache_max_size"`
 
 	// CSV processing configuration
 	CSVBatchSize int    `mapstructure:"csv_batch_size"`
@@ -75,6 +75,6 @@ func DefaultConfig() *Config {
 		Concurrency:  8,                                                   // 8 concurrent downloads
 		LogLevel:     "info",
 		ResetOnStart: false,
-		MinIOBucket:  "product-images", // default bucket for product images
+		MinIOBucket:  "productimages", // default bucket for product images
 	}
 }

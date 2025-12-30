@@ -73,41 +73,41 @@ PROJECT_HOME := $(PROJECT_HOME)
 # --- Include sub-makefiles (use real paths under PROJECT_HOME) ---
 # ------------------------------------------------------------------
 ifneq ($(strip $(PROJECT_HOME)),)
-	ifneq ($(wildcard $(PROJECT_HOME)/resources/make/postgres.mk),)
-		include $(PROJECT_HOME)/resources/make/postgres.mk
-	else
-		$(warning $(PROJECT_HOME)/resources/make/postgres.mk not found — postgres targets not loaded)
-	endif
+ifneq ($(wildcard $(PROJECT_HOME)/resources/make/postgres.mk),)
+	include $(PROJECT_HOME)/resources/make/postgres.mk
+else
+	$(warning $(PROJECT_HOME)/resources/make/postgres.mk not found — postgres targets not loaded)
+endif
 
-	ifneq ($(wildcard $(PROJECT_HOME)/resources/make/kafka.mk),)
-		include $(PROJECT_HOME)/resources/make/kafka.mk
-	else
-		$(warning $(PROJECT_HOME)/resources/make/kafka.mk not found — kafka targets not loaded)
-	endif
-	
-	ifneq ($(wildcard $(PROJECT_HOME)/resources/make/certificates.mk),)
-		include $(PROJECT_HOME)/resources/make/certificates.mk
-	else
-		$(warning $(PROJECT_HOME)/resources/make/certificates.mk not found — certificates targets not loaded)
-	endif
-	
-	ifneq ($(wildcard $(PROJECT_HOME)/resources/make/minio.mk),)
-		include $(PROJECT_HOME)/resources/make/minio.mk
-	else
-		$(warning $(PROJECT_HOME)/resources/make/minio.mk not found — minio targets not loaded)
-	endif
+ifneq ($(wildcard $(PROJECT_HOME)/resources/make/kafka.mk),)
+	include $(PROJECT_HOME)/resources/make/kafka.mk
+else
+	$(warning $(PROJECT_HOME)/resources/make/kafka.mk not found — kafka targets not loaded)
+endif
 
-	ifneq ($(wildcard $(PROJECT_HOME)/resources/make/kubernetes.mk),)
-		include $(PROJECT_HOME)/resources/make/kubernetes.mk
-	else
-		$(warning $(PROJECT_HOME)/resources/make/kubernetes.mk not found — kubernetes targets not loaded)
-	endif
+ifneq ($(wildcard $(PROJECT_HOME)/resources/make/certificates.mk),)
+	include $(PROJECT_HOME)/resources/make/certificates.mk
+else
+	$(warning $(PROJECT_HOME)/resources/make/certificates.mk not found — certificates targets not loaded)
+endif
 
-	ifneq ($(wildcard $(PROJECT_HOME)/resources/make/product_loader.mk),)
-		include $(PROJECT_HOME)/resources/make/product_loader.mk
-	else
-		$(warning $(PROJECT_HOME)/resources/make/product_loader.mk not found — product_loader targets not loaded)
-	endif
+ifneq ($(wildcard $(PROJECT_HOME)/resources/make/minio.mk),)
+	include $(PROJECT_HOME)/resources/make/minio.mk
+else
+	$(warning $(PROJECT_HOME)/resources/make/minio.mk not found — minio targets not loaded)
+endif
+
+ifneq ($(wildcard $(PROJECT_HOME)/resources/make/kubernetes.mk),)
+	include $(PROJECT_HOME)/resources/make/kubernetes.mk
+else
+	$(warning $(PROJECT_HOME)/resources/make/kubernetes.mk not found — kubernetes targets not loaded)
+endif
+
+ifneq ($(wildcard $(PROJECT_HOME)/resources/make/product_loader.mk),)
+	include $(PROJECT_HOME)/resources/make/product_loader.mk
+else
+	$(warning $(PROJECT_HOME)/resources/make/product_loader.mk not found — product_loader targets not loaded)
+endif
 else
 	$(warning PROJECT_HOME not defined after loading env files)
 endif

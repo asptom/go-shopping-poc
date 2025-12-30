@@ -1,11 +1,8 @@
 #!/usr/bin/env bash
-# scripts/Makefile/export_env.sh
 set -euo pipefail
-
 (
   set -a
-  [ -f config/.env ] && source config/.env
-  [ -f config/.env.local ] && source config/.env.local
+  [ -f .env ] && source .env
+  [ -f .env.local ] && source .env.local
   env
-) | sed 's/^/export /'
-
+) | grep -v '^=' | awk '{pos = index($0, "="); print substr($0, 1, pos-1) " := " substr($0, pos+1)}'
