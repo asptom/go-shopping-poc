@@ -18,7 +18,9 @@ k8s-info: ## Show Kubernetes configuration details
 	@$(MAKE) separator
 	@echo "Kubernetes Configuration:"
 	@echo "-------------------------"
-	@echo "Project Home: $$PROJECT_HOME"
+	@echo "Project Home: $(PROJECT_HOME)"
+	@echo "Keycloak Namespace: $(KEYCLOAK_NAMESPACE)"
+	@echo "Keycloak Realm File: $(KEYCLOAK_REALM_FILE)"
 	@echo "-------------------------"	
 	@echo
 
@@ -53,9 +55,8 @@ k8s-install-configmaps: ## Deploy all required configmaps to Kubernetes
 
 k8s-install-keycloak-realm-configmap: ## Load the Keycloak realm configuration into a configmap
 	@$(MAKE) separator
-	@[ -d "$$KEYCLOAK_RESOURCES_DIR" ] || { echo "Resources directory missing: $$KEYCLOAK_RESOURCES_DIR"; exit 1; }
 	@bash -euo pipefail -c '\
-		kubectl -n "$$KEYCLOAK_NAMESPACE" create configmap keycloak-realm --from-file=realm.json="$$KEYCLOAK_RESOURCES_DIR/pocstore-realm.json" --dry-run=client -o yaml | kubectl apply -f -; \
+		kubectl -n $(KEYCLOAK_NAMESPACE) create configmap keycloak-realm --from-file=realm.json=$(KEYCLOAK_REALM_FILE) --dry-run=client -o yaml | kubectl apply -f -; \
 		echo "Keycloak realm configmap created"; \
 	'
 

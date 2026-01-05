@@ -15,7 +15,7 @@ product-loader-info: ## Show Product Loader configuration details
 	@$(MAKE) separator
 	@echo "Product Loader Configuration:"
 	@echo "-----------------------------"
-	@echo "Project Home: $$PROJECT_HOME"
+	@echo "Project Home: $(PROJECT_HOME)"
 	@echo "Source Directory: ./cmd/product-loader"
 	@echo "Binary Output: ./bin/product-loader"
 	@echo "-----------------------------"

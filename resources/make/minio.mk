@@ -14,8 +14,8 @@ minio-info: ## Show Minio configuration details
 	@$(MAKE) separator
 	@echo "Minio Configuration:"
 	@echo "-------------------------"
-	@echo "Project Home: $$PROJECT_HOME"
-	@echo "Minio Namespace: $$MINIO_NAMESPACE"
+	@echo "Project Home: $(PROJECT_HOME)"
+	@echo "Minio Namespace: $(MINIO_NAMESPACE)"
 	@echo "-------------------------"	
 	@echo
 

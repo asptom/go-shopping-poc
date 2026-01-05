@@ -113,7 +113,7 @@ else
 endif
 # ------------------------------------------------------------------
 
-SERVICES := customer eventreader
+SERVICES := customer eventreader product
 
 MODELS := $(shell find resources/postgresql/models/ -mindepth 1 -maxdepth 1 -type d -exec basename {} \;)
 
