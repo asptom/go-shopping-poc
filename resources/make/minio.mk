@@ -2,15 +2,16 @@
 # Include this in your top-level Makefile with:
 #   include $(PROJECT_HOME)/resources/make/minio.mk
 
-SHELL := /usr/bin/env bash
+SHELL := /bin/bash
 .SHELLFLAGS := -euo pipefail -c
 .ONESHELL:
 
-.PHONY: minio-info minio-initialize
+MINIO_NAMESPACE := minio
 # ------------------------------------------------------------------
 # Info target
 # ------------------------------------------------------------------
-minio-info: ## Show Minio configuration details
+.PHONY: minio-info ## Show Minio configuration details
+minio-info:
 	@$(MAKE) separator
 	@echo "Minio Configuration:"
 	@echo "-------------------------"
@@ -20,29 +21,11 @@ minio-info: ## Show Minio configuration details
 	@echo
 
 # ------------------------------------------------------------------
-# Initialize target
+# Install target
 # ------------------------------------------------------------------
-minio-initialize: ## Create required MinIO buckets
+.PHONY: minio-install ## Install Minio in Kubernetes
+minio-install:
 	@$(MAKE) separator
-	@echo "Skipping the initialization of Minio buckets right now..."
-# 	@if [ -f .env ]; then set -a; source .env; set +a; fi
-# 	@: "${MINIO_USER:?MINIO_USER must be set (export or .env)}"
-# 	@: "${MINIO_PASSWORD:?MINIO_PASSWORD must be set (export or .env)}"
-# 	@: "${MINIO_NAMESPACE:?MINIO_NAMESPACE must be set (export or .env)}"
-# 	@echo "Creating required MinIO buckets..."
-# 	@bash -euo pipefail -c '\
-# 		# Get MinIO pod name \
-# 		MINIO_POD=$$(kubectl get pods -n "$$MINIO_NAMESPACE" -l app=minio -o jsonpath="{.items[0].metadata.name}"); \
-# 		if [ -z "$$MINIO_POD" ]; then \
-# 			echo "Error: MinIO pod not found"; \
-# 			exit 1; \
-# 		fi; \
-# 		echo "Found MinIO pod: $$MINIO_POD"; \
-# 		\
-# 		# Create product-images bucket \
-# 		echo "Creating product-images bucket..."; \
-# 		kubectl exec -n "$$MINIO_NAMESPACE" "$$MINIO_POD" -- /bin/sh -c "\
-# 			mc alias set local http://localhost:9000 $$MINIO_USER $$MINIO_PASSWORD && \
-# 			mc mb local/product-images --ignore-existing \
-# 		" && echo "Bucket product-images created successfully" || echo "Bucket product-images may already exist"; \
-	
+	@echo "Installing Minio in Kubernetes..."
+	@kubectl apply -f deploy/k8s/platform/minio/
+	@echo

@@ -1,106 +1,84 @@
 # Sub-Makefile for PostgreSQL installation and management
 # Include this in your top-level Makefile with:
-#   include $(PROJECT_HOME)/scripts/Makefile/postgres.mk
+#   include $(PROJECT_HOME)/resources/make/postgres.mk
 
-SHELL := /usr/bin/env bash
+SHELL := /bin/bash
 .SHELLFLAGS := -euo pipefail -c
 .ONESHELL:
-
-.PHONY: postgres-info postgres-initialize postgres-wait \
-        postgres-create-dbs postgres-create-schemas
 
 # ------------------------------------------------------------------
 # Info target
 # ------------------------------------------------------------------
-postgres-info: ## Show PostgreSQL configuration details
+
+.PHONY: postgres-info ## Show PostgreSQL configuration details
+postgres-info: 
 	@$(MAKE) separator
 	@echo "PostgreSQL Configuration:"
 	@echo "-------------------------"
 	@echo "Project Home: $(PROJECT_HOME)"
-	@echo "Namespace: $(PSQL_NAMESPACE)"
-	@echo "Models Dir: $(PSQL_MODELS_DIR)"
+	@echo "DB Namespace: $(DB_NAMESPACE)"
 	@echo "-------------------------"
 	@echo
 
 # ------------------------------------------------------------------
-# Wait target
+# Create Secrets
 # ------------------------------------------------------------------
-postgres-wait:
-	@echo "Waiting for postgres pod to be Ready..."
-	@while true; do \
-		status=$$(kubectl -n $(PSQL_NAMESPACE) get pods -l app=postgres \
-			-o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo ""); \
-		if [[ "$$status" == "True" ]]; then break; fi; \
-		echo "Waiting for postgresql pod..."; \
-		sleep 5; \
-	done
-	@echo "Postgres pod is Ready."
+
+.PHONY: postgres-create-secret
+postgres-create-secret:
+	@kubectl -n $(NAMESPACE) create secret generic $(SECRET_NAME) \
+      --from-literal=POSTGRES_DB=postgres \
+      --from-literal=POSTGRES_USER=postgresadmin \
+      --from-literal=POSTGRES_PASSWORD=$(PASSWORD) \
+	  --from-literal=POSTGRES_HOST=postgres.$(DB_NAMESPACE).svc.cluster.local \
+      --dry-run=client -o yaml | kubectl apply -f -
+	@echo "PostgreSQL Admin secret $(SECRET_NAME) created in namespace $(NAMESPACE)."
+
+.PHONY: postgres-create-secrets  ## Create secrets for Postgres administration use namespaces that need them
+postgres-create-secrets: 
+	@$(MAKE) separator
+	@echo "Creating PostgreSQL secrets..."
+	@NEWPASS=$$(openssl rand -hex 16); \
+	$(MAKE) postgres-create-secret PASSWORD="$$NEWPASS" NAMESPACE=$(DB_NAMESPACE) SECRET_NAME=postgres-admin-secret; \
+	$(MAKE) postgres-create-secret PASSWORD="$$NEWPASS" NAMESPACE=$(SERVICES_NAMESPACE) SECRET_NAME=postgres-admin-bootstrap-secret; \
+	$(MAKE) postgres-create-secret PASSWORD="$$NEWPASS" NAMESPACE=$(AUTH_NAMESPACE) SECRET_NAME=postgres-admin-bootstrap-secret
+	@echo
 
 # ------------------------------------------------------------------
-# Create DBs
+# Install Postgres platform
 # ------------------------------------------------------------------
-postgres-create-dbs:
+
+.PHONY: postgres-install ## Install PostgreSQL platform in Kubernetes
+postgres-install: postgres-create-secrets 
 	@$(MAKE) separator
-	@echo "Creating databases..."
-	@cd "$(PSQL_MODELS_DIR)"
-	@if ! command -v envsubst &>/dev/null; then \
-		echo "envsubst not found. Please install."; exit 1; \
-	fi
-	@for template in $(shell find . -type f -name '*_db.sql' | sort); do \
-		outputdb="$${template%_db.sql}.db"; \
-		[ -f "$$outputdb" ] && rm "$$outputdb"; \
-		echo "Processing database template: $$template"; \
-		envsubst < "$$template" > "$$outputdb" || { echo "envsubst failed for $$template"; continue; }; \
-		[ -s "$$outputdb" ] || { echo "Output file $$outputdb empty. Skipping."; rm -f "$$outputdb"; continue; }; \
-		DB=$$(grep -m1 '^-- DB:' "$$outputdb" | sed 's/^-- DB:[[:space:]]*//'); \
-		USER=$$(grep -m1 '^-- USER:' "$$outputdb" | sed 's/^-- USER:[[:space:]]*//'); \
-		PGPASSWORD=$$(grep -m1 '^-- PGPASSWORD:' "$$outputdb" | sed 's/^-- PGPASSWORD:[[:space:]]*//'); \
-		if [[ -z "$$DB" || -z "$$USER" || -z "$$PGPASSWORD" ]]; then \
-			echo "Missing DB, USER, or PGPASSWORD in $$outputdb. Skipping."; rm -f "$$outputdb"; continue; \
-		fi; \
-		echo "Creating database $$DB..."; \
-		kubectl -n $(PSQL_NAMESPACE) run psql-client --rm -i --restart='Never' \
-			--image=docker.io/postgres:18.0 --env="PGPASSWORD=$$PGPASSWORD" --command -- \
-			psql --host postgres -U "$$USER" -d "$$DB" -p 5432 < "$$outputdb" || { echo "Failed $$outputdb"; exit 1; }; \
-		rm -f "$$outputdb"; \
-	done
-	@echo "Databases created."
+	@echo "Installing PostgreSQL platform in Kubernetes..."
+	@kubectl apply -f deploy/k8s/platform/postgres/
+	@kubectl rollout status statefulset/postgres -n $(DB_NAMESPACE) --timeout=180s
+	@echo
+
+
+# TODO:  Move the migration target to dep-template.mk or a new db-migration.mk
+
 
 # ------------------------------------------------------------------
-# Create Schemas
+# Migrate DBs
 # ------------------------------------------------------------------
-postgres-create-schemas:
-	@$(MAKE) separator
-	@echo "Creating schemas..."
-	@cd "$(PSQL_MODELS_DIR)"
-	@for template in $(shell find . -type f -name '*_db.sql' | sort); do \
-		sqlfile="$${template%_db.sql}_schema.sql"; \
-		[ -f "$$sqlfile" ] || continue; \
-		outputsql="$${sqlfile%.sql}_substituted.sql"; \
-		[ -f "$$outputsql" ] && rm "$$outputsql"; \
-		envsubst < "$$sqlfile" > "$$outputsql" || { echo "envsubst failed for $$sqlfile"; exit 1; }; \
-		DB=$$(grep -m1 '^-- DB:' "$$outputsql" | sed 's/^-- DB:[[:space:]]*//'); \
-		USER=$$(grep -m1 '^-- USER:' "$$outputsql" | sed 's/^-- USER:[[:space:]]*//'); \
-		PGPASSWORD=$$(grep -m1 '^-- PGPASSWORD:' "$$outputsql" | sed 's/^-- PGPASSWORD:[[:space:]]*//'); \
-		if [[ -z "$$DB" || -z "$$USER" || -z "$$PGPASSWORD" ]]; then \
-			echo "Missing DB, USER, or PGPASSWORD in $$outputsql. Skipping."; rm -f "$$outputsql"; continue; \
-		fi; \
-		echo "Creating schema for $$DB..."; \
-		kubectl -n $(PSQL_NAMESPACE) run psql-client --rm -i --restart='Never' \
-			--image=docker.io/postgres:18.0 --env="PGPASSWORD=$$PGPASSWORD" --command -- \
-			psql --host postgres -U "$$USER" -d "$$DB" -p 5432 < "$$outputsql" || { echo "Failed $$outputsql"; exit 1; }; \
-		rm -f "$$outputsql"; \
-	done
-	@echo "Schemas created."
 
-# ------------------------------------------------------------------
-# Initialize (calls the above sequentially, inlined)
-# ------------------------------------------------------------------
-postgres-initialize: ## Initialize databases
+.PHONY: postgres-migrate-db
+postgres-migrate-db:
 	@$(MAKE) separator
-	@echo "Starting PostgreSQL install..."
-	@[ -d "$(PSQL_MODELS_DIR)" ] || { echo "Models dir missing: $(PSQL_MODELS_DIR)"; exit 1; }
-	@$(MAKE) postgres-wait
-	@$(MAKE) postgres-create-dbs
-	@$(MAKE) postgres-create-schemas
-	@echo "Postgres initialization complete."
+	@echo "Migrating database..."
+	@kubectl delete job $(SERVICE)-db-migrate --ignore-not-found
+	@kubectl apply -f deployment/k8s/services/$(SERVICE)-db-migrate.yaml
+	@kubectl wait --for=condition=complete job/$(SERVICE)-db-migrate -n $(DB_NAMESPACE) --timeout=120s
+	@echo "Database $(SERVICE) migrated."
+
+.PHONY: postgres-migrate-dbs ## Migrate databases for all services
+postgres-migrate-dbs:  
+	@$(MAKE) separator
+	@echo "Migrating databases for all services..."
+	@for SERVICE in $(SERVICES_WITH_DB); do \
+		$(MAKE) postgres-migrate-db SERVICE=$$SERVICE NAMESPACE=$(DB_NAMESPACE); \
+	done
+	@echo "All databases migrated."
+

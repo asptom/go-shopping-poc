@@ -46,7 +46,7 @@ Tool: read
 00002| # Include this in your top-level Makefile with:
 00003| #   include $(PROJECT_HOME)/scripts/Makefile/postgres.mk
 00004| 
-00005| SHELL := /usr/bin/env bash
+00005| SHELL := /bin/bash
 00006| .SHELLFLAGS := -euo pipefail -c
 00007| .ONESHELL:
 00008| 
@@ -170,7 +170,7 @@ Tool: read
 00001| # Makefile for Go Shopping POC Application
 00002| # ------------------------------------------------------------------
 00003| 
-00004| SHELL := /usr/bin/env bash
+00004| SHELL := /bin/bash
 00005| .SHELLFLAGS := -euo pipefail -c
 00006| .ONESHELL:
 00007| 
@@ -266,10 +266,10 @@ Tool: read
 00097| 	$(warning $(PROJECT_HOME)/resources/make/minio.mk not found — minio targets not loaded)
 00098| endif
 00099| 
-00100| ifneq ($(wildcard $(PROJECT_HOME)/resources/make/kubernetes.mk),)
-00101| 	include $(PROJECT_HOME)/resources/make/kubernetes.mk
+00100| ifneq ($(wildcard $(PROJECT_HOME)/resources/make/k8s.mk),)
+00101| 	include $(PROJECT_HOME)/resources/make/k8s.mk
 00102| else
-00103| 	$(warning $(PROJECT_HOME)/resources/make/kubernetes.mk not found — kubernetes targets not loaded)
+00103| 	$(warning $(PROJECT_HOME)/resources/make/k8s.mk not found — kubernetes targets not loaded)
 00104| endif
 00105| 
 00106| ifneq ($(wildcard $(PROJECT_HOME)/resources/make/product_loader.mk),)
@@ -435,7 +435,7 @@ Tool: read
 **Input:**
 ```json
 {
-  "filePath": "/Users/tom/Projects/Go/go-shopping-poc/deployments/kubernetes/platform/postgresql-deploy.yaml"
+  "filePath": "/Users/tom/Projects/Go/go-shopping-poc/deployment/k8s/platform/postgresql-deploy.yaml"
 }
 ```
 **Output:**
@@ -536,12 +536,12 @@ Tool: glob
 **Input:**
 ```json
 {
-  "pattern": "deployments/kubernetes/base/configmaps/postgres*.yaml"
+  "pattern": "deployment/k8s/base/configmap/postgres*.yaml"
 }
 ```
 **Output:**
 ```
-/Users/tom/Projects/Go/go-shopping-poc/deployments/kubernetes/base/configmaps/postgresql-configmap.yaml
+/Users/tom/Projects/Go/go-shopping-poc/deployment/k8s/base/configmap/postgresql-configmap.yaml
 ```
 ```
 
@@ -551,7 +551,7 @@ Tool: glob
 **Input:**
 ```json
 {
-  "pattern": "deployments/kubernetes/base/secrets/*.yaml"
+  "pattern": "deployment/k8s/base/secret/*.yaml"
 }
 ```
 **Output:**
@@ -566,12 +566,12 @@ Tool: read
 **Input:**
 ```json
 {
-  "filePath": "/Users/tom/Projects/Go/go-shopping-poc/deployments/kubernetes/base/configmaps/postgresql-config.yaml"
+  "filePath": "/Users/tom/Projects/Go/go-shopping-poc/deployment/k8s/base/configmap/postgresql-config.yaml"
 }
 ```
 **Error:**
 ```
-Error: File not found: /Users/tom/Projects/Go/go-shopping-poc/deployments/kubernetes/base/configmaps/postgresql-config.yaml
+Error: File not found: /Users/tom/Projects/Go/go-shopping-poc/deployment/k8s/base/configmap/postgresql-config.yaml
 ```
 ```
 
@@ -612,7 +612,7 @@ Tool: read
 **Input:**
 ```json
 {
-  "filePath": "/Users/tom/Projects/Go/go-shopping-poc/deployments/kubernetes/base/configmaps/postgresql-configmap.yaml"
+  "filePath": "/Users/tom/Projects/Go/go-shopping-poc/deployment/k8s/base/configmap/postgresql-configmap.yaml"
 }
 ```
 **Output:**
@@ -1308,11 +1308,11 @@ Tool: bash
 **Output:**
 ```
 /Users/tom/Projects/Go/go-shopping-poc/vendor/github.com/segmentio/kafka-go/docker-compose.yml
-/Users/tom/Projects/Go/go-shopping-poc/deployments/kubernetes/base/secrets/customer-secret.yaml
-/Users/tom/Projects/Go/go-shopping-poc/deployments/kubernetes/base/secrets/keycloak-secret.yaml
-/Users/tom/Projects/Go/go-shopping-poc/deployments/kubernetes/base/secrets/postgres-secret.yaml
-/Users/tom/Projects/Go/go-shopping-poc/deployments/kubernetes/base/secrets/product-secret.yaml
-/Users/tom/Projects/Go/go-shopping-poc/deployments/kubernetes/base/secrets/minio-secret.yaml
+/Users/tom/Projects/Go/go-shopping-poc/deployment/k8s/base/secret/customer-secret.yaml
+/Users/tom/Projects/Go/go-shopping-poc/deployment/k8s/base/secret/keycloak-secret.yaml
+/Users/tom/Projects/Go/go-shopping-poc/deployment/k8s/base/secret/postgres-secret.yaml
+/Users/tom/Projects/Go/go-shopping-poc/deployment/k8s/base/secret/product-secret.yaml
+/Users/tom/Projects/Go/go-shopping-poc/deployment/k8s/base/secret/minio-secret.yaml
 
 ```
 ```
@@ -1323,7 +1323,7 @@ Tool: read
 **Input:**
 ```json
 {
-  "filePath": "/Users/tom/Projects/Go/go-shopping-poc/deployments/kubernetes/base/namespaces/postgres-namespace.yaml"
+  "filePath": "/Users/tom/Projects/Go/go-shopping-poc/deployment/k8s/base/namespace/postgres-namespace.yaml"
 }
 ```
 **Output:**
@@ -1353,7 +1353,7 @@ Tool: read
 **Input:**
 ```json
 {
-  "filePath": "/Users/tom/Projects/Go/go-shopping-poc/deployments/kubernetes/base/secrets/postgres-secret.yaml"
+  "filePath": "/Users/tom/Projects/Go/go-shopping-poc/deployment/k8s/base/secret/postgres-secret.yaml"
 }
 ```
 **Output:**
@@ -1384,7 +1384,7 @@ Tool: read
 **Input:**
 ```json
 {
-  "filePath": "/Users/tom/Projects/Go/go-shopping-poc/deployments/kubernetes/base/secrets/customer-secret.yaml"
+  "filePath": "/Users/tom/Projects/Go/go-shopping-poc/deployment/k8s/base/secret/customer-secret.yaml"
 }
 ```
 **Output:**
@@ -1418,7 +1418,7 @@ Tool: read
 **Input:**
 ```json
 {
-  "filePath": "/Users/tom/Projects/Go/go-shopping-poc/deployments/kubernetes/base/secrets/product-secret.yaml"
+  "filePath": "/Users/tom/Projects/Go/go-shopping-poc/deployment/k8s/base/secret/product-secret.yaml"
 }
 ```
 **Output:**
@@ -1833,7 +1833,7 @@ Tool: read
 00146|   - **deploy-dev.sh** (150+ lines) - Development deployment with 1 replica
 00147|   - **deploy-prod.sh** (120+ lines) - Production deployment with 2 replicas + labels
 00148| - Scripts use direct kubectl commands (no Kustomize complexity)
-00149| - Base structure: `deployments/kubernetes/base/` with configmaps/, secrets/, and services/kafka/namespace.yaml
+00149| - Base structure: `deployment/k8s/base/` with configmaps/, secrets/, and services/kafka/namespace.yaml
 00150| - Deployment order: Secrets → ConfigMaps → Namespace → Platform Services → Application Services → Replicas/Labels
 00151| - Made scripts executable
 00152| - Simple, understandable, easy to debug
@@ -1860,7 +1860,7 @@ Tool: read
 00173| - Services now reference ConfigMaps and Secrets instead of hardcoded values
 00174| 
 00175| ## Phase 2 Complete ✅
-00176| - Created directory: `deployments/kubernetes/base/secrets/`
+00176| - Created directory: `deployment/k8s/base/secret/`
 00177| - Created 5 Secret template files (55 total lines) with .yaml.example extension:
 00178|   - **customer-secret.yaml.example** (10 lines) - Customer database URL
 00179|   - **product-secret.yaml.example** (12 lines) - Product database URL + MinIO credentials
@@ -1872,7 +1872,7 @@ Tool: read
 00185| - Git protection: ✅ Existing .gitignore already contains `*secret*` pattern
 00186| 
 00187| ## Phase 1 Complete ✅
-00188| - Created directory: `deployments/kubernetes/base/configmaps/`
+00188| - Created directory: `deployment/k8s/base/configmap/`
 00189| - Created 9 ConfigMap files (109 total lines):
 00190|   - **platform-configmap.yaml** (31 lines, 18 entries) - Shared platform settings (DB pools, Kafka, CORS, outbox)
 00191|   - **customer-configmap.yaml** (11 lines, 5 entries) - Customer service specific
@@ -4520,20 +4520,20 @@ spec:
 
 ```bash
 # 1. Apply namespace (if not exists)
-kubectl apply -f deployments/kubernetes/base/namespaces/postgres-namespace.yaml
+kubectl apply -f deployment/k8s/base/namespace/postgres-namespace.yaml
 
 # 2. Apply ConfigMaps
 kubectl apply -f resources/postgresql/k8s/postgres-configmap.yaml
 kubectl apply -f resources/postgresql/k8s/postgres-init-scripts.yaml
 
 # 3. Apply Secrets
-kubectl apply -f deployments/kubernetes/base/secrets/postgres-secret.yaml
-kubectl apply -f deployments/kubernetes/base/secrets/customer-secret.yaml
-kubectl apply -f deployments/kubernetes/base/secrets/product-secret.yaml
+kubectl apply -f deployment/k8s/base/secret/postgres-secret.yaml
+kubectl apply -f deployment/k8s/base/secret/customer-secret.yaml
+kubectl apply -f deployment/k8s/base/secret/product-secret.yaml
 # ... (create and apply cart, order, keycloak secrets)
 
 # 4. Apply PostgreSQL deployment
-kubectl apply -f deployments/kubernetes/platform/postgresql-deploy.yaml
+kubectl apply -f deployment/k8s/platform/postgresql-deploy.yaml
 
 # 5. Wait for PostgreSQL to be ready
 kubectl wait --for=condition=ready pod -l app=postgres -n postgres --timeout=300s
@@ -4719,7 +4719,7 @@ docker-compose run --rm postgres-init
 ```makefile
 # Sub-Makefile for PostgreSQL installation and management
 
-SHELL := /usr/bin/env bash
+SHELL := /bin/bash
 .SHELLFLAGS := -euo pipefail -c
 .ONESHELL:
 

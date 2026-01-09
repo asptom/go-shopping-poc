@@ -1,0 +1,25 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: product-db-create
+  namespace: postgres
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: init
+          image: docker.io/postgres:18.0
+          envFrom:
+            - secretRef:
+                name: postgres-admin-secret
+            - secretRef:
+                name: product-db-secret
+          volumeMounts:
+            - name: sql
+              mountPath: /sql
+          command: ["/bin/bash", "/sql/run.sh"]
+      volumes:
+        - name: sql
+          configMap:
+            name: product-db-sql

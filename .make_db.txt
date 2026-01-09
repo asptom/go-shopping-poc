@@ -1,0 +1,1640 @@
+# GNU Make 3.81
+# Copyright (C) 2006  Free Software Foundation, Inc.
+# This is free software; see the source for copying conditions.
+# There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A
+# PARTICULAR PURPOSE.
+
+# This program built for i386-apple-darwin11.3.0
+
+# Make data base, printed on Thu Jan  8 14:59:02 2026
+
+# Variables
+
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 104)
+VSCODE_GIT_ASKPASS_MAIN := /Applications/Visual Studio Code.app/Contents/Resources/app/extensions/git/dist/askpass-main.js
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 55)
+NAMESPACE := keycloak
+# automatic
+?F = $(notdir $?)
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 18)
+KAFKA_DEPLOYMENT_DIR := /Users/tom/Projects/Go/go-shopping-poc/deployments/kubernetes/kafka
+# automatic
+<D = $(patsubst %/,%,$(dir $<))
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/product_loader.mk', line 6)
+.SHELLFLAGS := -euo pipefail -c
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 31)
+WEBSOCKET_ALLOWED_ORIGINS := http://localhost:4200,http://localhost:3000
+# makefile (from `Makefile', line 136)
+MODELS := order product cart keycloak
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 111)
+CSV_PATH := ./resources/product-loader/poc-products-short.csv
+# automatic
+?D = $(patsubst %/,%,$(dir $?))
+# automatic
+@D = $(patsubst %/,%,$(dir $@))
+# automatic
+@F = $(notdir $@)
+# makefile
+CURDIR := /Users/tom/Projects/Go/go-shopping-poc
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 7)
+PSQL_MASTER_PASSWORD := postgresadminpw
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/product_loader.mk', line 5)
+SHELL := /bin/bash
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 114)
+PSQL_PRODUCT_ROLE := productsuser
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 1)
+PSQL_PRODUCT_DB := productsdb
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 99)
+KEYCLOAK_RESOURCES_DIR := /Users/tom/Projects/Go/go-shopping-poc/resources/keycloak
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 140)
+_ := /usr/bin/env
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 52)
+MINIO_BUCKET := productimages
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 137)
+MINIO_TLS_VERIFY := false
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/product_loader.mk', line 1)
+MAKEFILE_LIST :=  Makefile /Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk /Users/tom/Projects/Go/go-shopping-poc/resources/make/postgres.mk /Users/tom/Projects/Go/go-shopping-poc/resources/make/kafka.mk /Users/tom/Projects/Go/go-shopping-poc/resources/make/certificates.mk /Users/tom/Projects/Go/go-shopping-poc/resources/make/minio.mk /Users/tom/Projects/Go/go-shopping-poc/resources/make/k8s.mk /Users/tom/Projects/Go/go-shopping-poc/resources/make/db-bootstrap.mk /Users/tom/Projects/Go/go-shopping-poc/resources/make/keycloak.mk /Users/tom/Projects/Go/go-shopping-poc/resources/make/product_loader.mk
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 135)
+PSQL_CUSTOMER_DB := customersdb
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 61)
+VSCODE_PROFILE_INITIALIZED := 1
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 97)
+KEYCLOAK_REALM_FILE := /Users/tom/Projects/Go/go-shopping-poc/resources/keycloak/pocstore-realm.json
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 36)
+MINIO_DEPLOYMENT_DIR := /Users/tom/Projects/Go/go-shopping-poc/deployments/kubernetes/minio
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 98)
+VSCODE_INJECTION := 1
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 112)
+PSQL_CUSTOMER_ROLE := customersuser
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 70)
+OUTBOX_PROCESS_INTERVAL := 30s
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 53)
+DATABASE_HEALTH_CHECK_TIMEOUT := 5s
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 122)
+WEBSOCKET_WRITE_BUFFER := 1024
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 123)
+PSQL_RESOURCES_DIR := /Users/tom/Projects/Go/go-shopping-poc/resources/postgresql
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 71)
+__CFBundleIdentifier := com.microsoft.VSCode
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 128)
+INFOPATH := /opt/homebrew/share/info:/opt/homebrew/share/info:
+# makefile (from `Makefile', line 131)
+SERVICES_NAMESPACE := shopping
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 6)
+DATABASE_MAX_OPEN_CONNS := 25
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 5)
+MINIO_SECRET_KEY := minioadminpassword
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 88)
+DATABASE_QUERY_TIMEOUT := 60s
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 3)
+PSQL_MASTER_USER := postgresadmin
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 37)
+PROJECT_NAMESPACE := shopping
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 64)
+POSTGRES_PASSWORD := postgresadminpw
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 69)
+GSETTINGS_SCHEMA_DIR := /opt/anaconda3/share/glib-2.0/schemas
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 47)
+MINIO_ENDPOINT_KUBERNETES := minio.minio.svc.cluster.local:9000
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 67)
+PATH := /Users/tom/.rd/bin:/Users/tom/.rd/bin:/Users/tom/Library/Application Support/Code/User/globalStorage/github.copilot-chat/debugCommand:/Users/tom/Library/Application Support/Code/User/globalStorage/github.copilot-chat/copilotCli:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/Users/tom/Library/Application Support/Code/User/globalStorage/github.copilot-chat/debugCommand:/Users/tom/Library/Application Support/Code/User/globalStorage/github.copilot-chat/copilotCli:/Users/tom/.rd/bin:/opt/anaconda3/bin:/opt/anaconda3/condabin
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 79)
+ENV_FILE := .env
+# makefile (from `Makefile', line 133)
+DB_NAMESPACE := postgres
+# makefile (from `Makefile', line 129)
+SERVICES := customer eventreader product
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 133)
+TLS_CERTIFICATES_DIR := /Users/tom/Projects/Go/go-shopping-poc/resources/security/tls_certificates/certificates
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 43)
+CORS_ALLOWED_METHODS := GET,POST,PUT,DELETE,PATCH,OPTIONS
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 86)
+KEYCLOAK_DB_URL_DATABASE := postgres://keycloak:keycloak@localhost:30432/keycloak?sslmode=disable
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 83)
+WEBSOCKET_READ_BUFFER := 1024
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 134)
+MINIO_ENDPOINT_LOCAL := api.minio.local
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 124)
+DATABASE_HEALTH_CHECK_INTERVAL := 30s
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 41)
+WEBSOCKET_PORT := :8080
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 94)
+WEBSOCKET_TIMEOUT := 30s
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 34)
+ZDOTDIR := /Users/tom
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 66)
+KAFKA_BROKERS := localhost:9092
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 49)
+DATABASE_CONNECT_TIMEOUT := 30s
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 56)
+KEYCLOAK_ADMIN_USERNAME := admin
+# default
+.FEATURES := target-specific order-only second-expansion else-if archives jobserver check-symlink
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 113)
+MINIO_ROOT_USER := minioadmin
+# makefile (from `Makefile', line 132)
+AUTH_NAMESPACE := keycloak
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 93)
+POSTGRES_USER := postgresadmin
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 59)
+SSH_AUTH_SOCK := /private/tmp/com.apple.launchd.F8iFgpaxbn/Listeners
+# automatic
+%F = $(notdir $%)
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 58)
+PSQL_CUSTOMER_DB_URL := postgres://customersuser:customerssecret@localhost:30432/customersdb?sslmode=disable
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 51)
+CONDA_EXE := /opt/anaconda3/bin/conda
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 95)
+KAFKA_TOPICS_FILE := /Users/tom/Projects/Go/go-shopping-poc/resources/kafka/topics.def
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 118)
+IMAGE_CACHE_MAX_SIZE := 0
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 75)
+PWD := /Users/tom/Projects/Go/go-shopping-poc
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 35)
+CORS_ALLOWED_ORIGINS := http://localhost:4200,http://localhost:3000
+# makefile (from `Makefile', line 70)
+PROJECT_HOME := /Users/tom/Projects/Go/go-shopping-poc
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 78)
+PSQL_DEPLOYMENT_DIR := /Users/tom/Projects/Go/go-shopping-poc/deployments/kubernetes/postgresql
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 127)
+HOMEBREW_CELLAR := /opt/homebrew/Cellar
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 42)
+CORS_ALLOWED_HEADERS := Content-Type,Authorization,X-Requested-With
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 68)
+PSQL_MASTER_DB := postgresdb
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 4)
+MANPATH := /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/share/man:/Library/Developer/CommandLineTools/usr/share/man:/Library/Developer/CommandLineTools/Toolchains/XcodeDefault.xctoolchain/usr/share/man:
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 101)
+HOME := /Users/tom
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 87)
+EVENT_READER_GROUP := EventReaderGroup
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 16)
+RO_PASS := def
+# default
+MAKEFILEPATH = $(shell /usr/bin/xcode-select -print-path 2>/dev/null || echo /Developer)/Makefiles
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 80)
+CUSTOMER_GROUP := CustomerGroup
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 115)
+LOGNAME := tom
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 17)
+MINIO_NAMESPACE := minio
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 26)
+CONDA_PROMPT_MODIFIER := (base) 
+# makefile (from `Makefile', line 18)
+ENV_TMP := /Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 15)
+OUTBOX_MAX_RETRIES := 3
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 32)
+EVENT_READER_READ_TOPICS := CustomerEvents
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 138)
+MINIO_USER := minioadmin
+# makefile (from `Makefile', line 130)
+SERVICES_WITH_DB := customer product
+# automatic
+^D = $(patsubst %/,%,$(dir $^))
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 21)
+MINIO_ROOT_PASSWORD := minioadminpassword
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 131)
+CUSTOMER_READ_TOPICS := 
+# environment
+MAKELEVEL := 0
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 125)
+CONDA_DEFAULT_ENV := base
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 91)
+XPC_FLAGS := 0x0
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 139)
+COLORTERM := truecolor
+# default
+MAKE = $(MAKE_COMMAND)
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 105)
+KEYCLOAK_DB_USERNAME := keycloak
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 102)
+SHLVL := 3
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 121)
+RO_USER := keycloak_ro_user
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 136)
+GIT_PAGER := cat
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 84)
+PSQL_MODELS_DIR := /Users/tom/Projects/Go/go-shopping-poc/resources/postgresql/models
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 12)
+POSTGRES_DB := postgresdb
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 74)
+KAFKA_CLUSTER_NAMESPACE := kafka
+# default
+MAKE_VERSION := 3.81
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 103)
+OUTBOX_DELETE_BATCH_SIZE := 10
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 45)
+USER := tom
+# makefile
+.DEFAULT_GOAL := env-clean
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 82)
+PRODUCT_SERVICE_PORT := :8080
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 126)
+APP_PASS := abc
+# automatic
+%D = $(patsubst %/,%,$(dir $%))
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 63)
+DATABASE_MAX_IDLE_CONNS := 25
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 28)
+VSCODE_PYTHON_AUTOACTIVATE_GUARD := 1
+# makefile (from `Makefile', line 134)
+PLATFORMS_WITH_DB := keycloak
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 23)
+CONDA_SHLVL := 1
+# default
+MAKE_COMMAND := /Library/Developer/CommandLineTools/usr/bin/make
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 132)
+KAFKA_BROKER := kafka-0.kafka.svc.cluster.local:9092
+# environment
+OLDPWD = /Users/tom/Projects/Go/go-shopping-poc
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 92)
+VSCODE_GIT_ASKPASS_EXTRA_ARGS := 
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 8)
+TERM_PROGRAM := vscode
+# default
+.VARIABLES := 
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 19)
+TMPDIR := /var/folders/fs/90sfz2v94wqg61bcr5xr7xc00000gn/T/
+# automatic
+*F = $(notdir $*)
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 2)
+PSQL_CUSTOMER_PASSWORD := customerssecret
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 107)
+KEYCLOAK_NAMESPACE := keycloak
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 62)
+PSQL_PRODUCT_PASSWORD := productssecret
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 130)
+VSCODE_GIT_ASKPASS_NODE := /Applications/Visual Studio Code.app/Contents/Frameworks/Code Helper (Plugin).app/Contents/MacOS/Code Helper (Plugin)
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 33)
+MallocNanoZone := 0
+# makefile
+MAKEFLAGS = Rrqp
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 85)
+APP_USER := keycloak_user
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 76)
+SERVICE := keycloak
+# environment
+MFLAGS = -Rrqp
+# automatic
+*D = $(patsubst %/,%,$(dir $*))
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 27)
+TERM_PROGRAM_VERSION := 1.107.1
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 38)
+IMAGE_CACHE_DIR := /tmp/product-cache
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 96)
+XPC_SERVICE_NAME := 0
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 110)
+HOMEBREW_PREFIX := /opt/homebrew
+# automatic
++D = $(patsubst %/,%,$(dir $+))
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 40)
+KAFKA_RESOURCES_DIR := /Users/tom/Projects/Go/go-shopping-poc/resources/kafka
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 89)
+CSV_BATCH_SIZE := 100
+# automatic
++F = $(notdir $+)
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 30)
+GSETTINGS_SCHEMA_DIR_CONDA_BACKUP := 
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 20)
+HOMEBREW_REPOSITORY := /opt/homebrew
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 50)
+PSQL_NAMESPACE := postgres
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 60)
+__CF_USER_TEXT_ENCODING := 0x1F5:0x0:0x0
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 48)
+COMMAND_MODE := unix2003
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 129)
+GIT_ASKPASS := /Applications/Visual Studio Code.app/Contents/Resources/app/extensions/git/dist/askpass.sh
+# default
+MAKEFILES := 
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 77)
+CORS_ALLOW_CREDENTIALS := true
+# automatic
+<F = $(notdir $<)
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 106)
+PSQL_PRODUCT_DB_URL := postgres://productsuser:productssecret@localhost:30432/productsdb?sslmode=disable
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 22)
+KEYCLOAK_ADMIN_PASSWORD := admin
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 73)
+USER_ZDOTDIR := /Users/tom
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 116)
+CONDA_PYTHON_EXE := /opt/anaconda3/bin/python
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 29)
+IMAGE_CACHE_MAX_AGE := 24h
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 25)
+EVENT_READER_WRITE_TOPIC := ReaderEvents
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 119)
+WEBSOCKET_PATH := /ws
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 9)
+KEYCLOAK_DB_PASSWORD := keycloak
+# automatic
+^F = $(notdir $^)
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 57)
+CUSTOMER_SERVICE_PORT := :8080
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 11)
+DB_NAME := keycloak_db
+# default
+SUFFIXES := 
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 90)
+DATABASE_CONN_MAX_LIFETIME := 5m
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 108)
+CUSTOMER_WRITE_TOPIC := CustomerEvents
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 10)
+TLS_CONFIGURATION_DIR := /Users/tom/Projects/Go/go-shopping-poc/resources/security/tls_certificates/configuration
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 117)
+DATABASE_CONN_MAX_IDLE_TIME := 5m
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 46)
+WEBSOCKET_URL := ws://localhost:8080/ws
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 24)
+OUTBOX_BATCH_SIZE := 10
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 44)
+MINIO_ACCESS_KEY := minioadmin
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 109)
+MINIO_PASSWORD := minioadminpassword
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 120)
+VSCODE_GIT_IPC_HANDLE := /var/folders/fs/90sfz2v94wqg61bcr5xr7xc00000gn/T/vscode-git-7bd4301431.sock
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 39)
+CORS_MAX_AGE := 3600
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 100)
+KAFKA_CLUSTER_NAME := kafka-0
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/db-bootstrap.mk', line 4)
+define apply-db-bootstrap
+$(eval SERVICE := $1)
+$(eval NAMESPACE := $2)
+$(eval APP_USER := $(SERVICE)_user)
+$(eval APP_PASS := $(shell openssl rand -hex 16))
+$(eval RO_USER  := $(SERVICE)_ro_user)
+$(eval RO_PASS  := $(shell openssl rand -hex 16))
+$(eval DB_NAME  := $(SERVICE)_db)
+
+  @echo "Applying database bootstrap for service: $(SERVICE) in namespace: $(NAMESPACE)"
+
+	# Create ConfigMap with SQL script
+	kubectl apply -f - <<'EOF'
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: $(SERVICE)-db-init-sql
+  namespace: $(NAMESPACE)
+data:
+  init.sql: |
+    DO $$
+    BEGIN
+      DROP ROLE IF EXISTS :"APP_USER";
+      DROP ROLE IF EXISTS :"RO_USER";
+      DROP DATABASE IF EXISTS :"DB_NAME";
+      CREATE ROLE :"APP_USER" WITH LOGIN PASSWORD :'APP_PASSWORD';
+      CREATE ROLE :"RO_USER" WITH LOGIN PASSWORD :'RO_PASSWORD';
+      CREATE DATABASE :"DB_NAME" OWNER :"APP_USER" TEMPLATE template0 ENCODING 'UTF8';
+      GRANT ALL PRIVILEGES ON DATABASE :"DB_NAME" TO :"APP_USER";
+      GRANT CONNECT ON DATABASE :"DB_NAME" TO :"RO_USER";
+    END
+    $$;
+EOF
+
+	# Create Job that uses ConfigMap
+	kubectl apply -f - <<'EOF'
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: $(SERVICE)-db-bootstrap
+  namespace: $(NAMESPACE)
+spec:
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: db-bootstrap
+      containers:
+      - name: bootstrap
+        image: postgres:18.0
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: psql_host
+          value: postgres.postgres.svc.cluster.local
+        - name: psql_username
+          valueFrom:
+            secretKeyRef:
+              name: postgres-admin-bootstrap-secret
+              key: POSTGRES_USER
+        - name: PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-admin-bootstrap-secret
+              key: POSTGRES_PASSWORD
+        - name: psql_db
+          valueFrom:
+            secretKeyRef:
+              name: postgres-admin-bootstrap-secret
+              key: POSTGRES_DB
+        - name: DB_NAME
+          value: $(DB_NAME)
+        - name: APP_USER
+          value: $(APP_USER)
+        - name: APP_PASSWORD
+          value: $(APP_PASS)
+        - name: RO_USER
+          value: $(RO_USER)
+        - name: RO_PASSWORD
+          value: $(RO_PASS)
+        volumeMounts:
+        - name: sql-script
+          mountPath: /tmp/sql
+          readOnly: true
+        command:
+        - sh
+        - -c
+        - |
+          set -e
+          psql --host "$$psql_host" -U "$$psql_username" -d "$$psql_db" -p 5432 -f /tmp/sql/init.sql
+      volumes:
+      - name: sql-script
+        configMap:
+          name: $(SERVICE)-db-init-sql
+EOF
+
+	kubectl wait --for=condition=complete job/$(SERVICE)-db-bootstrap -n $(NAMESPACE) --timeout=120s
+
+	kubectl create secret generic $(SERVICE)-db-secret -n $(NAMESPACE) --from-literal=db_name=$(DB_NAME) --from-literal=username=$(APP_USER) --from-literal=password=$(APP_PASS) --from-literal=ro_username=$(RO_USER) --from-literal=ro_password=$(RO_PASS) --dry-run=client -o yaml | kubectl apply -f -
+endef
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 54)
+ENV := development
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 72)
+CONDA_PREFIX := /opt/anaconda3
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 14)
+TERM := xterm-256color
+# makefile (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk', line 81)
+LANG := en_US.UTF-8
+# variable set hash-table stats:
+# Load=179/1024=17%, Rehash=0, Collisions=25/315=8%
+
+# Pattern-specific Variable Values
+
+# No pattern-specific variable values.
+
+# Directories
+
+# /Users/tom/Projects/Go/go-shopping-poc/resources/make (device 16777230, inode 11636415): 12 files, no impossibilities so far.
+# . (device 16777230, inode 1470437): 29 files, no impossibilities.
+# ./resources/make (device 16777230, inode 11636415): 12 files, no impossibilities so far.
+
+# 53 files, no impossibilities in 3 directories.
+
+# Implicit Rules
+
+# No implicit rules.
+
+# Files
+
+postgres-wait:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/postgres.mk', line 64):
+	@echo "Waiting for postgres pod to be Ready..."
+	@while true; do \
+	status=$$(kubectl -n $(DB_NAMESPACE) get pods -l app=postgres \
+	-o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo ""); \
+	if [[ "$$status" == "True" ]]; then break; fi; \
+	echo "Waiting for postgresql pod..."; \
+	sleep 5; \
+	done
+	@echo "Postgres pod is Ready."
+	
+
+product-loader-test: product-loader-build
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/product_loader.mk', line 38):
+	@$(MAKE) separator
+	@echo "Running Product Loader tests..."
+	go test ./cmd/product-loader/...
+	@echo "Product Loader tests complete."
+	
+
+.ONESHELL:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+
+k8s-uninstall-configmaps:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/k8s.mk', line 183):
+	@$(MAKE) separator
+	@echo "Removing configmaps from Kubernetes..."
+	@echo "-------------------------------------"
+	@echo
+	@echo "-> Removing base configmaps for all services..."
+	@for file in deployment/k8s/base/configmap/*.yaml; do \
+	echo "--> Removing configmap: $$file"; \
+	kubectl delete -f "$$file" --ignore-not-found=true; \
+	done
+	@echo "All configmaps removed from Kubernetes."
+	@echo
+	
+
+postgres-create-service-db:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/postgres.mk', line 113):
+	@$(MAKE) separator
+	@echo "Creating service database..."
+	@kubectl delete job $(SERVICE)-db-create --ignore-not-found
+	@kubectl apply -f deployment/k8s/services/$(SERVICE)-db-create.yaml
+	@kubectl wait --for=condition=complete job/$(SERVICE)-db-create -n $(DB_NAMESPACE) --timeout=120s
+	@echo "Database $(SERVICE) created."
+	
+
+k8s-uninstall-secrets:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/k8s.mk', line 166):
+	@$(MAKE) separator
+	@echo "Removing secrets from Kubernetes..."
+	@echo "-----------------------------------"
+	@echo
+	@echo "-> Removing base secrets for all services..."
+	@for file in deployment/k8s/base/secret/*.yaml; do \
+	echo "--> Removing secret: $$file"; \
+	kubectl delete -f "$$file" --ignore-not-found=true; \
+	done
+	@echo "All secrets removed from Kubernetes."
+	@echo
+	
+
+.PHONY: env-clean env-diff postgres-info postgres-create-secret postgres-create-secrets postgres-install postgres-wait postgres-create-db-sql-configmap postgres-create-migrations-configmap postgres-create-configmaps postgres-create-service-db postgres-create-platform-db postgres-create-dbs postgres-migrate-db postgres-migrate-dbs postgres-initialize kafka-info kafka-install kafka-wait kafka-create-topics kafka-uninstall certificates-info certificates-generate certificates-keychain certificates-install certificates-uninstall minio-info minio-initialize k8s-info k8s-namespaces k8s-install-configmaps k8s-install-keycloak-realm-configmap k8s-install-secrets k8s-install-platform-services k8s-install-domain-services k8s-install k8s-uninstall-domain-services k8s-uninstall-platform-services k8s-uninstall-secrets k8s-uninstall-configmaps k8s-uninstall-namespaces k8s-uninstall test-db-apply keycloak-info keycloak-db-bootstrap keycloak-install product-loader-info product-loader-build product-loader-test product-loader-run info install services-build services-run services-test services-lint services-clean services-docker-build separator help
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+
+# Not a target:
+/Users/tom/Projects/Go/go-shopping-poc/resources/make/.make_env_exports.mk:
+#  Implicit rule search has been done.
+#  Last modified 2026-01-08 14:59:02
+#  File has been updated.
+#  Successfully updated.
+# variable set hash-table stats:
+# Load=0/32=0%, Rehash=0, Collisions=0/0=0%
+
+certificates-uninstall:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/certificates.mk', line 97):
+	@$(MAKE) separator
+	@[ -d "$(TLS_CERTIFICATES_DIR)" ] || { echo "Deployment directory missing: $(TLS_CERTIFICATES_DIR)"; exit 1; }
+	@bash -euo pipefail -c '\
+	echo "Removing tls certificates for pocstore.local..."; \
+	kubectl -n "$(PROJECT_NAMESPACE)" delete secret pocstorelocal-tls || echo "Secret pocstorelocal-tls not found"; \
+	echo ""; \
+	echo "Removing tls certificates for keycloak.local..."; \
+	kubectl -n "$(KEYCLOAK_NAMESPACE)" delete secret keycloaklocal-tls || echo "Secret keycloaklocal-tls not found"; \
+	'
+	
+
+k8s-uninstall-domain-services:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/k8s.mk', line 132):
+	@$(MAKE) separator
+	@echo "Removing domain services from Kubernetes..."
+	@echo "-------------------------------------------"
+	@echo
+	@echo "-> Removing domain services..."
+	@for file in deployment/k8s/services/*.yaml; do \
+	echo "--> Removing domain service: $$file"; \
+	kubectl delete -f "$$file" --ignore-not-found=true; \
+	done
+	@echo "All domain services removed from Kubernetes."
+	@echo
+	
+
+postgres-initialize:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/postgres.mk', line 169):
+	@$(MAKE) separator
+	@echo "Starting PostgreSQL install..."
+	@$(MAKE) postgres-wait
+	@$(MAKE) postgres-create-secrets
+	@$(MAKE) postgres-create-service-platform-secrets
+	@$(MAKE) postgres-create-configmaps
+	@$(MAKE) postgres-create-dbs
+	@$(MAKE) postgres-migrate-dbs
+	@echo "Postgres initialization complete."
+	
+
+postgres-create-platform-db:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/postgres.mk', line 122):
+	@$(MAKE) separator
+	@echo "Creating platform database..."
+	@kubectl delete job $(PLATFORM)-db-create --ignore-not-found
+	@kubectl apply -f deployment/k8s/platform/$(PLATFORM)-db-create.yaml
+	@kubectl wait --for=condition=complete job/$(PLATFORM)-db-create -n $(DB_NAMESPACE) --timeout=120s
+	@echo "Database $(PLATFORM) created."
+	
+
+postgres-create-configmaps:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/postgres.mk', line 96):
+	@$(MAKE) separator
+	@echo "Creating PostgreSQL configmaps for all services..."
+	@for SERVICE in $(SERVICES_WITH_DB); do \
+	$(MAKE) postgres-create-db-sql-configmap SERVICE=$$SERVICE NAMESPACE=$(DB_NAMESPACE); \
+	$(MAKE) postgres-create-migrations-configmap SERVICE=$$SERVICE NAMESPACE=$(DB_NAMESPACE); \
+	done
+	@for SERVICE in $(PLATFORMS_WITH_DB); do \
+	$(MAKE) postgres-create-db-sql-configmap SERVICE=$$SERVICE NAMESPACE=$(DB_NAMESPACE); \
+	done
+	@echo "All PostgreSQL configmaps created."
+	
+
+k8s-uninstall-platform-services:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/k8s.mk', line 149):
+	@$(MAKE) separator
+	@echo "Removing platform services from Kubernetes..."
+	@echo "---------------------------------------------"
+	@echo
+	@echo "-> Removing platform services..."
+	@for file in deployment/k8s/platform/*.yaml; do \
+	echo "--> Removing platform service: $$file"; \
+	kubectl delete -f "$$file" --ignore-not-found=true; \
+	done
+	@echo "All platform services removed from Kubernetes."
+	@echo
+	
+
+k8s-install-configmaps:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/k8s.mk', line 38):
+	@$(MAKE) separator
+	@echo "Deploying configmaps to Kubernetes..."
+	@echo "-------------------------------------"
+	@echo
+	@echo "-> Creating base configmaps for all services..."
+	@for file in deployment/k8s/base/configmap/*.yaml; do \
+	echo "--> Deploying configmap: $$file"; \
+	kubectl apply -f "$$file"; \
+	done
+	@echo "All configmaps deployed to Kubernetes."
+	@echo
+	
+
+# Not a target:
+/Users/tom/Projects/Go/go-shopping-poc/resources/make/postgres.mk:
+#  Implicit rule search has been done.
+#  Last modified 2026-01-08 11:46:32
+#  File has been updated.
+#  Successfully updated.
+# variable set hash-table stats:
+# Load=0/32=0%, Rehash=0, Collisions=0/0=0%
+
+certificates-info:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/certificates.mk', line 16):
+	@$(MAKE) separator
+	@echo "Certificate Configuration:"
+	@echo "-------------------------"
+	@echo "Project Home: $(PROJECT_HOME)"
+	@echo "Project Namespace: $(PROJECT_NAMESPACE)"
+	@echo "Keycloak Namespace: $(KEYCLOAK_NAMESPACE)"
+	@echo "Deployment Dir: $(TLS_CERTIFICATES_DIR)"
+	@echo "Configuration Dir: $(TLS_CONFIGURATION_DIR)"
+	@echo "-------------------------"
+	@echo
+	
+
+# Not a target:
+.SUFFIXES:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+
+certificates-install:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/certificates.mk', line 78):
+	@$(MAKE) separator
+	@[ -d "$(TLS_CERTIFICATES_DIR)" ] || { echo "Deployment directory missing: $(TLS_CERTIFICATES_DIR)"; exit 1; }
+	@bash -euo pipefail -c '\
+	cd "$(TLS_CERTIFICATES_DIR)"; \
+	echo ""; \
+	echo "Installing secret holding tls certificates for pocstore.local..."; \
+	echo ""; \
+	kubectl create secret -n $(PROJECT_NAMESPACE) generic pocstorelocal-tls --from-file=tls.crt=./pocstore.crt --from-file=tls.key=./pocstore.key; \
+	echo ""; \
+	echo "Installing secret holding tls certificates for keycloak.local..."; \
+	echo ""; \
+	kubectl create secret -n $(KEYCLOAK_NAMESPACE) generic keycloaklocal-tls --from-file=tls.crt=./keycloak.crt --from-file=tls.key=./keycloak.key; \
+	echo "Secrets holding certificates installed"; \
+	'
+	
+
+k8s-install-domain-services:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/k8s.mk', line 100):
+	@$(MAKE) separator
+	@echo "Deploying domain services to Kubernetes..."
+	@echo "------------------------------------------"
+	@echo
+	@echo "-> Deploying domain services..."
+	@for file in deployment/k8s/services/*.yaml; do \
+	echo "--> Deploying domain service: $$file"; \
+	kubectl apply -f "$$file"; \
+	done
+	@echo "All domain services deployed to Kubernetes."
+	@echo
+	
+
+uninstall: k8s-uninstall
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+
+info:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `Makefile', line 147):
+	@$(MAKE) separator
+	@echo
+	@echo "Makefile for Go Shopping POC Application"
+	@echo "----------------------------------------"
+	@echo "Environment: $(ENV)"
+	@echo "Project Home: $(PROJECT_HOME)"
+	@echo "Services with a DB: $(SERVICES_WITH_DB)"
+	@echo "Platforms with a DB: $(PLATFORMS_WITH_DB)"
+	@echo "Services Namespace: $(SERVICES_NAMESPACE)"
+	@echo "----------------------------------------"
+	
+
+# Not a target:
+Makefile:
+#  Implicit rule search has been done.
+#  Last modified 2026-01-08 13:50:24
+#  File has been updated.
+#  Successfully updated.
+# variable set hash-table stats:
+# Load=0/32=0%, Rehash=0, Collisions=0/0=0%
+
+# Not a target:
+/Users/tom/Projects/Go/go-shopping-poc/resources/make/keycloak.mk:
+#  Implicit rule search has been done.
+#  Last modified 2026-01-08 14:58:58
+#  File has been updated.
+#  Successfully updated.
+# variable set hash-table stats:
+# Load=0/32=0%, Rehash=0, Collisions=0/0=0%
+
+k8s-install-platform-services:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/k8s.mk', line 83):
+	@$(MAKE) separator
+	@echo "Deploying platform services to Kubernetes..."
+	@echo "--------------------------------------------"
+	@echo
+	@echo "-> Deploying platform services..."
+	@for file in deployment/k8s/platform/*.yaml; do \
+	echo "--> Deploying platform service: $$file"; \
+	kubectl apply -f "$$file"; \
+	done
+	@echo "All platform services deployed to Kubernetes."
+	@echo
+	
+
+services-docker-build:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `Makefile', line 210):
+	@$(MAKE) separator
+	@echo "Building and pushing Docker images for all services..."
+	@for svc in $(SERVICES); do \
+	echo "Building Docker image for $$svc..."; \
+	docker build -t localhost:5000/go-shopping-poc/$$svc:1.0 -f cmd/$$svc/Dockerfile . ; \
+	docker push localhost:5000/go-shopping-poc/$$svc:1.0; \
+	echo "Docker image for $$svc built and pushed."; \
+	done
+	
+
+services-build:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `Makefile', line 169):
+	@$(MAKE) separator
+	@echo "Building all services..."
+	@for svc in $(SERVICES); do \
+	echo "Building $$svc..."; \
+	GOOS=linux GOARCH=amd64 go build -o bin/$$svc ./cmd/$$svc; \
+	done
+	
+
+# Not a target:
+/Users/tom/Projects/Go/go-shopping-poc/resources/make/product_loader.mk:
+#  Implicit rule search has been done.
+#  Last modified 2025-12-31 12:00:36
+#  File has been updated.
+#  Successfully updated.
+# variable set hash-table stats:
+# Load=0/32=0%, Rehash=0, Collisions=0/0=0%
+
+postgres-info:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/postgres.mk', line 15):
+	@$(MAKE) separator
+	@echo "PostgreSQL Configuration:"
+	@echo "-------------------------"
+	@echo "Project Home: $(PROJECT_HOME)"
+	@echo "DB Namespace: $(DB_NAMESPACE)"
+	@echo "-------------------------"
+	@echo
+	
+
+postgres-install: postgres-create-secrets
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/postgres.mk', line 52):
+	@$(MAKE) separator
+	@echo "Installing PostgreSQL platform in Kubernetes..."
+	@kubectl apply -f deploy/k8s/platform/postgres/
+	@kubectl rollout status statefulset/postgres -n $(DB_NAMESPACE) --timeout=180s
+	@echo
+	
+
+# Not a target:
+/Users/tom/Projects/Go/go-shopping-poc/resources/make/certificates.mk:
+#  Implicit rule search has been done.
+#  Last modified 2025-12-31 11:39:07
+#  File has been updated.
+#  Successfully updated.
+# variable set hash-table stats:
+# Load=0/32=0%, Rehash=0, Collisions=0/0=0%
+
+postgres-migrate-dbs:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/postgres.mk', line 156):
+	@$(MAKE) separator
+	@echo "Migrating databases for all services..."
+	@for SERVICE in $(SERVICES_WITH_DB); do \
+	$(MAKE) postgres-migrate-db SERVICE=$$SERVICE NAMESPACE=$(DB_NAMESPACE); \
+	done
+	@echo "All databases migrated."
+	
+
+k8s-install-keycloak-realm-configmap:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/k8s.mk', line 55):
+	@$(MAKE) separator
+	@bash -euo pipefail -c '\
+	kubectl -n $(KEYCLOAK_NAMESPACE) create configmap keycloak-realm --from-file=realm.json=$(KEYCLOAK_REALM_FILE) --dry-run=client -o yaml | kubectl apply -f -; \
+	echo "Keycloak realm configmap created"; \
+	'
+	
+
+help:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `Makefile', line 224):
+	@$(MAKE) separator
+	@echo "📘 Go Shopping POC — Make Targets"
+	@echo "=================================="
+	@echo
+	@echo "install			Full setup: clean, build, docker-build, create namespaces, install postgres, kafka, certificates, keycloak, minio, and services"
+	@echo "uninstall		Uninstall all services, and all supporting components"
+	@echo
+	@grep -h '^[a-zA-Z0-9_.-]*:.*##' $(MAKEFILE_LIST) | \
+	awk 'BEGIN { FS=": *## *"; last="" } \
+	{ \
+	t=$$1; d=$$2; \
+	sub(/^[[:space:]]+/, "", t); sub(/[[:space:]]+$$/, "", t); \
+	sub(/^[[:space:]]+/, "", d); sub(/[[:space:]]+$$/, "", d); \
+	split(t, parts, "-"); group=toupper(parts[1]); \
+	if (group != last) { \
+	if (last != "") print ""; \
+	printf "[%s]\n", group; \
+	last = group; \
+	} \
+	printf "  %-25s %s\n", t, d; \
+	}'
+	@echo
+	@echo "Usage: make <target>"
+	@echo "Example: make postgres-install"
+	@$(MAKE) separator
+	
+
+keycloak-info:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/keycloak.mk', line 15):
+	@$(MAKE) separator
+	@echo "Keycloak Configuration:"
+	@echo "-------------------------"
+	@echo "Project Home: $(PROJECT_HOME)"
+	@echo "Auth Namespace: $(AUTH_NAMESPACE)"
+	@echo "-------------------------"
+	@echo
+	
+
+product-loader-info:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/product_loader.mk', line 15):
+	@$(MAKE) separator
+	@echo "Product Loader Configuration:"
+	@echo "-----------------------------"
+	@echo "Project Home: $(PROJECT_HOME)"
+	@echo "Source Directory: ./cmd/product-loader"
+	@echo "Binary Output: ./bin/product-loader"
+	@echo "-----------------------------"
+	@echo
+	
+
+keycloak-install: keycloak-db-bootstrap
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/keycloak.mk', line 40):
+	@$(MAKE) separator
+	@echo "Installing Keycloak platform in Kubernetes..."
+	@kubectl apply -f deploy/k8s/platform/keycloak/
+	@kubectl rollout status deployment/keycloak -n $(AUTH_NAMESPACE) --timeout=180s
+	@echo
+	
+
+postgres-migrate-db:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/postgres.mk', line 147):
+	@$(MAKE) separator
+	@echo "Migrating database..."
+	@kubectl delete job $(SERVICE)-db-migrate --ignore-not-found
+	@kubectl apply -f deployment/k8s/services/$(SERVICE)-db-migrate.yaml
+	@kubectl wait --for=condition=complete job/$(SERVICE)-db-migrate -n $(DB_NAMESPACE) --timeout=120s
+	@echo "Database $(SERVICE) migrated."
+	
+
+postgres-create-dbs:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/postgres.mk', line 131):
+	@$(MAKE) separator
+	@echo "Creating databases for all services..."
+	@for SERVICE in $(SERVICES_WITH_DB); do \
+	$(MAKE) postgres-create-service-db SERVICE=$$SERVICE NAMESPACE=$(DB_NAMESPACE); \
+	done
+	@for PLATFORM in $(PLATFORMS_WITH_DB); do \
+	$(MAKE) postgres-create-platform-db PLATFORM=$$PLATFORM NAMESPACE=$(DB_NAMESPACE); \
+	done
+	@echo "All databases created."
+	
+
+product-loader-build:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/product_loader.mk', line 28):
+	@$(MAKE) separator
+	@echo "Building Product Loader..."
+	@echo "Building product-loader binary..."
+	go build -o bin/product-loader ./cmd/product-loader
+	@echo "Product Loader build complete."
+	
+
+separator:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `Makefile', line 159):
+	@echo
+	@echo "**************************************************************"
+	@echo
+	
+
+k8s-uninstall:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/k8s.mk', line 217):
+	@$(MAKE) separator
+	@(MAKE) k8s-uninstall-domain-services 
+	@(MAKE) k8s-uninstall-platform-services
+	@(MAKE) k8s-uninstall-secrets 
+	@(MAKE) k8s-uninstall-configmaps 
+	@(MAKE) k8s-uninstall-namespaces
+	@echo "All components removed from Kubernetes."
+	@echo
+	
+
+kafka-wait:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/kafka.mk', line 31):
+	@echo "Waiting for kafka pod to be Ready..."
+	@while true; do \
+	status=$$(kubectl -n $(KAFKA_CLUSTER_NAMESPACE) get pods -l app=kafka \
+	-o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo ""); \
+	if [[ "$$status" == "True" ]]; then break; fi; \
+	echo "Waiting for kafka pod..."; \
+	sleep 5; \
+	done
+	@echo "Kafka pod is Ready."
+	
+
+keycloak-db-bootstrap:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/keycloak.mk', line 29):
+	@$(MAKE) separator
+	@echo "Keycloak database bootstrap:"
+	$(call apply-db-bootstrap keycloak $(AUTH_NAMESPACE))
+	@echo
+	
+
+# Not a target:
+.DEFAULT:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+
+env-diff:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `Makefile', line 37):
+	@echo ""
+	@bash -euo pipefail -c '\
+	echo "----------------------------------------------"; \
+	echo "Comparing .env and .env.local..."; \
+	ENV_SORTED=$$(mktemp); \
+	ENV_LOCAL_SORTED=$$(mktemp); \
+	grep -v "^\s*#" .env | grep -v "^\s*$$" | sort > $$ENV_SORTED; \
+	grep -v "^\s*#" .env.local | grep -v "^\s*$$" | sort > $$ENV_LOCAL_SORTED; \
+	\
+	echo ""; \
+	echo "Keys only in .env:"; \
+	comm -23 <(cut -d= -f1 $$ENV_SORTED) <(cut -d= -f1 $$ENV_LOCAL_SORTED) || true; \
+	\
+	echo ""; \
+	echo "Keys only in .env.local:"; \
+	comm -13 <(cut -d= -f1 $$ENV_SORTED) <(cut -d= -f1 $$ENV_LOCAL_SORTED) || true; \
+	\
+	echo ""; \
+	echo "Keys with different values:"; \
+	awk -F= '\''NR==FNR { env[$$1] = $$2; next } \
+	{ if ($$1 in env && env[$$1] != $$2) \
+	printf "%s\n.env: %s\n.env.local: %s\n\n", $$1, env[$$1], $$2 }'\'' \
+	$$ENV_SORTED $$ENV_LOCAL_SORTED || true; \
+	rm -f $$ENV_SORTED $$ENV_LOCAL_SORTED; \
+	'
+	@echo ""
+	
+
+kafka-create-topics:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/kafka.mk', line 45):
+	@$(MAKE) separator
+	@bash -euo pipefail -c '\
+	if [ ! -f "$(KAFKA_TOPICS_FILE)" ]; then \
+	echo "Missing topics file: $(KAFKA_TOPICS_FILE)"; \
+	exit 1; \
+	fi; \
+	echo "Processing topics from $(KAFKA_TOPICS_FILE)"; \
+	POD=$$(kubectl -n "$(KAFKA_CLUSTER_NAMESPACE)" get pods -l app=kafka -o jsonpath="{.items[0].metadata.name}"); \
+	if [ -z "$${POD}" ]; then \
+	echo "No Kafka pod found in namespace: $(KAFKA_CLUSTER_NAMESPACE)"; \
+	exit 1; \
+	fi; \
+	echo "Will use kafka pod $$POD to create topics."; \
+	while IFS= read -r line; do \
+	line="$${line%%#*}"; \
+	line="$${line## }"; \
+	[ -z "$${line}" ] && continue; \
+	IFS=":" read -r name parts repl <<< "$${line}"; \
+	parts="$${parts:-3}"; \
+	repl="$${repl:-1}"; \
+	echo "Creating topic: $$name (partitions=$$parts, replicas=$$repl)"; \
+	kubectl -n "$(KAFKA_CLUSTER_NAMESPACE)" exec "$${POD}" -- \
+	/opt/kafka/bin/kafka-topics.sh \
+	--bootstrap-server localhost:9092 \
+	--create \
+	--topic "$${name}" \
+	--partitions "$${parts}" \
+	--replication-factor "$${repl}" || true; \
+	done < "$(KAFKA_TOPICS_FILE)"; \
+	'
+	
+
+services-lint:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `Makefile', line 193):
+	@$(MAKE) separator
+	@echo "Running linters for all services..."
+	@for svc in $(SERVICES); do \
+	echo "Running linters for $$svc..."; \
+	golangci-lint run ./cmd/$$svc/...; \
+	done
+	golangci-lint run ./...
+	
+
+services-run:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `Makefile', line 177):
+	@$(MAKE) separator
+	@echo "Running all services (in background)..."
+	@for svc in $(SERVICES); do \
+	echo "Running $$svc with $(ENV_FILE)..."; \
+	APP_ENV=$(ENV) go run ./cmd/$$svc & \
+	done
+	
+
+k8s-info:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/k8s.mk', line 14):
+	@$(MAKE) separator
+	@echo "Kubernetes Configuration:"
+	@echo "-------------------------"
+	@echo "Project Home: $(PROJECT_HOME)"
+	@echo "-------------------------"	
+	@echo
+	
+
+k8s-install:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/k8s.mk', line 117):
+	@$(MAKE) separator
+	@echo "Deploying all base components to Kubernetes..."
+	@echo "----------------------------------------------"
+	@(MAKE) k8s-install-namespaces 
+	@(MAKE) k8s-install-configmaps 
+	@(MAKE) k8s-install-keycloak-realm-configmap 
+	@(MAKE) k8s-install-secrets
+	@echo "All base components deployed to Kubernetes."
+	@echo
+	
+
+k8s-namespaces:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/k8s.mk', line 26):
+	@$(MAKE) separator
+	@echo "Creating namespaces in Kubernetes..."
+	@echo "------------------------------------"
+	@echo
+	@kubectl apply -f deploy/k8s/namespaces/
+	@echo
+	
+
+test-db-apply:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/db-bootstrap.mk', line 115):
+	@echo "Testing db bootstrap macro..."
+	$(call apply-db-bootstrap keycloak keycloak)
+	@echo "Test completed"
+	
+
+kafka-initialize:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/kafka.mk', line 80):
+	@$(MAKE) separator
+	@$(MAKE) kafka-wait
+	@$(MAKE) kafka-create-topics
+	@echo "Kafka install complete."
+	@echo
+	
+
+minio-initialize:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/minio.mk', line 26):
+	@$(MAKE) separator
+	@echo "Skipping the initialization of Minio buckets right now..."
+	
+
+# Not a target:
+/Users/tom/Projects/Go/go-shopping-poc/resources/make/kafka.mk:
+#  Implicit rule search has been done.
+#  Last modified 2025-12-31 11:57:46
+#  File has been updated.
+#  Successfully updated.
+# variable set hash-table stats:
+# Load=0/32=0%, Rehash=0, Collisions=0/0=0%
+
+# Not a target:
+/Users/tom/Projects/Go/go-shopping-poc/resources/make/minio.mk:
+#  Implicit rule search has been done.
+#  Last modified 2025-12-31 11:58:16
+#  File has been updated.
+#  Successfully updated.
+# variable set hash-table stats:
+# Load=0/32=0%, Rehash=0, Collisions=0/0=0%
+
+# Not a target:
+/Users/tom/Projects/Go/go-shopping-poc/resources/make/db-bootstrap.mk:
+#  Implicit rule search has been done.
+#  Last modified 2026-01-08 14:53:18
+#  File has been updated.
+#  Successfully updated.
+# variable set hash-table stats:
+# Load=0/32=0%, Rehash=0, Collisions=0/0=0%
+
+postgres-create-secrets:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/postgres.mk', line 38):
+	@$(MAKE) separator
+	@echo "Creating PostgreSQL secrets..."
+	@NEWPASS=$$(openssl rand -hex 16); \
+	$(MAKE) postgres-create-secret PASSWORD="$$NEWPASS" NAMESPACE=$(DB_NAMESPACE) SECRET_NAME=postgres-admin-secret; \
+	$(MAKE) postgres-create-secret PASSWORD="$$NEWPASS" NAMESPACE=$(SERVICES_NAMESPACE) SECRET_NAME=postgres-admin-bootstrap-secret; \
+	$(MAKE) postgres-create-secret PASSWORD="$$NEWPASS" NAMESPACE=$(AUTH_NAMESPACE) SECRET_NAME=postgres-admin-bootstrap-secret
+	@echo
+	
+
+services-test:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `Makefile', line 185):
+	@$(MAKE) separator
+	@echo "Running tests for all services..."
+	@for svc in $(SERVICES); do \
+	echo "Running tests for $$svc..."; \
+	go test ./cmd/$$svc/...; \
+	done
+	
+
+services-clean:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `Makefile', line 202):
+	@$(MAKE) separator
+	@echo "Cleaning up all services..."
+	@for svc in $(SERVICES); do \
+	echo "Cleaning up $$svc..."; \
+	go clean ./cmd/$$svc/...; \
+	done
+	
+
+k8s-install-secrets:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/k8s.mk', line 66):
+	@$(MAKE) separator
+	@echo "Deploying secrets to Kubernetes..."
+	@echo "----------------------------------"
+	@echo
+	@echo "-> Creating base secrets for all services..."
+	@for file in deployment/k8s/base/secret/*.yaml; do \
+	echo "--> Deploying secret: $$file"; \
+	kubectl apply -f "$$file"; \
+	done
+	@echo "All secrets deployed to Kubernetes."
+	@echo
+	
+
+product-loader-run:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/product_loader.mk', line 48):
+	@$(MAKE) separator
+	@echo "Running Product Loader locally..."
+	@if [ -f .env ]; then \
+	set -a; \
+	source .env; \
+	set +a; \
+	fi && \
+	if [ -f .env.local ]; then \
+	set -a; \
+	source .env.local; \
+	set +a; \
+	fi && \
+	go run ./cmd/product-loader
+	@echo "Product Loader run complete."
+	
+
+kafka-uninstall:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+
+env-clean:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  Implicit/static pattern stem: `'
+#  File does not exist.
+#  File has been updated.
+#  Needs to be updated (-q is set).
+# automatic
+# @ := env-clean
+# automatic
+# % := 
+# automatic
+# * := 
+# automatic
+# + := 
+# automatic
+# | := 
+# automatic
+# < := 
+# automatic
+# ^ := 
+# automatic
+# ? := 
+# variable set hash-table stats:
+# Load=8/32=25%, Rehash=0, Collisions=1/12=8%
+#  commands to execute (from `Makefile', line 31):
+	@echo "Removing temporary environment export file: $(ENV_TMP)"
+	@rm -f $(ENV_TMP)
+	
+
+certificates-generate:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/certificates.mk', line 31):
+	@$(MAKE) separator
+	@[ -d "$(TLS_CONFIGURATION_DIR)" ] || { echo "Configuration directory missing: $(TLS_CONFIGURATION_DIR)"; exit 1; }
+	@[ -d "$(TLS_CERTIFICATES_DIR)" ] || { echo "Deployment directory missing: $(TLS_CERTIFICATES_DIR)"; exit 1; }
+	@bash -euo pipefail -c '\
+	cd "$(TLS_CERTIFICATES_DIR)"; \
+	echo ""; \
+	echo "Generating new tls certificates for pocstore.local..."; \
+	echo ""; \
+	rm ./pocstore.*;\
+	openssl genrsa -out pocstore.key 4096; \
+	openssl req -new -sha256 -out pocstore.csr -key pocstore.key -config ../configuration/pocstore-tls-certificate.conf; \
+	openssl req -text -noout -in pocstore.csr; \
+	openssl x509 -req -days 3650 -in pocstore.csr -signkey pocstore.key -out pocstore.crt -extensions req_ext -extfile ../configuration/pocstore-tls-certificate.conf; \
+	echo ""; \
+	echo "Generating new tls certificates for keycloak.local..."; \
+	echo ""; \
+	rm ./keycloak.*; \
+	openssl genrsa -out keycloak.key 4096; \
+	openssl req -new -sha256 -out keycloak.csr -key keycloak.key -config ../configuration/keycloak-tls-certificate.conf; \
+	openssl req -text -noout -in keycloak.csr; \
+	openssl x509 -req -days 3650 -in keycloak.csr -signkey keycloak.key -out keycloak.crt -extensions req_ext -extfile ../configuration/keycloak-tls-certificate.conf; \
+	echo "Certificates generated in $$TLS_CERTIFICATES_DIR"; \
+	'
+	
+
+certificates-keychain:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/certificates.mk', line 59):
+	@$(MAKE) separator
+	@[ -d "$(TLS_CERTIFICATES_DIR)" ] || { echo "Deployment directory missing: $(TLS_CERTIFICATES_DIR)"; exit 1; }
+	@bash -euo pipefail -c '\
+	cd "$(TLS_CERTIFICATES_DIR)"; \
+	echo ""; \
+	echo "Installing tls certificates for pocstore.local..."; \
+	echo ""; \
+	sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain pocstore.crt; \
+	echo ""; \
+	echo "Installing tls certificates for keycloak.local..."; \
+	echo ""; \
+	sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain keycloak.crt; \
+	echo "Certificates installed in $(TLS_CERTIFICATES_DIR)"; \
+	'
+	
+
+postgres-create-secret:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/postgres.mk', line 29):
+	@kubectl -n $(NAMESPACE) create secret generic $(SECRET_NAME) \
+	--from-literal=POSTGRES_DB=postgres \
+	--from-literal=POSTGRES_USER=postgresadmin \
+	--from-literal=POSTGRES_PASSWORD=$(PASSWORD) \
+	--dry-run=client -o yaml | kubectl apply -f -
+	@echo "PostgreSQL Admin secret $(SECRET_NAME) created in namespace $(NAMESPACE)."
+	
+
+postgres-create-migrations-configmap:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/postgres.mk', line 88):
+	@$(MAKE) separator
+	@echo "Creating PostgreSQL migrations configmap for $(SERVICE)..."
+	@kubectl -n $(NAMESPACE) create configmap $(SERVICE)-migrations \
+	--from-file=internal/service/$(SERVICE)/migrations \
+	--dry-run=client -o yaml | kubectl apply -f -
+	
+
+kafka-info:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/kafka.mk', line 16):
+	@$(MAKE) separator
+	@echo "Kafka Configuration:"
+	@echo "-------------------------"
+	@echo "Project Home: $(PROJECT_HOME)"
+	@echo "Namespace: $(KAFKA_CLUSTER_NAMESPACE)"
+	@echo "Broker: $(KAFKA_BROKER)"
+	@echo "Resources Dir: $(KAFKA_RESOURCES_DIR)"
+	@echo "Topics File: $(KAFKA_TOPICS_FILE)"
+	@echo "-------------------------"
+	@echo
+	
+
+kafka-install:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+
+k8s-uninstall-namespaces:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/k8s.mk', line 200):
+	@$(MAKE) separator
+	@echo "Removing namespaces from Kubernetes..."
+	@echo "-------------------------------------"
+	@echo
+	@echo "-> Removing namespaces for all services..."
+	@for file in deployment/k8s/base/namespace/*.yaml; do \
+	echo "--> Removing namespace: $$file"; \
+	kubectl delete -f "$$file" --ignore-not-found=true; \
+	done
+	@echo "All namespaces removed from Kubernetes."
+	@echo
+	
+
+# Not a target:
+/Users/tom/Projects/Go/go-shopping-poc/resources/make/k8s.mk:
+#  Implicit rule search has been done.
+#  Last modified 2026-01-08 09:55:48
+#  File has been updated.
+#  Successfully updated.
+# variable set hash-table stats:
+# Load=0/32=0%, Rehash=0, Collisions=0/0=0%
+
+minio-info:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/minio.mk', line 14):
+	@$(MAKE) separator
+	@echo "Minio Configuration:"
+	@echo "-------------------------"
+	@echo "Project Home: $(PROJECT_HOME)"
+	@echo "Minio Namespace: $(MINIO_NAMESPACE)"
+	@echo "-------------------------"	
+	@echo
+	
+
+install: services-clean services-build services-docker-build k8s-install certificates-install postgres-initialize kafka-initialize minio-initialize k8s-install-domain-services
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+
+postgres-create-db-sql-configmap:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `/Users/tom/Projects/Go/go-shopping-poc/resources/make/postgres.mk', line 80):
+	@$(MAKE) separator
+	@echo "Creating PostgreSQL db-sql configmap for $(SERVICE)..."
+	@kubectl -n $(NAMESPACE) create configmap $(SERVICE)-db-sql \
+	--from-file=resources/postgresql/init \
+	--dry-run=client -o yaml | kubectl apply -f -
+	
+
+# files hash-table stats:
+# Load=76/1024=7%, Rehash=0, Collisions=16/217=7%
+# VPATH Search Paths
+
+# No `vpath' search paths.
+
+# No general (`VPATH' variable) search path.
+
+# # of strings in strcache: 10
+# # of strcache buffers: 1
+# strcache size: total = 4096 / max = 4096 / min = 4096 / avg = 4096
+# strcache free: total = 3474 / max = 3474 / min = 3474 / avg = 3474
+
+# Finished Make data base on Thu Jan  8 14:59:02 2026
+

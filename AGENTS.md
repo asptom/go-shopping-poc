@@ -38,7 +38,7 @@ POST   /products/ingest       # Ingest from CSV
 **Files Created**:
 - **`cmd/product/main.go`**: HTTP service main application
 - **`cmd/product/Dockerfile`**: Container build configuration
-- **`deployments/kubernetes/product/product-deploy.yaml`**: K8s deployment
+- **`deployment/k8s/product/product-deploy.yaml`**: K8s deployment
 
 **Files Updated**:
 - **`README.md`**: Added product service documentation

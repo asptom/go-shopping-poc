@@ -67,7 +67,7 @@ Contracts-first approach with type-safe event handling:
 
 ```bash
 # Navigate to base secrets directory
-cd deployments/kubernetes/base/secrets/
+cd deployment/k8s/base/secret/
 
 # Copy example files and rename them
 cp customer-secret.yaml.example customer-secret.yaml
@@ -192,7 +192,7 @@ The project follows clean architecture with proper configuration separation:
 
 **Platform ConfigMap**: Shared infrastructure (database pools, Kafka brokers, CORS, outbox)
 - Used by: customer, product, eventreader, eventwriter services
-- Location: `deployments/kubernetes/base/configmaps/platform-configmap.yaml`
+- Location: `deployment/k8s/base/configmap/platform-configmap.yaml`
 
 **Service ConfigMaps**: Service-specific settings (topics, ports, cache settings)
 - Customer: topics, group, port
@@ -202,7 +202,7 @@ The project follows clean architecture with proper configuration separation:
 - EventWriter: topics, group
 
 **Secrets**: Sensitive data (passwords, database URLs, API keys)
-- Stored in: `deployments/kubernetes/base/secrets/`
+- Stored in: `deployment/k8s/base/secret/`
 - Templates: `.yaml.example` files (safe to commit)
 - Actual secrets: `.yaml` files (never commit)
 
@@ -214,8 +214,8 @@ The project follows clean architecture with proper configuration separation:
 
 To add a new service to the deployment:
 
-1. **Create Service ConfigMap** in `deployments/kubernetes/base/configmaps/`
-2. **Create Service Secret Template** in `deployments/kubernetes/base/secrets/`
+1. **Create Service ConfigMap** in `deployment/k8s/base/configmap/`
+2. **Create Service Secret Template** in `deployment/k8s/base/secret/`
 3. **Add envFrom to Deployment** (reference platform-config + service-config + service-secret)
 4. **Update Deployment Scripts** to apply new ConfigMap, Secret, and Deployment
 5. **Test with `./deploy-dev.sh`**

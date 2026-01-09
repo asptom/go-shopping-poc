@@ -1,0 +1,25 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: keycloak-db-create
+  namespace: keycloak
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: init
+          image: docker.io/postgres:18.0
+          envFrom:
+            - secretRef:
+                name: postgres-admin-bootstrap-secret
+            - secretRef:
+                name: keycloak-db-secret
+          volumeMounts:
+            - name: sql
+              mountPath: /sql
+          command: ["/bin/bash", "/sql/run.sh"]
+      volumes:
+        - name: sql
+          configMap:
+            name: keycloak-db-init-sql

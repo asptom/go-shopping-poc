@@ -2,17 +2,20 @@
 # Include this in your top-level Makefile with:
 #   include $(PROJECT_HOME)/scripts/Makefile/kafka.mk
 
-SHELL := /usr/bin/env bash
+SHELL := /bin/bash
 .SHELLFLAGS := -euo pipefail -c
 .ONESHELL:
 
-.PHONY: kafka-info kafka-install kafka-wait \
-        kafka-create-topics kafka-uninstall
+KAFKA_CLUSTER_NAMESPACE := kafka
+KAFKA_BROKER := localhost:9092
+KAFKA_RESOURCES_DIR := $(PROJECT_HOME)/deploy/k8s/platform/kafka
+KAFKA_TOPICS_FILE := $(KAFKA_RESOURCES_DIR)/kafka-topics.txt
 
 # ------------------------------------------------------------------
 # Info target
 # ------------------------------------------------------------------
-kafka-info: ## Show Kafka configuration details
+.PHONY: kafka-info ## Show Kafka configuration details
+kafka-info:
 	@$(MAKE) separator
 	@echo "Kafka Configuration:"
 	@echo "-------------------------"
@@ -25,22 +28,9 @@ kafka-info: ## Show Kafka configuration details
 	@echo
 
 # ------------------------------------------------------------------
-# Wait target
-# ------------------------------------------------------------------
-kafka-wait:
-	@echo "Waiting for kafka pod to be Ready..."
-	@while true; do \
-		status=$$(kubectl -n $(KAFKA_CLUSTER_NAMESPACE) get pods -l app=kafka \
-			-o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo ""); \
-		if [[ "$$status" == "True" ]]; then break; fi; \
-		echo "Waiting for kafka pod..."; \
-		sleep 5; \
-	done
-	@echo "Kafka pod is Ready."
-
-# ------------------------------------------------------------------
 # Create Topics
 # ------------------------------------------------------------------
+.PHONY: kafka-create-topics ## Create Kafka topics as defined in topics file
 kafka-create-topics:
 	@$(MAKE) separator
 	@bash -euo pipefail -c '\
@@ -74,11 +64,11 @@ kafka-create-topics:
 	'
 
 # ------------------------------------------------------------------
-# Initialize (calls the above sequentially, inlined)
+# Install Kafka platform
 # ------------------------------------------------------------------
-kafka-initialize: ## Deploy Kafka and create topics
+.PHONY: kafka-install ## Install Kafka in Kubernetes
+kafka-install:
 	@$(MAKE) separator
-	@$(MAKE) kafka-wait
-	@$(MAKE) kafka-create-topics
-	@echo "Kafka install complete."
+	@echo "Installing Kafka in Kubernetes..."
+	@kubectl apply -f deploy/k8s/platform/kafka/
 	@echo

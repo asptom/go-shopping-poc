@@ -75,7 +75,7 @@ The script named `tls_certificates_install.sh` in the `scripts/kubernetes/instal
 
 ## Create and Deploy an Nginx Ingress Configured for TLs ##
 
-Please see any of the *-ingress.yaml files in the `deployments/kubernetes/<service>/` directories for examples of how to create an ingress that uses TLS using the kubernetes secrets created for the certificates.
+Please see any of the *-ingress.yaml files in the `deployment/k8s/<service>/` directories for examples of how to create an ingress that uses TLS using the kubernetes secrets created for the certificates.
 
 ## Credits ##
 

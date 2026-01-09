@@ -1,0 +1,7 @@
+include resources/make/db-bootstrap.mk
+
+.PHONY: test-debug
+test-debug:
+	@echo 'DEBUG START'
+	$(call apply-db-bootstrap,keycloak,keycloak)
+	@echo 'DEBUG END'

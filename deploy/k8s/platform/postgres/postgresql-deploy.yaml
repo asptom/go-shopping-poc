@@ -1,4 +1,4 @@
-
+---
 apiVersion: v1
 kind: Service
 metadata:
@@ -34,18 +34,32 @@ spec:
         - name: postgres
           image: docker.io/postgres:18.0
           imagePullPolicy: IfNotPresent
-          ports:
-            - containerPort: 5432
-              name: postgres
-          envFrom:
-            - configMapRef:
-                name: postgresql-config
-            - secretRef:
-                name: postgres-secret
-                optional: true
+          # envFrom:
+          #   - secretRef:
+          #       name: postgres-admin-secret
+          #       optional: true
+          env:
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-admin-secret
+                  key: POSTGRES_DB
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-admin-secret
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+               secretKeyRef:
+                 name: postgres-admin-secret
+                 key: POSTGRES_PASSWORD
           volumeMounts:
             - name: data
               mountPath: /var/lib/postgresql
+          ports:
+            - containerPort: 5432
+              name: postgres
       restartPolicy: Always
   volumeClaimTemplates:
     - metadata:

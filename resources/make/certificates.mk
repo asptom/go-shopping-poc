@@ -1,18 +1,21 @@
 # Sub-Makefile for TLS certificate installation and management
 # Include this in your top-level Makefile with:
-#   include $(PROJECT_HOME)/scripts/Makefile/certificates.mk
+#   include $(PROJECT_HOME)/resources/make/certificates.mk
 
-SHELL := /usr/bin/env bash
+SHELL := /bin/bash
 .SHELLFLAGS := -euo pipefail -c
 .ONESHELL:
 
-.PHONY: certificates-info certificates-generate certificates-keychain \
-certificates-install certificates-uninstall
+TLS_CONFIGURATION_DIR := $(PROJECT_HOME)/resources/security/tls_certificates/configuration
+TLS_CERTIFICATES_DIR := $(PROJECT_HOME)/resources/security/tls_certificates/certificates
+PROJECT_NAMESPACE := shopping
+KEYCLOAK_NAMESPACE := keycloak
 
 # ------------------------------------------------------------------
 # Info target
 # ------------------------------------------------------------------
-certificates-info: ## Show certificate configuration details
+.PHONY: certificates-info ## Show certificate configuration details
+certificates-info:
 	@$(MAKE) separator
 	@echo "Certificate Configuration:"
 	@echo "-------------------------"
@@ -27,7 +30,8 @@ certificates-info: ## Show certificate configuration details
 # ------------------------------------------------------------------
 # Generate target
 # ------------------------------------------------------------------
-certificates-generate: ## Generate new certificates
+.PHONY: certificates-generate ## Generate new certificates
+certificates-generate: 
 	@$(MAKE) separator
 	@[ -d "$(TLS_CONFIGURATION_DIR)" ] || { echo "Configuration directory missing: $(TLS_CONFIGURATION_DIR)"; exit 1; }
 	@[ -d "$(TLS_CERTIFICATES_DIR)" ] || { echo "Deployment directory missing: $(TLS_CERTIFICATES_DIR)"; exit 1; }
@@ -55,7 +59,8 @@ certificates-generate: ## Generate new certificates
 # ------------------------------------------------------------------
 # Keychain target
 # ------------------------------------------------------------------
-certificates-keychain: ## Install the generated certificates in the system keychain (macOS)
+.PHONY: certificates-keychain ## Install the generated certificates in the system keychain (macOS)
+certificates-keychain: 
 	@$(MAKE) separator
 	@[ -d "$(TLS_CERTIFICATES_DIR)" ] || { echo "Deployment directory missing: $(TLS_CERTIFICATES_DIR)"; exit 1; }
 	@bash -euo pipefail -c '\
@@ -74,7 +79,8 @@ certificates-keychain: ## Install the generated certificates in the system keych
 # ------------------------------------------------------------------
 # Install target
 # ------------------------------------------------------------------
-certificates-install: ## Install the generated certificates as secrets in the Kubernetes 
+.PHONY: certificates-install ## Install the generated certificates as secrets in the Kubernetes 
+certificates-install: 
 	@$(MAKE) separator
 	@[ -d "$(TLS_CERTIFICATES_DIR)" ] || { echo "Deployment directory missing: $(TLS_CERTIFICATES_DIR)"; exit 1; }
 	@bash -euo pipefail -c '\
@@ -93,7 +99,8 @@ certificates-install: ## Install the generated certificates as secrets in the Ku
 # ------------------------------------------------------------------
 # Uninstall target
 # ------------------------------------------------------------------
-certificates-uninstall: ## Uninstall the generated certificates from the Kubernetes cluster
+.PHONY: certificates-uninstall ## Uninstall the generated certificates from the Kubernetes cluster
+certificates-uninstall: 
 	@$(MAKE) separator
 	@[ -d "$(TLS_CERTIFICATES_DIR)" ] || { echo "Deployment directory missing: $(TLS_CERTIFICATES_DIR)"; exit 1; }
 	@bash -euo pipefail -c '\

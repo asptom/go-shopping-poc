@@ -49,21 +49,36 @@ spec:
       labels:
         app: keycloak
     spec:
+      initContainers:
+        - name: wait-for-db
+          image: docker.io/postgres:18.0
+          envFrom:
+            - secretRef:
+                name: postgres-admin-bootstrap-secret
+            - secretRef:
+                name: keycloak-db-secret
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              export PGPASSWORD="$POSTGRES_PASSWORD"
+              while ! psql --host "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$db_name" -p 5432 'select 1' > /dev/null 2>&1; do
+                echo "Waiting for database to be ready..."
+                sleep 5
+              done
+              echo "Database ${db_name} is ready."
       containers:
         - name: keycloak
           image: quay.io/keycloak/keycloak:26.4.2
           args: ["start", "--import-realm"]
           envFrom:
-            - configMapRef:
-                name: keycloak-config
             - secretRef:
                 name: keycloak-secret
                 optional: true
           env:
-            - name: KC_BOOTSTRAP_ADMIN_USERNAME
-              value: admin
-            - name: KC_BOOTSTRAP_ADMIN_PASSWORD
-              value: admin
+            # - name: KC_BOOTSTRAP_ADMIN_USERNAME
+            #   value: admin
+            # - name: KC_BOOTSTRAP_ADMIN_PASSWORD
+            #   value: admin
             # In a production environment, add a TLS certificate to Keycloak to either end-to-end encrypt the traffic between
             # the client or Keycloak, or to encrypt the traffic between your proxy and Keycloak.
             # Respect the proxy headers forwarded by the reverse proxy
@@ -90,17 +105,32 @@ spec:
             # Needs to be unique for each Keycloak cluster
             - name: KC_CACHE_EMBEDDED_NETWORK_BIND_ADDRESS
               value: $(POD_IP)
-            - name: KC_DB_URL_DATABASE
-              value: "postgres://keycloak:keycloak@postgres.postgres.svc.cluster.local:5432/keycloak?sslmode=disable"
+            - name: KC_DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-db-secret
+                  key: username
+            - name: KC_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-db-secret
+                  key: password
+            - name: KC_DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-db-secret
+                  key: db_name
+            - name: KC_DB_URL
+              value: "jdbc:postgresql://postgres.postgres.svc.cluster.local:5432/$(KC_DB_NAME)"
             # - name: KC_DB_URL_HOST
             #   value: postgres
-            # - name: KC_DB
-            #   value: postgres
+            - name: KC_DB
+              value: postgres
             # In a production environment, use a secret to store username and password to the database
-            - name: KC_DB_PASSWORD
-              value: keycloak
-            - name: KC_DB_USERNAME
-              value: keycloak
+            # - name: KC_DB_PASSWORD
+            #   value: keycloak
+            # - name: KC_DB_USERNAME
+            #   value: keycloak
           ports:
             - name: http
               containerPort: 8080
@@ -151,7 +181,7 @@ metadata:
     app.kubernetes.io/name: keycloak-ingress
     app.kubernetes.io/version: v1.0
   annotations:
-    traefik.ingress.kubernetes.io/router.entrypoints: web, websecure
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
 spec:
   rules:
     - host: keycloak.local

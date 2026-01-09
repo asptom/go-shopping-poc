@@ -1,0 +1,47 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: customer-db-migrate
+  namespace: postgres
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: migrate
+          image: docker.io/postgres:18.0
+          env:
+            - name: PGHOST
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-admin-secret
+                  key: psql_host
+            - name: PGUSER
+              valueFrom:
+                secretKeyRef:
+                  name: customer-db-secret
+                  key: db_owner
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: customer-db-secret
+                  key: db_owner_password
+            - name: PGDATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: customer-db-secret
+                  key: db_name
+          volumeMounts:
+            - name: migrations
+              mountPath: /migrations
+          command:
+            - bash
+            - -c
+            - |
+              for f in /migrations/*.sql; do
+                psql -f "$f"
+              done
+      volumes:
+        - name: migrations
+          configMap:
+            name: customer-migrations

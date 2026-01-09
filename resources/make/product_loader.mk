@@ -2,16 +2,15 @@
  # Include this in your top-level Makefile with:
  #   include $(PROJECT_HOME)/resources/make/product_loader.mk
 
- SHELL := /usr/bin/env bash
+ SHELL := /bin/bash
  .SHELLFLAGS := -euo pipefail -c
  .ONESHELL:
-
- .PHONY: product-loader-info product-loader-build product-loader-test product-loader-run
 
 # ------------------------------------------------------------------
 # Info target
 # ------------------------------------------------------------------
-product-loader-info: ## Show Product Loader configuration details
+.PHONY: product-loader-info ## Show Product Loader configuration details
+product-loader-info:
 	@$(MAKE) separator
 	@echo "Product Loader Configuration:"
 	@echo "-----------------------------"
@@ -24,7 +23,8 @@ product-loader-info: ## Show Product Loader configuration details
 # ------------------------------------------------------------------
 # Build target
 # ------------------------------------------------------------------
-product-loader-build: ## Build the Product Loader binary locally
+.PHONY: product-loader-build ## Build the Product Loader binary locally
+product-loader-build:
 	@$(MAKE) separator
 	@echo "Building Product Loader..."
 	@echo "Building product-loader binary..."
@@ -34,7 +34,8 @@ product-loader-build: ## Build the Product Loader binary locally
 # ------------------------------------------------------------------
 # Test target
 # ------------------------------------------------------------------
-product-loader-test: product-loader-build ## Run tests for Product Loader
+.PHONY: product-loader-test ## Run tests for Product Loader
+product-loader-test: product-loader-build
 	@$(MAKE) separator
 	@echo "Running Product Loader tests..."
 	go test ./cmd/product-loader/...
@@ -44,7 +45,8 @@ product-loader-test: product-loader-build ## Run tests for Product Loader
 # ------------------------------------------------------------------
 # Run target (for local development)
 # ------------------------------------------------------------------
-product-loader-run: ## Run Product Loader locally
+.PHONY: product-loader-run ## Run Product Loader locally
+product-loader-run:
 	@$(MAKE) separator
 	@echo "Running Product Loader locally..."
 	@if [ -f .env ]; then \

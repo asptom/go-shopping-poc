@@ -1337,12 +1337,12 @@ You're absolutely correct - the **.env template file and Kubernetes manifests fo
 - **Status**: **Not created** - developers have no reference for required environment variables
 
 **2. Kubernetes ConfigMaps**
-- **Location**: Should be in `deployments/kubernetes/` directory
+- **Location**: Should be in `deployment/k8s/` directory
 - **Purpose**: YAML files defining ConfigMaps for non-sensitive configuration
 - **Status**: **Not created** - no Kubernetes manifests for environment variable injection
 
 **3. Kubernetes Secrets**  
-- **Location**: Should be in `deployments/kubernetes/` directory
+- **Location**: Should be in `deployment/k8s/` directory
 - **Purpose**: YAML files defining Secrets for sensitive data (passwords, API keys)
 - **Status**: **Not created** - no secure way to inject secrets into pods
 
@@ -1458,7 +1458,7 @@ You're absolutely right to be concerned. After reviewing the manifest and deploy
 
 **2. Kubernetes ConfigMaps**
 - **Status**: NOT created
-- **Expected**: YAML files in `deployments/kubernetes/` defining ConfigMaps
+- **Expected**: YAML files in `deployment/k8s/` defining ConfigMaps
 - **Purpose**: Kubernetes-native way to inject environment variables
 - **Example**:
   ```yaml
@@ -1473,7 +1473,7 @@ You're absolutely right to be concerned. After reviewing the manifest and deploy
 
 **3. Kubernetes Secrets**
 - **Status**: NOT created
-- **Expected**: YAML files in `deployments/kubernetes/` defining Secrets
+- **Expected**: YAML files in `deployment/k8s/` defining Secrets
 - **Purpose**: Kubernetes-native way to inject sensitive data (passwords, API keys)
 - **Example**:
   ```yaml
@@ -1536,13 +1536,13 @@ Here's a detailed breakdown of exactly what needs to be done to complete the mig
 
 ### **Phase 1: Create Deployment Configuration Artifacts**
 
-**File to Create**: `deployments/kubernetes/configmaps/` (new directory)
+**File to Create**: `deployment/k8s/configmaps/` (new directory)
 - `customer-configmap.yaml` - Customer service environment variables
 - `product-configmap.yaml` - Product service environment variables  
 - `eventreader-configmap.yaml` - EventReader service environment variables
 - `websocket-configmap.yaml` - WebSocket service environment variables
 
-**Files to Create**: `deployments/kubernetes/secrets/` (new directory)
+**Files to Create**: `deployment/k8s/secrets/` (new directory)
 - `customer-secrets.yaml` - Customer service sensitive data
 - `product-secrets.yaml` - Product service sensitive data
 
@@ -1564,10 +1564,10 @@ Here's a detailed breakdown of exactly what needs to be done to complete the mig
 ### **Phase 3: Update Service Kubernetes Deployments**
 
 **Files to Modify**:
-- `deployments/kubernetes/customer/customer-deploy.yaml` - Add ConfigMap and Secret references
-- `deployments/kubernetes/product/product-deploy.yaml` - Add ConfigMap and Secret references
-- `deployments/kubernetes/eventreader/eventreader-deploy.yaml` - Add ConfigMap and Secret references
-- `deployments/kubernetes/websocket/websocket-deployment.yaml` - Add ConfigMap and Secret references
+- `deployment/k8s/customer/customer-deploy.yaml` - Add ConfigMap and Secret references
+- `deployment/k8s/product/product-deploy.yaml` - Add ConfigMap and Secret references
+- `deployment/k8s/eventreader/eventreader-deploy.yaml` - Add ConfigMap and Secret references
+- `deployment/k8s/websocket/websocket-deployment.yaml` - Add ConfigMap and Secret references
 
 **Changes Required**:
 - Add `envFrom:` sections in deployment specs
@@ -1581,10 +1581,10 @@ Here's a detailed breakdown of exactly what needs to be done to complete the mig
 ### **Phase 4: Update Platform Service Deployments**
 
 **Files to Modify**:
-- `deployments/kubernetes/kafka/kafka-deploy.yaml` - Add environment variables via ConfigMap
-- `deployments/kubernetes/postgresql/postgresql-deploy.yaml` - Ensure database connection settings
-- `deployments/kubernetes/minio/minio-deploy.yaml` - Add MinIO environment variables via ConfigMap
-- `deployments/kubernetes/keycloak/keycloak-deploy.yaml` - Add Keycloak environment variables via Secret
+- `deployment/k8s/kafka/kafka-deploy.yaml` - Add environment variables via ConfigMap
+- `deployment/k8s/postgresql/postgresql-deploy.yaml` - Ensure database connection settings
+- `deployment/k8s/minio/minio-deploy.yaml` - Add MinIO environment variables via ConfigMap
+- `deployment/k8s/keycloak/keycloak-deploy.yaml` - Add Keycloak environment variables via Secret
 
 **Changes Required**:
 - Add ConfigMap references for non-sensitive platform configuration
@@ -1630,9 +1630,9 @@ Here's a detailed breakdown of exactly what needs to be done to complete the mig
 - `PSQL_CUSTOMER_DB_URL`
 
 **Files to Modify**:
-- Create: `deployments/kubernetes/configmaps/customer-configmap.yaml`
-- Create: `deployments/kubernetes/secrets/customer-secrets.yaml`
-- Update: `deployments/kubernetes/customer/customer-deploy.yaml`
+- Create: `deployment/k8s/configmaps/customer-configmap.yaml`
+- Create: `deployment/k8s/secrets/customer-secrets.yaml`
+- Update: `deployment/k8s/customer/customer-deploy.yaml`
 
 ---
 
@@ -1646,9 +1646,9 @@ Here's a detailed breakdown of exactly what needs to be done to complete the mig
 - `MINIO_SECRET_KEY`
 
 **Files to Modify**:
-- Create: `deployments/kubernetes/configmaps/product-configmap.yaml`
-- Create: `deployments/kubernetes/secrets/product-secrets.yaml`
-- Update: `deployments/kubernetes/product/product-deploy.yaml`
+- Create: `deployment/k8s/configmaps/product-configmap.yaml`
+- Create: `deployment/k8s/secrets/product-secrets.yaml`
+- Update: `deployment/k8s/product/product-deploy.yaml`
 
 ---
 
@@ -1657,8 +1657,8 @@ Here's a detailed breakdown of exactly what needs to be done to complete the mig
 - `EVENT_READER_WRITE_TOPIC`, `EVENT_READER_READ_TOPICS`, `EVENT_READER_GROUP`
 
 **Files to Modify**:
-- Create: `deployments/kubernetes/configmaps/eventreader-configmap.yaml`
-- Update: `deployments/kubernetes/eventreader/eventreader-deploy.yaml`
+- Create: `deployment/k8s/configmaps/eventreader-configmap.yaml`
+- Update: `deployment/k8s/eventreader/eventreader-deploy.yaml`
 
 ---
 
@@ -1667,8 +1667,8 @@ Here's a detailed breakdown of exactly what needs to be done to complete the mig
 - `WEBSOCKET_URL`, `WEBSOCKET_TIMEOUT`, `WEBSOCKET_READ_BUFFER`, `WEBSOCKET_WRITE_BUFFER`, `WEBSOCKET_PORT`, `WEBSOCKET_PATH`
 
 **Files to Modify**:
-- Create: `deployments/kubernetes/configmaps/websocket-configmap.yaml`
-- Update: `deployments/kubernetes/websocket/websocket-deployment.yaml`
+- Create: `deployment/k8s/configmaps/websocket-configmap.yaml`
+- Update: `deployment/k8s/websocket/websocket-deployment.yaml`
 
 ---
 
@@ -1679,16 +1679,16 @@ Here's a detailed breakdown of exactly what needs to be done to complete the mig
 - `DATABASE_MAX_OPEN_CONNS`, `DATABASE_MAX_IDLE_CONNS`, `DATABASE_CONN_MAX_LIFETIME`, `DATABASE_CONN_MAX_IDLE_TIME`, `DATABASE_CONNECT_TIMEOUT`, `DATABASE_QUERY_TIMEOUT`, `DATABASE_HEALTH_CHECK_INTERVAL`, `DATABASE_HEALTH_CHECK_TIMEOUT`
 
 **Files to Modify**:
-- Create: `deployments/kubernetes/configmaps/database-configmap.yaml`
-- Update: `deployments/kubernetes/postgresql/postgresql-deploy.yaml`
+- Create: `deployment/k8s/configmaps/database-configmap.yaml`
+- Update: `deployment/k8s/postgresql/postgresql-deploy.yaml`
 
 ### **Kafka**
 **Secret Variables** (sensitive):
 - `KAFKA_BROKERS`
 
 **Files to Modify**:
-- Create: `deployments/kubernetes/secrets/kafka-secrets.yaml`
-- Update: `deployments/kubernetes/kafka/kafka-deploy.yaml`
+- Create: `deployment/k8s/secrets/kafka-secrets.yaml`
+- Update: `deployment/k8s/kafka/kafka-deploy.yaml`
 
 ### **MinIO**
 **ConfigMap Variables** (non-sensitive):
@@ -1699,16 +1699,16 @@ Here's a detailed breakdown of exactly what needs to be done to complete the mig
 - `MINIO_SECRET_KEY`
 
 **Files to Modify**:
-- Create: `deployments/kubernetes/configmaps/minio-configmap.yaml`
-- Create: `deployments/kubernetes/secrets/minio-secrets.yaml`
-- Update: `deployments/kubernetes/minio/minio-deploy.yaml`
+- Create: `deployment/k8s/configmaps/minio-configmap.yaml`
+- Create: `deployment/k8s/secrets/minio-secrets.yaml`
+- Update: `deployment/k8s/minio/minio-deploy.yaml`
 
 ### **Outbox**
 **ConfigMap Variables** (all):
 - `OUTBOX_BATCH_SIZE`, `OUTBOX_DELETE_BATCH_SIZE`, `OUTBOX_PROCESS_INTERVAL`, `OUTBOX_MAX_RETRIES`
 
 **Files to Modify**:
-- Create: `deployments/kubernetes/configmaps/outbox-configmap.yaml`
+- Create: `deployment/k8s/configmaps/outbox-configmap.yaml`
 - Update: All deployments that use outbox (customer, product)
 
 ### **CORS**
@@ -1716,7 +1716,7 @@ Here's a detailed breakdown of exactly what needs to be done to complete the mig
 - `CORS_ALLOWED_ORIGINS`, `CORS_ALLOWED_METHODS`, `CORS_ALLOWED_HEADERS`, `CORS_ALLOW_CREDENTIALS`, `CORS_MAX_AGE`
 
 **Files to Modify**:
-- Create: `deployments/kubernetes/configmaps/cors-configmap.yaml`
+- Create: `deployment/k8s/configmaps/cors-configmap.yaml`
 - Update: All HTTP service deployments (customer, product, websocket)
 
 ---
@@ -1794,7 +1794,7 @@ Here's a detailed breakdown of exactly what needs to be done to complete the mig
 
 ## User
 
-Feedback on the phases:  Phase 1: Instead of a new directory (deployments/kubernetes/configmaps) would it make more sense to put those configmaps with each service in the existong directories (e.g. customer-configmap.yaml gets placed into deployments/kubernetes/customer)?  I am open to feedback and discussion on the merits of one versus the other.  Phase 2:  While the template is good I think that we also need to create the real ,env file as well.  Phase 3: Looks good.  Phase 4: looks good Phase 5: I typically do not use docker-compose but am open to hear about why having it makes sense for development Phase 6: Looks good.  What is your response to this feedback?  
+Feedback on the phases:  Phase 1: Instead of a new directory (deployment/k8s/configmaps) would it make more sense to put those configmaps with each service in the existong directories (e.g. customer-configmap.yaml gets placed into deployment/k8s/customer)?  I am open to feedback and discussion on the merits of one versus the other.  Phase 2:  While the template is good I think that we also need to create the real ,env file as well.  Phase 3: Looks good.  Phase 4: looks good Phase 5: I typically do not use docker-compose but am open to hear about why having it makes sense for development Phase 6: Looks good.  What is your response to this feedback?  
 
 ---
 
@@ -1813,16 +1813,16 @@ Thank you for the thoughtful feedback! You raise excellent points about organiza
 **My Assessment**: You're absolutely right. A central directory is cleaner and follows Kubernetes best practices.
 
 **Adapted Plan**:
-- ✅ **Create `deployments/kubernetes/configmaps/`** (central directory)
+- ✅ **Create `deployment/k8s/configmaps/`** (central directory)
 - ✅ **Place ConfigMaps in central location**:
-  - `deployments/kubernetes/configmaps/customer-configmap.yaml`
-  - `deployments/kubernetes/configmaps/product-configmap.yaml`
-  - `deployments/kubernetes/configmaps/eventreader-configmap.yaml`
-  - `deployments/kubernetes/configmaps/websocket-configmap.yaml`
+  - `deployment/k8s/configmaps/customer-configmap.yaml`
+  - `deployment/k8s/configmaps/product-configmap.yaml`
+  - `deployment/k8s/configmaps/eventreader-configmap.yaml`
+  - `deployment/k8s/configmaps/websocket-configmap.yaml`
 - ✅ **Update deployment files** to reference ConfigMaps in new location
 - ✅ **Separate concerns**:
   - ConfigMaps: Non-sensitive environment variables (ports, topics, intervals)
-  - Secrets: In `deployments/kubernetes/secrets/` directory (as originally planned)
+  - Secrets: In `deployment/k8s/secrets/` directory (as originally planned)
 
 **Benefits**:
 - Better organization and discoverability
@@ -1987,7 +1987,7 @@ WEBSOCKET_PATH=/ws
 
 Based on your feedback, here's the **revised plan**:
 
-**Phase 1**: ✅ ConfigMaps in `deployments/kubernetes/configmaps/` (central directory, not per-service)
+**Phase 1**: ✅ ConfigMaps in `deployment/k8s/configmaps/` (central directory, not per-service)
 
 **Phase 2**: ✅ Create `.env.example` template file (real file with placeholders, not just template)
 
@@ -2011,7 +2011,7 @@ Does this adapted plan address your concerns and make sense for how you develop 
 
 ## User
 
-In Phase 1 I was questioning the validity of using a central directory for the configmaps.  You mentioned that is a kubernetes standard.  If so, should the deployments (i.e. deployments/kubernetes/customer/customer-deploy.yaml) be broken up and placed in separate central directories as well (deployments/kubernetes/service, deployments/kubernetes/statefulset, etc.) I want to learn the best and most common usage.
+In Phase 1 I was questioning the validity of using a central directory for the configmaps.  You mentioned that is a kubernetes standard.  If so, should the deployments (i.e. deployment/k8s/customer/customer-deploy.yaml) be broken up and placed in separate central directories as well (deployment/k8s/service, deployment/k8s/statefulset, etc.) I want to learn the best and most common usage.
 
 ---
 
@@ -2072,7 +2072,7 @@ Based on Kubernetes best practices:
 2. **Global infrastructure settings** that span multiple services
 3. **Organization standards** where centralized configuration makes sense
 
-**Recommendation**: Keep the current per-service ConfigMaps** (`deployments/kubernetes/customer/`, `deployments/kubernetes/product/`, etc.) because:
+**Recommendation**: Keep the current per-service ConfigMaps** (`deployment/k8s/customer/`, `deployment/k8s/product/`, etc.) because:
 - Your codebase already follows this pattern
 - It's simpler and more maintainable
 - It provides better service isolation
@@ -2180,7 +2180,7 @@ This migration plan implements Kubernetes ConfigMaps and Secrets following the c
 
 ### Target Structure
 ```
-deployments/kubernetes/
+deployment/k8s/
 ├── customer/
 │   ├── customer-deploy.yaml (MODIFY - add envFrom)
 │   └── customer-configmap.yaml (NEW)
@@ -2212,7 +2212,7 @@ deployments/kubernetes/
 
 ### Secrets Directory
 ```
-deployments/kubernetes/secrets/ (NEW)
+deployment/k8s/secrets/ (NEW)
 ├── customer-secret.yaml (NEW)
 ├── product-secret.yaml (NEW)
 ├── postgres-secret.yaml (NEW)
@@ -2223,7 +2223,7 @@ deployments/kubernetes/secrets/ (NEW)
 ## Phase 1: Create Service-Specific ConfigMaps
 
 ### Customer Service ConfigMap
-**File**: `deployments/kubernetes/customer/customer-configmap.yaml`
+**File**: `deployment/k8s/customer/customer-configmap.yaml`
 
 ```yaml
 apiVersion: v1
@@ -2268,7 +2268,7 @@ data:
 ```
 
 ### Product Service ConfigMap
-**File**: `deployments/kubernetes/product/product-configmap.yaml`
+**File**: `deployment/k8s/product/product-configmap.yaml`
 
 ```yaml
 apiVersion: v1
@@ -2317,7 +2317,7 @@ data:
 ```
 
 ### EventReader Service ConfigMap
-**File**: `deployments/kubernetes/eventreader/eventreader-configmap.yaml`
+**File**: `deployment/k8s/eventreader/eventreader-configmap.yaml`
 
 ```yaml
 apiVersion: v1
@@ -2335,7 +2335,7 @@ data:
 ```
 
 ### WebSocket Service ConfigMap
-**File**: `deployments/kubernetes/websocket/websocket-configmap.yaml`
+**File**: `deployment/k8s/websocket/websocket-configmap.yaml`
 
 ```yaml
 apiVersion: v1
@@ -2356,7 +2356,7 @@ data:
 ```
 
 ### EventWriter Service ConfigMap
-**File**: `deployments/kubernetes/eventwriter/eventwriter-configmap.yaml`
+**File**: `deployment/k8s/eventwriter/eventwriter-configmap.yaml`
 
 ```yaml
 apiVersion: v1
@@ -2375,7 +2375,7 @@ data:
 ## Phase 2: Create Kubernetes Secrets
 
 ### Customer Service Secret
-**File**: `deployments/kubernetes/secrets/customer-secret.yaml`
+**File**: `deployment/k8s/secrets/customer-secret.yaml`
 
 ```yaml
 apiVersion: v1
@@ -2391,7 +2391,7 @@ stringData:
 ```
 
 ### Product Service Secret
-**File**: `deployments/kubernetes/secrets/product-secret.yaml`
+**File**: `deployment/k8s/secrets/product-secret.yaml`
 
 ```yaml
 apiVersion: v1
@@ -2409,7 +2409,7 @@ stringData:
 ```
 
 ### PostgreSQL Admin Secret
-**File**: `deployments/kubernetes/secrets/postgres-secret.yaml`
+**File**: `deployment/k8s/secrets/postgres-secret.yaml`
 
 ```yaml
 apiVersion: v1
@@ -2425,7 +2425,7 @@ stringData:
 ```
 
 ### MinIO Credentials Secret
-**File**: `deployments/kubernetes/secrets/minio-secret.yaml`
+**File**: `deployment/k8s/secrets/minio-secret.yaml`
 
 ```yaml
 apiVersion: v1
@@ -2442,7 +2442,7 @@ stringData:
 ```
 
 ### Keycloak Secret
-**File**: `deployments/kubernetes/secrets/keycloak-secret.yaml`
+**File**: `deployment/k8s/secrets/keycloak-secret.yaml`
 
 ```yaml
 apiVersion: v1
@@ -2594,7 +2594,7 @@ MINIO_ROOT_PASSWORD=your_minio_root_password
 ## Phase 4: Update Service Deployments
 
 ### Customer Service Deployment
-**File**: `deployments/kubernetes/customer/customer-deploy.yaml` - ADD TO spec.template.containers[0].envFrom
+**File**: `deployment/k8s/customer/customer-deploy.yaml` - ADD TO spec.template.containers[0].envFrom
 
 ```yaml
 containers:
@@ -2615,7 +2615,7 @@ containers:
 ```
 
 ### Product Service Deployment
-**File**: `deployments/kubernetes/product/product-deploy.yaml` - ADD TO spec.template.containers[0].envFrom AND spec.template.volumes[0]
+**File**: `deployment/k8s/product/product-deploy.yaml` - ADD TO spec.template.containers[0].envFrom AND spec.template.volumes[0]
 
 ```yaml
 containers:
@@ -2645,7 +2645,7 @@ volumes:
 ```
 
 ### EventReader Service Deployment
-**File**: `deployments/kubernetes/eventreader/eventreader-deploy.yaml` - ADD TO spec.template.containers[0].envFrom
+**File**: `deployment/k8s/eventreader/eventreader-deploy.yaml` - ADD TO spec.template.containers[0].envFrom
 
 ```yaml
 containers:
@@ -2658,7 +2658,7 @@ containers:
 ```
 
 ### WebSocket Service Deployment
-**File**: `deployments/kubernetes/websocket/websocket-deployment.yaml` - ADD TO spec.template.containers[0].envFrom
+**File**: `deployment/k8s/websocket/websocket-deployment.yaml` - ADD TO spec.template.containers[0].envFrom
 
 ```yaml
 containers:
@@ -2673,7 +2673,7 @@ containers:
 ## Phase 5: Update Platform Service Deployments
 
 ### PostgreSQL Deployment
-**File**: `deployments/kubernetes/postgresql/postgresql-deploy.yaml` - REPLACE env section with envFrom
+**File**: `deployment/k8s/postgresql/postgresql-deploy.yaml` - REPLACE env section with envFrom
 
 ```yaml
 containers:
@@ -2692,7 +2692,7 @@ containers:
 ```
 
 ### MinIO Deployment
-**File**: `deployments/kubernetes/minio/minio-deploy.yaml` - MODIFY spec.template.containers[0].envFrom (uncomment secretRef)
+**File**: `deployment/k8s/minio/minio-deploy.yaml` - MODIFY spec.template.containers[0].envFrom (uncomment secretRef)
 
 ```yaml
 containers:
@@ -2709,7 +2709,7 @@ containers:
 ```
 
 ### Keycloak Deployment
-**File**: `deployments/kubernetes/keycloak/keycloak-deploy.yaml` - ADD TO spec.template.containers[0].envFrom
+**File**: `deployment/k8s/keycloak/keycloak-deploy.yaml` - ADD TO spec.template.containers[0].envFrom
 
 ```yaml
 containers:
@@ -2872,24 +2872,24 @@ kubectl create namespace minio
 kubectl create namespace keycloak
 
 # 2. Apply platform services
-kubectl apply -f deployments/kubernetes/postgresql/
-kubectl apply -f deployments/kubernetes/kafka/
-kubectl apply -f deployments/kubernetes/minio/
-kubectl apply -f deployments/kubernetes/keycloak/
+kubectl apply -f deployment/k8s/postgresql/
+kubectl apply -f deployment/k8s/kafka/
+kubectl apply -f deployment/k8s/minio/
+kubectl apply -f deployment/k8s/keycloak/
 
 # 3. Create and apply secrets
-kubectl apply -f deployments/kubernetes/secrets/customer-secret.yaml
-kubectl apply -f deployments/kubernetes/secrets/product-secret.yaml
-kubectl apply -f deployments/kubernetes/secrets/postgres-secret.yaml
-kubectl apply -f deployments/kubernetes/secrets/minio-secret.yaml
-kubectl apply -f deployments/kubernetes/secrets/keycloak-secret.yaml
+kubectl apply -f deployment/k8s/secrets/customer-secret.yaml
+kubectl apply -f deployment/k8s/secrets/product-secret.yaml
+kubectl apply -f deployment/k8s/secrets/postgres-secret.yaml
+kubectl apply -f deployment/k8s/secrets/minio-secret.yaml
+kubectl apply -f deployment/k8s/secrets/keycloak-secret.yaml
 
 # 4. Apply application services
-kubectl apply -f deployments/kubernetes/customer/
-kubectl apply -f deployments/kubernetes/product/
-kubectl apply -f deployments/kubernetes/eventreader/
-kubectl apply -f deployments/kubernetes/websocket/
-kubectl apply -f deployments/kubernetes/eventwriter/
+kubectl apply -f deployment/k8s/customer/
+kubectl apply -f deployment/k8s/product/
+kubectl apply -f deployment/k8s/eventreader/
+kubectl apply -f deployment/k8s/websocket/
+kubectl apply -f deployment/k8s/eventwriter/
 ```
 
 #### Verify Deployment
@@ -2969,7 +2969,7 @@ The project uses environment variables exclusively for configuration:
 ## Directory Structure
 
 ```
-deployments/kubernetes/
+deployment/k8s/
 ├── customer/
 │   ├── customer-deploy.yaml
 │   └── customer-configmap.yaml
@@ -3018,36 +3018,36 @@ kubectl create namespace keycloak
 
 ```bash
 # PostgreSQL
-kubectl apply -f deployments/kubernetes/postgresql/
+kubectl apply -f deployment/k8s/postgresql/
 
 # Kafka
-kubectl apply -f deployments/kubernetes/kafka/
+kubectl apply -f deployment/k8s/kafka/
 
 # MinIO
-kubectl apply -f deployments/kubernetes/minio/
+kubectl apply -f deployment/k8s/minio/
 
 # Keycloak
-kubectl apply -f deployments/kubernetes/keycloak/
+kubectl apply -f deployment/k8s/keycloak/
 ```
 
 ### 3. Apply Application Service Secrets
 
 ```bash
-kubectl apply -f deployments/kubernetes/secrets/customer-secret.yaml
-kubectl apply -f deployments/kubernetes/secrets/product-secret.yaml
-kubectl apply -f deployments/kubernetes/secrets/postgres-secret.yaml
-kubectl apply -f deployments/kubernetes/secrets/minio-secret.yaml
-kubectl apply -f deployments/kubernetes/secrets/keycloak-secret.yaml
+kubectl apply -f deployment/k8s/secrets/customer-secret.yaml
+kubectl apply -f deployment/k8s/secrets/product-secret.yaml
+kubectl apply -f deployment/k8s/secrets/postgres-secret.yaml
+kubectl apply -f deployment/k8s/secrets/minio-secret.yaml
+kubectl apply -f deployment/k8s/secrets/keycloak-secret.yaml
 ```
 
 ### 4. Apply Application Services
 
 ```bash
-kubectl apply -f deployments/kubernetes/customer/
-kubectl apply -f deployments/kubernetes/product/
-kubectl apply -f deployments/kubernetes/eventreader/
-kubectl apply -f deployments/kubernetes/websocket/
-kubectl apply -f deployments/kubernetes/eventwriter/
+kubectl apply -f deployment/k8s/customer/
+kubectl apply -f deployment/k8s/product/
+kubectl apply -f deployment/k8s/eventreader/
+kubectl apply -f deployment/k8s/websocket/
+kubectl apply -f deployment/k8s/eventwriter/
 ```
 
 ### 5. Verify Deployment
@@ -3203,31 +3203,31 @@ Add to recent session summary:
 - **2 documentation files** to create (README updates, deployment guide)
 
 **Files to Create**:
-- `deployments/kubernetes/customer/customer-configmap.yaml`
-- `deployments/kubernetes/product/product-configmap.yaml`
-- `deployments/kubernetes/eventreader/eventreader-configmap.yaml`
-- `deployments/kubernetes/websocket/websocket-configmap.yaml`
-- `deployments/kubernetes/eventwriter/eventwriter-configmap.yaml`
-- `deployments/kubernetes/postgresql/postgresql-configmap.yaml`
-- `deployments/kubernetes/keycloak/keycloak-configmap.yaml`
-- `deployments/kubernetes/secrets/customer-secret.yaml`
-- `deployments/kubernetes/secrets/product-secret.yaml`
-- `deployments/kubernetes/secrets/postgres-secret.yaml`
-- `deployments/kubernetes/secrets/minio-secret.yaml`
-- `deployments/kubernetes/secrets/keycloak-secret.yaml`
+- `deployment/k8s/customer/customer-configmap.yaml`
+- `deployment/k8s/product/product-configmap.yaml`
+- `deployment/k8s/eventreader/eventreader-configmap.yaml`
+- `deployment/k8s/websocket/websocket-configmap.yaml`
+- `deployment/k8s/eventwriter/eventwriter-configmap.yaml`
+- `deployment/k8s/postgresql/postgresql-configmap.yaml`
+- `deployment/k8s/keycloak/keycloak-configmap.yaml`
+- `deployment/k8s/secrets/customer-secret.yaml`
+- `deployment/k8s/secrets/product-secret.yaml`
+- `deployment/k8s/secrets/postgres-secret.yaml`
+- `deployment/k8s/secrets/minio-secret.yaml`
+- `deployment/k8s/secrets/keycloak-secret.yaml`
 - `.env.example` (repository root)
 - `docker-compose.yml` (repository root, optional)
 - `docs/kubernetes-deployment-guide.md` (new)
 
 **Files to Modify**:
-- `deployments/kubernetes/customer/customer-deploy.yaml`
-- `deployments/kubernetes/product/product-deploy.yaml`
-- `deployments/kubernetes/eventreader/eventreader-deploy.yaml`
-- `deployments/kubernetes/websocket/websocket-deployment.yaml`
-- `deployments/kubernetes/eventwriter/eventwriter-deployment.yaml`
-- `deployments/kubernetes/postgresql/postgresql-deploy.yaml`
-- `deployments/kubernetes/minio/minio-deploy.yaml`
-- `deployments/kubernetes/keycloak/keycloak-deploy.yaml`
+- `deployment/k8s/customer/customer-deploy.yaml`
+- `deployment/k8s/product/product-deploy.yaml`
+- `deployment/k8s/eventreader/eventreader-deploy.yaml`
+- `deployment/k8s/websocket/websocket-deployment.yaml`
+- `deployment/k8s/eventwriter/eventwriter-deployment.yaml`
+- `deployment/k8s/postgresql/postgresql-deploy.yaml`
+- `deployment/k8s/minio/minio-deploy.yaml`
+- `deployment/k8s/keycloak/keycloak-deploy.yaml`
 - `README.md`
 - `AGENTS.md`
 
@@ -3255,7 +3255,7 @@ This migration plan implements Kubernetes ConfigMaps and Secrets following the c
 
 ### Target Structure
 ```
-deployments/kubernetes/
+deployment/k8s/
 ├── customer/
 │   ├── customer-deploy.yaml (MODIFY - add envFrom)
 │   └── customer-configmap.yaml (NEW)
@@ -3287,7 +3287,7 @@ deployments/kubernetes/
 
 ### Secrets Directory
 ```
-deployments/kubernetes/secrets/ (NEW)
+deployment/k8s/secrets/ (NEW)
 ├── customer-secret.yaml (NEW)
 ├── product-secret.yaml (NEW)
 ├── postgres-secret.yaml (NEW)
@@ -3298,7 +3298,7 @@ deployments/kubernetes/secrets/ (NEW)
 ## Phase 1: Create Service-Specific ConfigMaps
 
 ### Customer Service ConfigMap
-**File**: `deployments/kubernetes/customer/customer-configmap.yaml`
+**File**: `deployment/k8s/customer/customer-configmap.yaml`
 
 ```yaml
 apiVersion: v1
@@ -3343,7 +3343,7 @@ data:
 ```
 
 ### Product Service ConfigMap
-**File**: `deployments/kubernetes/product/product-configmap.yaml`
+**File**: `deployment/k8s/product/product-configmap.yaml`
 
 ```yaml
 apiVersion: v1
@@ -3392,7 +3392,7 @@ data:
 ```
 
 ### EventReader Service ConfigMap
-**File**: `deployments/kubernetes/eventreader/eventreader-configmap.yaml`
+**File**: `deployment/k8s/eventreader/eventreader-configmap.yaml`
 
 ```yaml
 apiVersion: v1
@@ -3410,7 +3410,7 @@ data:
 ```
 
 ### WebSocket Service ConfigMap
-**File**: `deployments/kubernetes/websocket/websocket-configmap.yaml`
+**File**: `deployment/k8s/websocket/websocket-configmap.yaml`
 
 ```yaml
 apiVersion: v1
@@ -3431,7 +3431,7 @@ data:
 ```
 
 ### EventWriter Service ConfigMap
-**File**: `deployments/kubernetes/eventwriter/eventwriter-configmap.yaml`
+**File**: `deployment/k8s/eventwriter/eventwriter-configmap.yaml`
 
 ```yaml
 apiVersion: v1
@@ -3450,7 +3450,7 @@ data:
 ## Phase 2: Create Kubernetes Secrets
 
 ### Customer Service Secret
-**File**: `deployments/kubernetes/secrets/customer-secret.yaml`
+**File**: `deployment/k8s/secrets/customer-secret.yaml`
 
 ```yaml
 apiVersion: v1
@@ -3466,7 +3466,7 @@ stringData:
 ```
 
 ### Product Service Secret
-**File**: `deployments/kubernetes/secrets/product-secret.yaml`
+**File**: `deployment/k8s/secrets/product-secret.yaml`
 
 ```yaml
 apiVersion: v1
@@ -3484,7 +3484,7 @@ stringData:
 ```
 
 ### PostgreSQL Admin Secret
-**File**: `deployments/kubernetes/secrets/postgres-secret.yaml`
+**File**: `deployment/k8s/secrets/postgres-secret.yaml`
 
 ```yaml
 apiVersion: v1
@@ -3500,7 +3500,7 @@ stringData:
 ```
 
 ### MinIO Credentials Secret
-**File**: `deployments/kubernetes/secrets/minio-secret.yaml`
+**File**: `deployment/k8s/secrets/minio-secret.yaml`
 
 ```yaml
 apiVersion: v1
@@ -3517,7 +3517,7 @@ stringData:
 ```
 
 ### Keycloak Secret
-**File**: `deployments/kubernetes/secrets/keycloak-secret.yaml`
+**File**: `deployment/k8s/secrets/keycloak-secret.yaml`
 
 ```yaml
 apiVersion: v1
@@ -3669,7 +3669,7 @@ MINIO_ROOT_PASSWORD=your_minio_root_password
 ## Phase 4: Update Service Deployments
 
 ### Customer Service Deployment
-**File**: `deployments/kubernetes/customer/customer-deploy.yaml` - ADD TO spec.template.containers[0].envFrom
+**File**: `deployment/k8s/customer/customer-deploy.yaml` - ADD TO spec.template.containers[0].envFrom
 
 ```yaml
 containers:
@@ -3690,7 +3690,7 @@ containers:
 ```
 
 ### Product Service Deployment
-**File**: `deployments/kubernetes/product/product-deploy.yaml` - ADD TO spec.template.containers[0].envFrom AND spec.template.volumes[0]
+**File**: `deployment/k8s/product/product-deploy.yaml` - ADD TO spec.template.containers[0].envFrom AND spec.template.volumes[0]
 
 ```yaml
 containers:
@@ -3720,7 +3720,7 @@ volumes:
 ```
 
 ### EventReader Service Deployment
-**File**: `deployments/kubernetes/eventreader/eventreader-deploy.yaml` - ADD TO spec.template.containers[0].envFrom
+**File**: `deployment/k8s/eventreader/eventreader-deploy.yaml` - ADD TO spec.template.containers[0].envFrom
 
 ```yaml
 containers:
@@ -3733,7 +3733,7 @@ containers:
 ```
 
 ### WebSocket Service Deployment
-**File**: `deployments/kubernetes/websocket/websocket-deployment.yaml` - ADD TO spec.template.containers[0].envFrom
+**File**: `deployment/k8s/websocket/websocket-deployment.yaml` - ADD TO spec.template.containers[0].envFrom
 
 ```yaml
 containers:
@@ -3748,7 +3748,7 @@ containers:
 ## Phase 5: Update Platform Service Deployments
 
 ### PostgreSQL Deployment
-**File**: `deployments/kubernetes/postgresql/postgresql-deploy.yaml` - REPLACE env section with envFrom
+**File**: `deployment/k8s/postgresql/postgresql-deploy.yaml` - REPLACE env section with envFrom
 
 ```yaml
 containers:
@@ -3767,7 +3767,7 @@ containers:
 ```
 
 ### MinIO Deployment
-**File**: `deployments/kubernetes/minio/minio-deploy.yaml` - MODIFY spec.template.containers[0].envFrom (uncomment secretRef)
+**File**: `deployment/k8s/minio/minio-deploy.yaml` - MODIFY spec.template.containers[0].envFrom (uncomment secretRef)
 
 ```yaml
 containers:
@@ -3784,7 +3784,7 @@ containers:
 ```
 
 ### Keycloak Deployment
-**File**: `deployments/kubernetes/keycloak/keycloak-deploy.yaml` - ADD TO spec.template.containers[0].envFrom
+**File**: `deployment/k8s/keycloak/keycloak-deploy.yaml` - ADD TO spec.template.containers[0].envFrom
 
 ```yaml
 containers:
@@ -3947,24 +3947,24 @@ kubectl create namespace minio
 kubectl create namespace keycloak
 
 # 2. Apply platform services
-kubectl apply -f deployments/kubernetes/postgresql/
-kubectl apply -f deployments/kubernetes/kafka/
-kubectl apply -f deployments/kubernetes/minio/
-kubectl apply -f deployments/kubernetes/keycloak/
+kubectl apply -f deployment/k8s/postgresql/
+kubectl apply -f deployment/k8s/kafka/
+kubectl apply -f deployment/k8s/minio/
+kubectl apply -f deployment/k8s/keycloak/
 
 # 3. Create and apply secrets
-kubectl apply -f deployments/kubernetes/secrets/customer-secret.yaml
-kubectl apply -f deployments/kubernetes/secrets/product-secret.yaml
-kubectl apply -f deployments/kubernetes/secrets/postgres-secret.yaml
-kubectl apply -f deployments/kubernetes/secrets/minio-secret.yaml
-kubectl apply -f deployments/kubernetes/secrets/keycloak-secret.yaml
+kubectl apply -f deployment/k8s/secrets/customer-secret.yaml
+kubectl apply -f deployment/k8s/secrets/product-secret.yaml
+kubectl apply -f deployment/k8s/secrets/postgres-secret.yaml
+kubectl apply -f deployment/k8s/secrets/minio-secret.yaml
+kubectl apply -f deployment/k8s/secrets/keycloak-secret.yaml
 
 # 4. Apply application services
-kubectl apply -f deployments/kubernetes/customer/
-kubectl apply -f deployments/kubernetes/product/
-kubectl apply -f deployments/kubernetes/eventreader/
-kubectl apply -f deployments/kubernetes/websocket/
-kubectl apply -f deployments/kubernetes/eventwriter/
+kubectl apply -f deployment/k8s/customer/
+kubectl apply -f deployment/k8s/product/
+kubectl apply -f deployment/k8s/eventreader/
+kubectl apply -f deployment/k8s/websocket/
+kubectl apply -f deployment/k8s/eventwriter/
 ```
 
 #### Verify Deployment
@@ -4044,7 +4044,7 @@ The project uses environment variables exclusively for configuration:
 ## Directory Structure
 
 ```
-deployments/kubernetes/
+deployment/k8s/
 ├── customer/
 │   ├── customer-deploy.yaml
 │   └── customer-configmap.yaml
@@ -4093,36 +4093,36 @@ kubectl create namespace keycloak
 
 ```bash
 # PostgreSQL
-kubectl apply -f deployments/kubernetes/postgresql/
+kubectl apply -f deployment/k8s/postgresql/
 
 # Kafka
-kubectl apply -f deployments/kubernetes/kafka/
+kubectl apply -f deployment/k8s/kafka/
 
 # MinIO
-kubectl apply -f deployments/kubernetes/minio/
+kubectl apply -f deployment/k8s/minio/
 
 # Keycloak
-kubectl apply -f deployments/kubernetes/keycloak/
+kubectl apply -f deployment/k8s/keycloak/
 ```
 
 ### 3. Apply Application Service Secrets
 
 ```bash
-kubectl apply -f deployments/kubernetes/secrets/customer-secret.yaml
-kubectl apply -f deployments/kubernetes/secrets/product-secret.yaml
-kubectl apply -f deployments/kubernetes/secrets/postgres-secret.yaml
-kubectl apply -f deployments/kubernetes/secrets/minio-secret.yaml
-kubectl apply -f deployments/kubernetes/secrets/keycloak-secret.yaml
+kubectl apply -f deployment/k8s/secrets/customer-secret.yaml
+kubectl apply -f deployment/k8s/secrets/product-secret.yaml
+kubectl apply -f deployment/k8s/secrets/postgres-secret.yaml
+kubectl apply -f deployment/k8s/secrets/minio-secret.yaml
+kubectl apply -f deployment/k8s/secrets/keycloak-secret.yaml
 ```
 
 ### 4. Apply Application Services
 
 ```bash
-kubectl apply -f deployments/kubernetes/customer/
-kubectl apply -f deployments/kubernetes/product/
-kubectl apply -f deployments/kubernetes/eventreader/
-kubectl apply -f deployments/kubernetes/websocket/
-kubectl apply -f deployments/kubernetes/eventwriter/
+kubectl apply -f deployment/k8s/customer/
+kubectl apply -f deployment/k8s/product/
+kubectl apply -f deployment/k8s/eventreader/
+kubectl apply -f deployment/k8s/websocket/
+kubectl apply -f deployment/k8s/eventwriter/
 ```
 
 ### 5. Verify Deployment
@@ -4278,31 +4278,31 @@ Add to recent session summary:
 - **2 documentation files** to create (README updates, deployment guide)
 
 **Files to Create**:
-- `deployments/kubernetes/customer/customer-configmap.yaml`
-- `deployments/kubernetes/product/product-configmap.yaml`
-- `deployments/kubernetes/eventreader/eventreader-configmap.yaml`
-- `deployments/kubernetes/websocket/websocket-configmap.yaml`
-- `deployments/kubernetes/eventwriter/eventwriter-configmap.yaml`
-- `deployments/kubernetes/postgresql/postgresql-configmap.yaml`
-- `deployments/kubernetes/keycloak/keycloak-configmap.yaml`
-- `deployments/kubernetes/secrets/customer-secret.yaml`
-- `deployments/kubernetes/secrets/product-secret.yaml`
-- `deployments/kubernetes/secrets/postgres-secret.yaml`
-- `deployments/kubernetes/secrets/minio-secret.yaml`
-- `deployments/kubernetes/secrets/keycloak-secret.yaml`
+- `deployment/k8s/customer/customer-configmap.yaml`
+- `deployment/k8s/product/product-configmap.yaml`
+- `deployment/k8s/eventreader/eventreader-configmap.yaml`
+- `deployment/k8s/websocket/websocket-configmap.yaml`
+- `deployment/k8s/eventwriter/eventwriter-configmap.yaml`
+- `deployment/k8s/postgresql/postgresql-configmap.yaml`
+- `deployment/k8s/keycloak/keycloak-configmap.yaml`
+- `deployment/k8s/secrets/customer-secret.yaml`
+- `deployment/k8s/secrets/product-secret.yaml`
+- `deployment/k8s/secrets/postgres-secret.yaml`
+- `deployment/k8s/secrets/minio-secret.yaml`
+- `deployment/k8s/secrets/keycloak-secret.yaml`
 - `.env.example` (repository root)
 - `docker-compose.yml` (repository root, optional)
 - `docs/kubernetes-deployment-guide.md` (new)
 
 **Files to Modify**:
-- `deployments/kubernetes/customer/customer-deploy.yaml`
-- `deployments/kubernetes/product/product-deploy.yaml`
-- `deployments/kubernetes/eventreader/eventreader-deploy.yaml`
-- `deployments/kubernetes/websocket/websocket-deployment.yaml`
-- `deployments/kubernetes/eventwriter/eventwriter-deployment.yaml`
-- `deployments/kubernetes/postgresql/postgresql-deploy.yaml`
-- `deployments/kubernetes/minio/minio-deploy.yaml`
-- `deployments/kubernetes/keycloak/keycloak-deploy.yaml`
+- `deployment/k8s/customer/customer-deploy.yaml`
+- `deployment/k8s/product/product-deploy.yaml`
+- `deployment/k8s/eventreader/eventreader-deploy.yaml`
+- `deployment/k8s/websocket/websocket-deployment.yaml`
+- `deployment/k8s/eventwriter/eventwriter-deployment.yaml`
+- `deployment/k8s/postgresql/postgresql-deploy.yaml`
+- `deployment/k8s/minio/minio-deploy.yaml`
+- `deployment/k8s/keycloak/keycloak-deploy.yaml`
 - `README.md`
 - `AGENTS.md`
 

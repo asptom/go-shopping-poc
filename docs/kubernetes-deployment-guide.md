@@ -15,7 +15,7 @@ The project uses environment variables exclusively for configuration:
 ## Directory Structure
 
 ```
-deployments/kubernetes/
+deployment/k8s/
 ├── base/                           # Centralized configuration
 │   ├── configmaps/                 # All ConfigMaps
 │   │   ├── platform-configmap.yaml  # Shared platform settings
@@ -67,7 +67,7 @@ deployments/kubernetes/
 
 ```bash
 # Navigate to secrets directory
-cd deployments/kubernetes/base/secrets/
+cd deployment/k8s/base/secret/
 
 # Copy example templates
 cp customer-secret.yaml.example customer-secret.yaml
@@ -185,10 +185,10 @@ kubectl rollout restart statefulset/store-customer -n pocstore
 
 ```bash
 # Verify secret file exists
-ls deployments/kubernetes/base/secrets/customer-secret.yaml
+ls deployment/k8s/base/secret/customer-secret.yaml
 
 # Create from template if missing
-cd deployments/kubernetes/base/secrets/
+cd deployment/k8s/base/secret/
 cp customer-secret.yaml.example customer-secret.yaml
 ```
 
@@ -270,7 +270,7 @@ kubectl logs -n pocstore store-customer-0 --previous
 
 ### Platform ConfigMap
 
-**File**: `deployments/kubernetes/base/configmaps/platform-configmap.yaml`
+**File**: `deployment/k8s/base/configmap/platform-configmap.yaml`
 
 | Key | Description | Example |
 |-----|-------------|---------|
@@ -300,7 +300,7 @@ kubectl logs -n pocstore store-customer-0 --previous
 ### Service ConfigMaps
 
 #### Customer Config
-**File**: `deployments/kubernetes/base/configmaps/customer-configmap.yaml`
+**File**: `deployment/k8s/base/configmap/customer-configmap.yaml`
 
 | Key | Description | Example |
 |-----|-------------|---------|
@@ -313,7 +313,7 @@ kubectl logs -n pocstore store-customer-0 --previous
 | CUSTOMER_OUTBOX_PROCESSING_INTERVAL | Outbox processing interval | 10s |
 
 #### Product Config
-**File**: `deployments/kubernetes/base/configmaps/product-configmap.yaml`
+**File**: `deployment/k8s/base/configmap/product-configmap.yaml`
 
 | Key | Description | Example |
 |-----|-------------|---------|
@@ -330,7 +330,7 @@ kubectl logs -n pocstore store-customer-0 --previous
 | PRODUCT_GROUP | Kafka consumer group | ProductGroup |
 
 #### EventReader Config
-**File**: `deployments/kubernetes/base/configmaps/eventreader-configmap.yaml`
+**File**: `deployment/k8s/base/configmap/eventreader-configmap.yaml`
 
 | Key | Description | Example |
 |-----|-------------|---------|
@@ -339,7 +339,7 @@ kubectl logs -n pocstore store-customer-0 --previous
 | EVENT_READER_GROUP | Kafka consumer group | EventReaderGroup |
 
 #### WebSocket Config
-**File**: `deployments/kubernetes/base/configmaps/websocket-configmap.yaml`
+**File**: `deployment/k8s/base/configmap/websocket-configmap.yaml`
 
 | Key | Description | Example |
 |-----|-------------|---------|
@@ -352,7 +352,7 @@ kubectl logs -n pocstore store-customer-0 --previous
 | WEBSOCKET_ALLOWED_ORIGINS | Allowed origins | http://localhost:4200,http://localhost:3000 |
 
 #### EventWriter Config
-**File**: `deployments/kubernetes/base/configmaps/eventwriter-configmap.yaml`
+**File**: `deployment/k8s/base/configmap/eventwriter-configmap.yaml`
 
 | Key | Description | Example |
 |-----|-------------|---------|
@@ -375,7 +375,7 @@ kubectl logs -n pocstore store-customer-0 --previous
 
 ```bash
 # Create new ConfigMap
-cat > deployments/kubernetes/base/configmaps/newservice-configmap.yaml << EOF
+cat > deployment/k8s/base/configmap/newservice-configmap.yaml << EOF
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -395,7 +395,7 @@ EOF
 
 ```bash
 # Create secret template
-cat > deployments/kubernetes/base/secrets/newservice-secret.yaml.example << EOF
+cat > deployment/k8s/base/secret/newservice-secret.yaml.example << EOF
 apiVersion: v1
 kind: Secret
 metadata:
