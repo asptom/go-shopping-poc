@@ -1,3 +1,0 @@
-env:
-  - name: POSTGRESQL_WAL_LEVEL
-    value: logical

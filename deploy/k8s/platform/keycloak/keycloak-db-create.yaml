@@ -4,9 +4,11 @@ metadata:
   name: keycloak-db-create
   namespace: keycloak
 spec:
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 0
   template:
     spec:
-      restartPolicy: OnFailure
+      restartPolicy: Never
       containers:
         - name: init
           image: docker.io/postgres:18.0

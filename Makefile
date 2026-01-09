@@ -6,7 +6,7 @@ SHELL := /bin/bash
 .SHELLFLAGS := -euo pipefail -c
 .ONESHELL:
 
-PROJECT_HOME := ~/Projects/Go/go-shopping-poc
+PROJECT_HOME := /Users/tom/Projects/Go/go-shopping-poc
 
 # ------------------------------------------------------------------
 # --- Include sub-makefiles (use real paths under PROJECT_HOME) ---
@@ -97,8 +97,8 @@ separator:
 	@echo "**************************************************************"
 	@echo
 
-.PHONY: install-platform-services
-install-platform-services: k8s-namespaces certificates-install postgres-install keycloak-install
+.PHONY: platform ## Install all platform services (Keycloak, Postgres, Minio, Kafka, Certificates)
+platform: k8s-namespaces certificates-install postgres-install keycloak-install
 
 install: services-clean services-build services-docker-build k8s-install \
 		certificates-install postgres-initialize kafka-initialize minio-initialize k8s-install-domain-services ## Full setup: build and deploy all components

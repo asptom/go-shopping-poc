@@ -55,9 +55,9 @@ keycloak-realm-configmap:
 # ------------------------------------------------------------------
 
 .PHONY: keycloak-install ## Install Keycloak platform in Kubernetes
-keycloak-install: keycloak-db-init-sql-configmap keycloak-realm-configmap 
+keycloak-install: keycloak-db-configmap keycloak-realm-configmap 
 	@$(MAKE) separator
 	@echo "Installing Keycloak platform in Kubernetes..."
 	@kubectl apply -f deploy/k8s/platform/keycloak/
-	@kubectl rollout status deployment/keycloak -n $(AUTH_NAMESPACE) --timeout=180s
+	@kubectl rollout status statefulset/keycloak -n $(AUTH_NAMESPACE) --timeout=180s
 	@echo
