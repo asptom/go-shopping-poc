@@ -8,6 +8,12 @@ SHELL := /bin/bash
 
 PROJECT_HOME := /Users/tom/Projects/Go/go-shopping-poc
 
+DB_NAMESPACE := postgres
+SERVICES_NAMESPACE := shopping
+AUTH_NAMESPACE := keycloak
+KAFKA_NAMESPACE := kafka
+MINIO_NAMESPACE := minio
+
 # ------------------------------------------------------------------
 # --- Include sub-makefiles (use real paths under PROJECT_HOME) ---
 # ------------------------------------------------------------------
@@ -55,6 +61,21 @@ else
 	$(warning $(PROJECT_HOME)/resources/make/keycloak.mk not found — keycloak targets not loaded)
 endif
 
+# Services Makefile
+ifneq ($(wildcard $(PROJECT_HOME)/resources/make/services.mk),)
+	include $(PROJECT_HOME)/resources/make/services.mk
+else
+	$(warning $(PROJECT_HOME)/resources/make/services.mk not found — services targets not loaded)
+endif
+
+# Config Makefile
+ifneq ($(wildcard $(PROJECT_HOME)/resources/make/config.mk),)
+	include $(PROJECT_HOME)/resources/make/config.mk
+else
+	$(warning $(PROJECT_HOME)/resources/make/config.mk not found — config targets not loaded)
+endif
+
+
 # Product Loader Makefile
 ifneq ($(wildcard $(PROJECT_HOME)/resources/make/product_loader.mk),)
 	include $(PROJECT_HOME)/resources/make/product_loader.mk
@@ -66,13 +87,6 @@ else
 	$(warning PROJECT_HOME not defined after loading env files)
 endif
 # ------------------------------------------------------------------
-
-SERVICES := customer eventreader product
-SERVICES_WITH_DB := customer product
-SERVICES_NAMESPACE := shopping
-AUTH_NAMESPACE := keycloak
-DB_NAMESPACE := postgres
-PLATFORMS_WITH_DB := keycloak
 
 # ------------------------------------------------------------------
 # --- Targets ---
@@ -86,9 +100,6 @@ info:
 	@echo "----------------------------------------"
 	@echo "Environment: $(ENV)"
 	@echo "Project Home: $(PROJECT_HOME)"
-	@echo "Services with a DB: $(SERVICES_WITH_DB)"
-	@echo "Platforms with a DB: $(PLATFORMS_WITH_DB)"
-	@echo "Services Namespace: $(SERVICES_NAMESPACE)"
 	@echo "----------------------------------------"
 
 .PHONY: separator
@@ -98,63 +109,16 @@ separator:
 	@echo
 
 .PHONY: platform ## Install all platform services (Keycloak, Postgres, Minio, Kafka, Certificates)
-platform: k8s-namespaces certificates-install postgres-install keycloak-install
+platform: k8s-namespaces certificates-install postgres-install keycloak-install kafka-install minio-install config-install
 
-install: services-clean services-build services-docker-build k8s-install \
-		certificates-install postgres-initialize kafka-initialize minio-initialize k8s-install-domain-services ## Full setup: build and deploy all components
+.PHONY: services ## Install all services
+services: services-complete-install
 
-uninstall: k8s-uninstall ## Uninstall all services and all supporting components
+.PHONY: install ## Full setup: install all platform services and all application services
+install: platform services
 
-services-build: ## Build all services defined in SERVICES variable
-	@$(MAKE) separator
-	@echo "Building all services..."
-	@for svc in $(SERVICES); do \
-	    echo "Building $$svc..."; \
-	    GOOS=linux GOARCH=amd64 go build -o bin/$$svc ./cmd/$$svc; \
-	done
-
-services-run: ## Run (locally) all services defined in SERVICES variable
-	@$(MAKE) separator
-	@echo "Running all services (in background)..."
-	@for svc in $(SERVICES); do \
-	    echo "Running $$svc with $(ENV_FILE)..."; \
-	    APP_ENV=$(ENV) go run ./cmd/$$svc & \
-	done
-
-services-test: ## Run tests for all services defined in SERVICES variable
-	@$(MAKE) separator
-	@echo "Running tests for all services..."
-	@for svc in $(SERVICES); do \
-	    echo "Running tests for $$svc..."; \
-	    go test ./cmd/$$svc/...; \
-	done
-
-services-lint: ## Run linters for all services defined in SERVICES variable
-	@$(MAKE) separator
-	@echo "Running linters for all services..."
-	@for svc in $(SERVICES); do \
-	    echo "Running linters for $$svc..."; \
-	    golangci-lint run ./cmd/$$svc/...; \
-	done
-	golangci-lint run ./...
-
-services-clean: ## Clean up all services defined in SERVICES variable
-	@$(MAKE) separator
-	@echo "Cleaning up all services..."
-	@for svc in $(SERVICES); do \
-	    echo "Cleaning up $$svc..."; \
-	    go clean ./cmd/$$svc/...; \
-	done
-
-services-docker-build: ## Build and push Docker images for all services
-	@$(MAKE) separator
-	@echo "Building and pushing Docker images for all services..."
-	@for svc in $(SERVICES); do \
-	    echo "Building Docker image for $$svc..."; \
-	    docker build -t localhost:5000/go-shopping-poc/$$svc:1.0 -f cmd/$$svc/Dockerfile . ; \
-	    docker push localhost:5000/go-shopping-poc/$$svc:1.0; \
-	    echo "Docker image for $$svc built and pushed."; \
-	done
+.PHONY: uninstall ## Uninstall all services and all supporting components
+uninstall: k8s-uninstall
 
 # ------------------------------------------------------------------
 # --- Enhanced Help System (Grouped and Clean)

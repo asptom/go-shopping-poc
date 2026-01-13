@@ -133,7 +133,7 @@ kubectl get configmaps --all-namespaces
 kubectl get secrets --all-namespaces
 
 # View pod environment
-kubectl describe pod -n pocstore store-customer-0 | grep -A 20 "Environment"
+kubectl describe pod -n pocstore customer-0 | grep -A 20 "Environment"
 ```
 
 #### Update Configuration
@@ -146,7 +146,7 @@ kubectl edit configmap platform-config -n pocstore
 kubectl edit secret customer-secret -n pocstore
 
 # Restart pods to apply changes
-kubectl rollout restart statefulset/store-customer -n pocstore
+kubectl rollout restart statefulset/customer -n pocstore
 ```
 
 ### Local Development

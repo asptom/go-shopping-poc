@@ -7,10 +7,6 @@ metadata:
     app: go-shopping-poc
     component: customer
 data:
-  # Customer Database Settings
-  PSQL_CUSTOMER_DB: "customersdb"
-  PSQL_CUSTOMER_ROLE: "customersuser"
-
   # Customer Service Port
   CUSTOMER_SERVICE_PORT: ":8080"
 

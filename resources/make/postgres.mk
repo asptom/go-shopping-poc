@@ -55,30 +55,3 @@ postgres-install: postgres-create-secrets
 	@kubectl apply -f deploy/k8s/platform/postgres/
 	@kubectl rollout status statefulset/postgres -n $(DB_NAMESPACE) --timeout=180s
 	@echo
-
-
-# TODO:  Move the migration target to dep-template.mk or a new db-migration.mk
-
-
-# ------------------------------------------------------------------
-# Migrate DBs
-# ------------------------------------------------------------------
-
-.PHONY: postgres-migrate-db
-postgres-migrate-db:
-	@$(MAKE) separator
-	@echo "Migrating database..."
-	@kubectl delete job $(SERVICE)-db-migrate --ignore-not-found
-	@kubectl apply -f deployment/k8s/services/$(SERVICE)-db-migrate.yaml
-	@kubectl wait --for=condition=complete job/$(SERVICE)-db-migrate -n $(DB_NAMESPACE) --timeout=120s
-	@echo "Database $(SERVICE) migrated."
-
-.PHONY: postgres-migrate-dbs ## Migrate databases for all services
-postgres-migrate-dbs:  
-	@$(MAKE) separator
-	@echo "Migrating databases for all services..."
-	@for SERVICE in $(SERVICES_WITH_DB); do \
-		$(MAKE) postgres-migrate-db SERVICE=$$SERVICE NAMESPACE=$(DB_NAMESPACE); \
-	done
-	@echo "All databases migrated."
-

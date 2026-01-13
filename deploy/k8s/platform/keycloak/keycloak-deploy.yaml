@@ -61,7 +61,7 @@ spec:
           args:
             - |
               export PGPASSWORD="$POSTGRES_PASSWORD"
-              while ! psql --host "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$db_name" -p 5432 'select 1' > /dev/null 2>&1; do
+              while ! psql --host "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$db_name" -p 5432 -c 'select 1' > /dev/null 2>&1; do
                 echo "Waiting for database to be ready..."
                 sleep 5
               done

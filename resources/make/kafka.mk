@@ -6,10 +6,9 @@ SHELL := /bin/bash
 .SHELLFLAGS := -euo pipefail -c
 .ONESHELL:
 
-KAFKA_CLUSTER_NAMESPACE := kafka
 KAFKA_BROKER := localhost:9092
-KAFKA_RESOURCES_DIR := $(PROJECT_HOME)/deploy/k8s/platform/kafka
-KAFKA_TOPICS_FILE := $(KAFKA_RESOURCES_DIR)/kafka-topics.txt
+KAFKA_RESOURCES_DIR := $(PROJECT_HOME)/resources/kafka
+KAFKA_TOPICS_FILE := $(KAFKA_RESOURCES_DIR)/topics.def
 
 # ------------------------------------------------------------------
 # Info target
@@ -20,7 +19,7 @@ kafka-info:
 	@echo "Kafka Configuration:"
 	@echo "-------------------------"
 	@echo "Project Home: $(PROJECT_HOME)"
-	@echo "Namespace: $(KAFKA_CLUSTER_NAMESPACE)"
+	@echo "Namespace: $(KAFKA_NAMESPACE)"
 	@echo "Broker: $(KAFKA_BROKER)"
 	@echo "Resources Dir: $(KAFKA_RESOURCES_DIR)"
 	@echo "Topics File: $(KAFKA_TOPICS_FILE)"
@@ -39,9 +38,9 @@ kafka-create-topics:
 			exit 1; \
 		fi; \
 		echo "Processing topics from $(KAFKA_TOPICS_FILE)"; \
-		POD=$$(kubectl -n "$(KAFKA_CLUSTER_NAMESPACE)" get pods -l app=kafka -o jsonpath="{.items[0].metadata.name}"); \
+		POD=$$(kubectl -n "$(KAFKA_NAMESPACE)" get pods -l app=kafka -o jsonpath="{.items[0].metadata.name}"); \
 		if [ -z "$${POD}" ]; then \
-			echo "No Kafka pod found in namespace: $(KAFKA_CLUSTER_NAMESPACE)"; \
+			echo "No Kafka pod found in namespace: $(KAFKA_NAMESPACE)"; \
 			exit 1; \
 		fi; \
 		echo "Will use kafka pod $$POD to create topics."; \
@@ -53,7 +52,7 @@ kafka-create-topics:
 			parts="$${parts:-3}"; \
 			repl="$${repl:-1}"; \
 			echo "Creating topic: $$name (partitions=$$parts, replicas=$$repl)"; \
-			kubectl -n "$(KAFKA_CLUSTER_NAMESPACE)" exec "$${POD}" -- \
+			kubectl -n "$(KAFKA_NAMESPACE)" exec "$${POD}" -- \
 				/opt/kafka/bin/kafka-topics.sh \
 				--bootstrap-server localhost:9092 \
 				--create \
@@ -71,4 +70,6 @@ kafka-install:
 	@$(MAKE) separator
 	@echo "Installing Kafka in Kubernetes..."
 	@kubectl apply -f deploy/k8s/platform/kafka/
+	@kubectl rollout status statefulset/kafka -n $(KAFKA_NAMESPACE) --timeout=180s
+	@$(MAKE) kafka-create-topics
 	@echo

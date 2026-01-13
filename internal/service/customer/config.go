@@ -2,7 +2,6 @@ package customer
 
 import (
 	"errors"
-	"time"
 
 	"go-shopping-poc/internal/platform/config"
 )
@@ -10,15 +9,14 @@ import (
 // Config defines customer service configuration
 type Config struct {
 	// Database configuration
-	DatabaseURL string `mapstructure:"psql_customer_db_url" validate:"required"`
+	DatabaseURL string `mapstructure:"db_URL" validate:"required"`
 
 	// HTTP server configuration
 	ServicePort string `mapstructure:"customer_service_port" validate:"required"`
 
 	// Kafka configuration
-	WriteTopic     string        `mapstructure:"customer_write_topic" validate:"required"`
-	Group          string        `mapstructure:"customer_group"`
-	OutboxInterval time.Duration `mapstructure:"customer_outbox_processing_interval" validate:"required"`
+	WriteTopic string `mapstructure:"customer_write_topic" validate:"required"`
+	Group      string `mapstructure:"customer_group"`
 }
 
 // LoadConfig loads customer service configuration
@@ -36,9 +34,6 @@ func (c *Config) Validate() error {
 	}
 	if c.WriteTopic == "" {
 		return errors.New("write topic is required")
-	}
-	if c.OutboxInterval <= 0 {
-		return errors.New("outbox interval must be positive")
 	}
 	return nil
 }

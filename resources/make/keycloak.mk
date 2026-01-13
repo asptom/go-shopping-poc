@@ -30,15 +30,15 @@ keycloak-info:
 
 .PHONY: keycloak-db-secret ## Create Keycloak database secret in Kubernetes
 keycloak-db-secret: 
-	@$(call create_db_secret,keycloak,$(AUTH_NAMESPACE))
+	@$(call db_secret,keycloak,$(AUTH_NAMESPACE))
 
 # ------------------------------------------------------------------
-# Keycloak database nit configmap creation
+# Keycloak database init configmap creation
 # ------------------------------------------------------------------
 
 .PHONY: keycloak-db-configmap ## Create Keycloak database init configmap in Kubernetes
 keycloak-db-configmap: keycloak-db-secret 
-	@$(call create_db_init_sql_configmap,keycloak,$(AUTH_NAMESPACE))
+	@$(call db_configmap_init_sql,keycloak,$(AUTH_NAMESPACE))
 
 # ------------------------------------------------------------------
 # Load Keycloak realm configmap into Kubernetes
@@ -58,6 +58,7 @@ keycloak-realm-configmap:
 keycloak-install: keycloak-db-configmap keycloak-realm-configmap 
 	@$(MAKE) separator
 	@echo "Installing Keycloak platform in Kubernetes..."
+	@kubectl apply -f deploy/k8s/platform/keycloak/db/
 	@kubectl apply -f deploy/k8s/platform/keycloak/
 	@kubectl rollout status statefulset/keycloak -n $(AUTH_NAMESPACE) --timeout=180s
 	@echo

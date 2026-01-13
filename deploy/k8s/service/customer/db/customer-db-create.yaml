@@ -14,7 +14,7 @@ spec:
           image: docker.io/postgres:18.0
           envFrom:
             - secretRef:
-                name: postgres-admin-secret
+                name: postgres-admin-bootstrap-secret
             - secretRef:
                 name: customer-db-secret
           volumeMounts:
@@ -24,4 +24,4 @@ spec:
       volumes:
         - name: sql
           configMap:
-            name: customer-db-sql
+            name: customer-db-init-sql

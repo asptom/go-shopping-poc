@@ -47,8 +47,6 @@ spec:
           - /data
           - --console-address=:9001
           envFrom:
-            - configMapRef:
-                name: minio-config
             - secretRef:
                 name: minio-credentials
           ports:

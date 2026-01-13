@@ -1,6 +1,6 @@
-# Sub-Makefile for Minio installation and management
+# Sub-Makefile for config installation and management
 # Include this in your top-level Makefile with:
-#   include $(PROJECT_HOME)/resources/make/minio.mk
+#   include $(PROJECT_HOME)/resources/make/config.mk
 
 SHELL := /bin/bash
 .SHELLFLAGS := -euo pipefail -c
@@ -9,23 +9,23 @@ SHELL := /bin/bash
 # ------------------------------------------------------------------
 # Info target
 # ------------------------------------------------------------------
-.PHONY: minio-info ## Show Minio configuration details
-minio-info:
+.PHONY: config-info ## Show config configuration details
+config-info: 
 	@$(MAKE) separator
-	@echo "Minio Configuration:"
+	@echo "Config Configuration:"
 	@echo "-------------------------"
 	@echo "Project Home: $(PROJECT_HOME)"
-	@echo "Minio Namespace: $(MINIO_NAMESPACE)"
 	@echo "-------------------------"	
 	@echo
 
 # ------------------------------------------------------------------
-# Install target
+# Load configmaps into Kubernetes
 # ------------------------------------------------------------------
-.PHONY: minio-install ## Install Minio in Kubernetes
-minio-install:
+.PHONY: config-install ## Deploy all required platform configmaps to Kubernetes
+config-install: 
 	@$(MAKE) separator
-	@echo "Installing Minio in Kubernetes..."
-	@kubectl apply -f deploy/k8s/platform/minio/
-	@kubectl rollout status statefulset/minio -n $(MINIO_NAMESPACE) --timeout=180s
+	@echo "Creating platform configmaps in Kubernetes..."
+	@echo "---------------------------------------------"
+	@echo
+	@kubectl apply -f deploy/k8s/platform/config/
 	@echo

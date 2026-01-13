@@ -2,10 +2,29 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: customer-db-migrate
-  namespace: postgres
+  namespace: shopping
 spec:
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 0
   template:
     spec:
+      initContainers:
+        - name: wait-for-db
+          image: docker.io/postgres:18.0
+          envFrom:
+            - secretRef:
+                name: postgres-admin-bootstrap-secret
+            - secretRef:
+                name: customer-db-secret
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              export PGPASSWORD="$POSTGRES_PASSWORD"
+              until pg_isready -h "$POSTGRES_HOST" -p 5432 -U "$POSTGRES_USER" -d "$db_name" >/dev/null 2>&1; do
+                echo "Waiting for database to be ready..."
+                sleep 5
+              done
+              echo "Database ${db_name} is ready."
       restartPolicy: OnFailure
       containers:
         - name: migrate
@@ -14,18 +33,18 @@ spec:
             - name: PGHOST
               valueFrom:
                 secretKeyRef:
-                  name: postgres-admin-secret
-                  key: psql_host
+                  name: postgres-admin-bootstrap-secret
+                  key: POSTGRES_HOST
             - name: PGUSER
               valueFrom:
                 secretKeyRef:
                   name: customer-db-secret
-                  key: db_owner
+                  key: username
             - name: PGPASSWORD
               valueFrom:
                 secretKeyRef:
                   name: customer-db-secret
-                  key: db_owner_password
+                  key: password
             - name: PGDATABASE
               valueFrom:
                 secretKeyRef:
@@ -44,4 +63,4 @@ spec:
       volumes:
         - name: migrations
           configMap:
-            name: customer-migrations
+            name: customer-db-migrations-sql
