@@ -9,7 +9,7 @@ SHELL := /bin/bash
 
 #SERVICES := customer eventreader product
 #SERVICES_WITH_DB := customer product
-SERVICES := customer
+SERVICES := customer eventreader
 SERVICES_WITH_DB := customer
 
 # ------------------------------------------------------------------
