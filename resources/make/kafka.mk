@@ -2,36 +2,18 @@
 # Include this in your top-level Makefile with:
 #   include $(PROJECT_HOME)/scripts/Makefile/kafka.mk
 
-SHELL := /bin/bash
-.SHELLFLAGS := -euo pipefail -c
-.ONESHELL:
-
+KAFKA_NAMESPACE ?= kafka
 KAFKA_BROKER := localhost:9092
 KAFKA_RESOURCES_DIR := $(PROJECT_HOME)/resources/kafka
 KAFKA_TOPICS_FILE := $(KAFKA_RESOURCES_DIR)/topics.def
 
 # ------------------------------------------------------------------
-# Info target
+# Create Kafka Topics
 # ------------------------------------------------------------------
-.PHONY: kafka-info ## Show Kafka configuration details
-kafka-info:
-	@$(MAKE) separator
-	@echo "Kafka Configuration:"
-	@echo "-------------------------"
-	@echo "Project Home: $(PROJECT_HOME)"
-	@echo "Namespace: $(KAFKA_NAMESPACE)"
-	@echo "Broker: $(KAFKA_BROKER)"
-	@echo "Resources Dir: $(KAFKA_RESOURCES_DIR)"
-	@echo "Topics File: $(KAFKA_TOPICS_FILE)"
-	@echo "-------------------------"
+$(eval $(call help_entry,kafka-create-topics,Kafka,Create Kafka topics as defined in topics file))
+.PHONY: kafka-create-topics
+kafka-create-topics: 
 	@echo
-
-# ------------------------------------------------------------------
-# Create Topics
-# ------------------------------------------------------------------
-.PHONY: kafka-create-topics ## Create Kafka topics as defined in topics file
-kafka-create-topics:
-	@$(MAKE) separator
 	@bash -euo pipefail -c '\
 		if [ ! -f "$(KAFKA_TOPICS_FILE)" ]; then \
 			echo "Missing topics file: $(KAFKA_TOPICS_FILE)"; \
@@ -63,13 +45,23 @@ kafka-create-topics:
 	'
 
 # ------------------------------------------------------------------
-# Install Kafka platform
+# Install Kafka Statefulset
 # ------------------------------------------------------------------
-.PHONY: kafka-install ## Install Kafka in Kubernetes
+$(eval $(call help_entry,kafka-install,Kafka,Install Kafka statefulset in Kubernetes))
+.PHONY: kafka-install
 kafka-install:
-	@$(MAKE) separator
-	@echo "Installing Kafka in Kubernetes..."
+	@echo
+	@echo "Installing Kafka statefulset in Kubernetes..."
 	@kubectl apply -f deploy/k8s/platform/kafka/
 	@kubectl rollout status statefulset/kafka -n $(KAFKA_NAMESPACE) --timeout=180s
-	@$(MAKE) kafka-create-topics
+	@echo
+
+# ------------------------------------------------------------------
+# Install Kafka and Create Topics
+# ------------------------------------------------------------------
+$(eval $(call help_entry,kafka-platform,Kafka,Install Kafka and create topics in Kubernetes))
+.PHONY: kafka-platform
+kafka-platform: kafka-install kafka-create-topics
+	@echo
+	@echo "Kafka installation and topic creation complete."
 	@echo

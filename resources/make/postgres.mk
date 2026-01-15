@@ -2,56 +2,53 @@
 # Include this in your top-level Makefile with:
 #   include $(PROJECT_HOME)/resources/make/postgres.mk
 
-SHELL := /bin/bash
-.SHELLFLAGS := -euo pipefail -c
-.ONESHELL:
-
-# ------------------------------------------------------------------
-# Info target
-# ------------------------------------------------------------------
-
-.PHONY: postgres-info ## Show PostgreSQL configuration details
-postgres-info: 
-	@$(MAKE) separator
-	@echo "PostgreSQL Configuration:"
-	@echo "-------------------------"
-	@echo "Project Home: $(PROJECT_HOME)"
-	@echo "DB Namespace: $(DB_NAMESPACE)"
-	@echo "-------------------------"
-	@echo
+DB_NAMESPACE ?= database
+SERVICES_NAMESPACE ?= shopping
+AUTH_NAMESPACE ?= keycloak
 
 # ------------------------------------------------------------------
 # Create Secrets
 # ------------------------------------------------------------------
 
-.PHONY: postgres-create-secret
-postgres-create-secret:
-	@kubectl -n $(NAMESPACE) create secret generic $(SECRET_NAME) \
+define postgres_secret
+	kubectl -n $(2) create secret generic $(1)  \
       --from-literal=POSTGRES_DB=postgres \
       --from-literal=POSTGRES_USER=postgresadmin \
-      --from-literal=POSTGRES_PASSWORD=$(PASSWORD) \
-	  --from-literal=POSTGRES_HOST=postgres.$(DB_NAMESPACE).svc.cluster.local \
+      --from-literal=POSTGRES_PASSWORD=$(3) \
+	  --from-literal=POSTGRES_HOST=postgres.$(4).svc.cluster.local \
       --dry-run=client -o yaml | kubectl apply -f -
-	@echo "PostgreSQL Admin secret $(SECRET_NAME) created in namespace $(NAMESPACE)."
+endef
 
-.PHONY: postgres-create-secrets  ## Create secrets for Postgres administration use namespaces that need them
-postgres-create-secrets: 
-	@$(MAKE) separator
+$(eval $(call help_entry,postgres-secrets,PostgreSQL,Create PostgreSQL secrets in Kubernetes))
+.PHONY: postgres-secrets 
+postgres-secrets: 
+	@echo
 	@echo "Creating PostgreSQL secrets..."
-	@NEWPASS=$$(openssl rand -hex 16); \
-	$(MAKE) postgres-create-secret PASSWORD="$$NEWPASS" NAMESPACE=$(DB_NAMESPACE) SECRET_NAME=postgres-admin-secret; \
-	$(MAKE) postgres-create-secret PASSWORD="$$NEWPASS" NAMESPACE=$(SERVICES_NAMESPACE) SECRET_NAME=postgres-admin-bootstrap-secret; \
-	$(MAKE) postgres-create-secret PASSWORD="$$NEWPASS" NAMESPACE=$(AUTH_NAMESPACE) SECRET_NAME=postgres-admin-bootstrap-secret
+	@NEWPASS=$$(openssl rand -hex 16)
+	$(call postgres_secret,postgres-admin-secret,$(DB_NAMESPACE),$$NEWPASS,$(DB_NAMESPACE)) 
+	$(call postgres_secret,postgres-admin-bootstrap-secret,$(SERVICES_NAMESPACE),$$NEWPASS,$(DB_NAMESPACE))
+	$(call postgres_secret,postgres-admin-bootstrap-secret,$(AUTH_NAMESPACE),$$NEWPASS,$(DB_NAMESPACE))
+	@echo
+
+# ------------------------------------------------------------------
+# Install Postgres statefulset
+# ------------------------------------------------------------------
+
+$(eval $(call help_entry,postgres-install,PostgreSQL,Install PostgreSQL statefulset in Kubernetes))
+.PHONY: postgres-install
+postgres-install: 
+	@echo
+	@echo "Installing PostgreSQL statefulset in Kubernetes..."
+	@kubectl apply -f deploy/k8s/platform/postgres/
+	@kubectl rollout status statefulset/postgres -n $(DB_NAMESPACE) --timeout=180s
 	@echo
 
 # ------------------------------------------------------------------
 # Install Postgres platform
 # ------------------------------------------------------------------
-
-.PHONY: postgres-install ## Install PostgreSQL platform in Kubernetes
-postgres-install: postgres-create-secrets 
-	@$(MAKE) separator
-	@echo "Installing PostgreSQL platform in Kubernetes..."
-	@kubectl apply -f deploy/k8s/platform/postgres/
-	@kubectl rollout status statefulset/postgres -n $(DB_NAMESPACE) --timeout=180s
+$(eval $(call help_entry,postgres-platform,PostgreSQL,Install PostgreSQL platform in Kubernetes))
+.PHONY: postgres-platform
+postgres-platform: postgres-secrets postgres-install
+	@echo
+	@echo "PostgreSQL installation complete."
 	@echo

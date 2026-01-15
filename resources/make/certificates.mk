@@ -2,37 +2,20 @@
 # Include this in your top-level Makefile with:
 #   include $(PROJECT_HOME)/resources/make/certificates.mk
 
-SHELL := /bin/bash
-.SHELLFLAGS := -euo pipefail -c
-.ONESHELL:
+SERVICES_NAMESPACE ?= shopping
+AUTH_NAMESPACE ?= keycloak
 
 TLS_CONFIGURATION_DIR := $(PROJECT_HOME)/resources/security/tls_certificates/configuration
 TLS_CERTIFICATES_DIR := $(PROJECT_HOME)/resources/security/tls_certificates/certificates
-PROJECT_NAMESPACE := shopping
-KEYCLOAK_NAMESPACE := keycloak
 
 # ------------------------------------------------------------------
-# Info target
+# Generate certificates target
 # ------------------------------------------------------------------
-.PHONY: certificates-info ## Show certificate configuration details
-certificates-info:
-	@$(MAKE) separator
-	@echo "Certificate Configuration:"
-	@echo "-------------------------"
-	@echo "Project Home: $(PROJECT_HOME)"
-	@echo "Project Namespace: $(PROJECT_NAMESPACE)"
-	@echo "Keycloak Namespace: $(KEYCLOAK_NAMESPACE)"
-	@echo "Deployment Dir: $(TLS_CERTIFICATES_DIR)"
-	@echo "Configuration Dir: $(TLS_CONFIGURATION_DIR)"
-	@echo "-------------------------"
-	@echo
-
-# ------------------------------------------------------------------
-# Generate target
-# ------------------------------------------------------------------
-.PHONY: certificates-generate ## Generate new certificates
+$(eval $(call help_entry,certificates-generate,Certificates,Generate new TLS certificates for pocstore.local and keycloak.local))
+.PHONY: certificates-generate
 certificates-generate: 
-	@$(MAKE) separator
+	@echo
+	@echo "Generating TLS certificates..."
 	@[ -d "$(TLS_CONFIGURATION_DIR)" ] || { echo "Configuration directory missing: $(TLS_CONFIGURATION_DIR)"; exit 1; }
 	@[ -d "$(TLS_CERTIFICATES_DIR)" ] || { echo "Deployment directory missing: $(TLS_CERTIFICATES_DIR)"; exit 1; }
 	@bash -euo pipefail -c '\
@@ -59,9 +42,10 @@ certificates-generate:
 # ------------------------------------------------------------------
 # Keychain target
 # ------------------------------------------------------------------
-.PHONY: certificates-keychain ## Install the generated certificates in the system keychain (macOS)
+$(eval $(call help_entry,certificates-keychain,Certificates,Install the generated certificates in the system keychain (macOS)))
+.PHONY: certificates-keychain
 certificates-keychain: 
-	@$(MAKE) separator
+	@echo
 	@[ -d "$(TLS_CERTIFICATES_DIR)" ] || { echo "Deployment directory missing: $(TLS_CERTIFICATES_DIR)"; exit 1; }
 	@bash -euo pipefail -c '\
 		cd "$(TLS_CERTIFICATES_DIR)"; \
@@ -79,34 +63,36 @@ certificates-keychain:
 # ------------------------------------------------------------------
 # Install target
 # ------------------------------------------------------------------
-.PHONY: certificates-install ## Install the generated certificates as secrets in the Kubernetes 
+$(eval $(call help_entry,certificates-install,Certificates,Install the generated certificates as secrets in the Kubernetes ))
+.PHONY: certificates-install
 certificates-install: 
-	@$(MAKE) separator
+	@echo
 	@[ -d "$(TLS_CERTIFICATES_DIR)" ] || { echo "Deployment directory missing: $(TLS_CERTIFICATES_DIR)"; exit 1; }
 	@bash -euo pipefail -c '\
 		cd "$(TLS_CERTIFICATES_DIR)"; \
 		echo ""; \
 		echo "Installing secret holding tls certificates for pocstore.local..."; \
 		echo ""; \
-		kubectl create secret -n $(PROJECT_NAMESPACE) generic pocstorelocal-tls --from-file=tls.crt=./pocstore.crt --from-file=tls.key=./pocstore.key; \
+		kubectl create secret -n $(SERVICES_NAMESPACE) generic pocstorelocal-tls --from-file=tls.crt=./pocstore.crt --from-file=tls.key=./pocstore.key; \
 		echo ""; \
 		echo "Installing secret holding tls certificates for keycloak.local..."; \
 		echo ""; \
-		kubectl create secret -n $(KEYCLOAK_NAMESPACE) generic keycloaklocal-tls --from-file=tls.crt=./keycloak.crt --from-file=tls.key=./keycloak.key; \
+		kubectl create secret -n $(AUTH_NAMESPACE) generic keycloaklocal-tls --from-file=tls.crt=./keycloak.crt --from-file=tls.key=./keycloak.key; \
 		echo "Secrets holding certificates installed"; \
 	'
 
 # ------------------------------------------------------------------
 # Uninstall target
 # ------------------------------------------------------------------
-.PHONY: certificates-uninstall ## Uninstall the generated certificates from the Kubernetes cluster
+$(eval $(call help_entry,certificates-uninstall,Certificates,Uninstall the generated certificates from the Kubernetes cluster))
+.PHONY: certificates-uninstall
 certificates-uninstall: 
-	@$(MAKE) separator
+	@echo
 	@[ -d "$(TLS_CERTIFICATES_DIR)" ] || { echo "Deployment directory missing: $(TLS_CERTIFICATES_DIR)"; exit 1; }
 	@bash -euo pipefail -c '\
 		echo "Removing tls certificates for pocstore.local..."; \
-		kubectl -n "$(PROJECT_NAMESPACE)" delete secret pocstorelocal-tls || echo "Secret pocstorelocal-tls not found"; \
+		kubectl -n "$(SERVICES_NAMESPACE)" delete secret pocstorelocal-tls || echo "Secret pocstorelocal-tls not found"; \
 		echo ""; \
 		echo "Removing tls certificates for keycloak.local..."; \
-		kubectl -n "$(KEYCLOAK_NAMESPACE)" delete secret keycloaklocal-tls || echo "Secret keycloaklocal-tls not found"; \
+		kubectl -n "$(AUTH_NAMESPACE)" delete secret keycloaklocal-tls || echo "Secret keycloaklocal-tls not found"; \
 	'

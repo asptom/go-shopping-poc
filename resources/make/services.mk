@@ -2,167 +2,177 @@
 # Include this in your top-level Makefile with:
 #   include $(PROJECT_HOME)/resources/make/services.mk
 
-include $(PROJECT_HOME)/resources/make/db-template.mk
-SHELL := /bin/bash
-.SHELLFLAGS := -euo pipefail -c
-.ONESHELL:
-
-#SERVICES := customer eventreader product
-#SERVICES_WITH_DB := customer product
+#Service settings
 SERVICES := customer eventreader
-SERVICES_WITH_DB := customer
+
+SERVICE_HAS_DB_customer := true
+SERVICE_HAS_DB_eventreader := false
+
+#Kubernetes settings
+SERVICES_NAMESPACE ?= shopping
+
+#Docker image settings
+IMAGE_REGISTRY ?= localhost:5000
+IMAGE_TAG ?= 1.0
+IMAGE_PREFIX ?= $(IMAGE_REGISTRY)/go-shopping-poc
+
+# Helper for constructing Docker image names
+define image_name
+$(IMAGE_PREFIX)/$(1):$(IMAGE_TAG)
+endef
 
 # ------------------------------------------------------------------
-# Info target
+# Per-service code/deploy targets
 # ------------------------------------------------------------------
 
-.PHONY: services-info ## Show services configuration details
-services-info: 
-	@$(MAKE) separator
-	@echo "Services Configuration:"
-	@echo "-------------------------"
-	@echo "Project Home: $(PROJECT_HOME)"
-	@echo "Services Namespace: $(SERVICES_NAMESPACE)"
-	@echo "Services with DB: $(SERVICES_WITH_DB)"
-	@echo "Services: $(SERVICES)"
-	@echo "-------------------------"
-	@echo
+# Generate per-service code/deploy targets
+
+define SERVICE_TARGETS
+$(call assert_arg,service-name,$(1))
+$(call dbg,Generating targets for service '$(1)')
+
+$(call help_entry,$(1)-build,Service,Build $(1))
+.PHONY: $(1)-build 
+$(1)-build:
+	$$(call run,Build $(1),$$@,go build -o bin/$(1) ./cmd/$(1))
+
+$(call help_entry,$(1)-test,Service,Test $(1))	
+.PHONY: $(1)-test
+$(1)-test:	
+	$$(call run,Test $(1),$$@,go test ./cmd/$(1)/...)
+
+$(call help_entry,$(1)-lint,Service,Lint $(1))
+.PHONY: $(1)-lint
+$(1)-lint:
+	$$(call run,Lint $(1),$$@,golangci-lint run ./cmd/$(1)/...)
+
+$(call help_entry,$(1)-clean,Service,Clean $(1))
+.PHONY: $(1)-clean
+$(1)-clean:
+	$$(call run,Clean $(1),$$@,go clean ./cmd/$(1)/...)
+
+$(call help_entry,$(1)-docker,Service,Build and push Docker image for $(1))
+.PHONY: $(1)-docker
+$(1)-docker:
+	$$(call run,Docker image $(1),$$@, \
+		set -e; \
+		docker build \
+			-t $$(call image_name,$(1)) \
+			-f cmd/$(1)/Dockerfile .; \
+		docker push $$(call image_name,$(1)); \
+	)
+
+$(call help_entry,$(1)-deploy,Service,Deploy $(1) to Kubernetes)
+.PHONY: $(1)-deploy
+$(1)-deploy:
+	$$(call run,Deploy $(1) to k8s,$$@,\
+	set -e; \
+	kubectl apply -f deploy/k8s/service/$(1)/; \
+	kubectl rollout status statefulset/$(1) -n $(SERVICES_NAMESPACE) --timeout=180s; \
+	)
+
+$(call help_entry,$(1)-install,Service,Install $(1))
+.PHONY: $(1)-install
+$(1)-install: $(1)-build $(1)-docker $(1)-deploy
+	$$(call run,Install $(1),$$@,echo "$(1) installed")	
+
+$(call help_entry,$(1)-uninstall,Service,Uninstall $(1) from Kubernetes)
+.PHONY: $(1)-uninstall
+$(1)-uninstall:
+	$$(call run,Uninstall $(1) from k8s,$$@,kubectl delete -f deploy/k8s/service/$(1)/ --ignore-not-found)
+
+endef
+
+$(foreach svc,$(strip $(SERVICES)), \
+	$(call assert_arg,svc,$(svc)) \
+	$(eval $(call SERVICE_TARGETS,$(svc))))
+
+# Aggregate per-service targets
+
+$(eval $(call help_entry,services-build,ServiceAggregate,Build all services))
+.PHONY: services-build
+services-build: $(addsuffix -build,$(strip $(SERVICES)))
+
+$(eval $(call help_entry,services-test,ServiceAggregate,Test all services))
+.PHONY: services-test
+services-test: $(addsuffix -test,$(SERVICES))
+
+$(eval $(call help_entry,services-lint,ServiceAggregate,Lint all services))
+.PHONY: services-lint
+services-lint: $(addsuffix -lint,$(SERVICES))
+
+$(eval $(call help_entry,services-clean,ServiceAggregate,Clean all services))
+.PHONY: services-clean
+services-clean: $(addsuffix -clean,$(SERVICES))
+
+$(eval $(call help_entry,services-docker,ServiceAggregate,Build and push Docker images for all services))
+.PHONY: services-docker
+services-docker: $(addsuffix -docker,$(SERVICES))
+
+$(eval $(call help_entry,services-install,ServiceAggregate,Install all services))
+.PHONY: services-install
+services-install: $(addsuffix -install,$(SERVICES))
+
+$(eval $(call help_entry,services-uninstall,ServiceAggregate,Uninstall all services))
+.PHONY: services-uninstall
+services-uninstall: $(addsuffix -uninstall,$(SERVICES))	
+
 
 # ------------------------------------------------------------------
-# Base service targets
+# Per-service database targets
 # ------------------------------------------------------------------
 
-.PHONY: services-build  ## Build all services defined in SERVICES variable
-services-build:
-	@$(MAKE) separator
-	@echo "Building all services..."
-	@for svc in $(SERVICES); do \
-	    echo "Building $$svc..."; \
-	    GOOS=linux GOARCH=amd64 go build -o bin/$$svc ./cmd/$$svc; \
-	done
+# Generate per-service database targets
 
-.PHONY: services-test  ## Run tests for all services defined in SERVICES variable
-services-test:
-	@$(MAKE) separator
-	@echo "Running tests for all services..."
-	@for svc in $(SERVICES); do \
-	    echo "Running tests for $$svc..."; \
-	    go test ./cmd/$$svc/...; \
-	done
+define SERVICE_HAS_DB_TARGETS
+$(call assert_arg,service-name,$(1))
+$(call dbg,Generating targets for services with a database '$(1)')
 
-.PHONY: services-lint ## Run linters for all services defined in SERVICES variable
-services-lint:
-	@$(MAKE) separator
-	@echo "Running linters for all services..."
-	@for svc in $(SERVICES); do \
-	    echo "Running linters for $$svc..."; \
-	    golangci-lint run ./cmd/$$svc/...; \
-	done
-	golangci-lint run ./...
+$(call help_entry,$(1)-db-secret,ServiceDB,Create DB secret for $(1))
+.PHONY: $(1)-db-secret
+$(1)-db-secret:
+	$$(call run,DB Secret for $(1),$$@,$(call db_secret,$(1),$(SERVICES_NAMESPACE)))
 
-.PHONY: services-clean  ## Clean up all services defined in SERVICES variable
-services-clean:
-	@$(MAKE) separator
-	@echo "Cleaning up all services..."
-	@for svc in $(SERVICES); do \
-	    echo "Cleaning up $$svc..."; \
-	    go clean ./cmd/$$svc/...; \
-	done
+$(call help_entry,$(1)-db-configmap-init,ServiceDB,Create DB init configmap for $(1))
+.PHONY: $(1)-db-configmap-init
+$(1)-db-configmap-init:
+	$$(call run,DB Init ConfigMap for $(1),$$@,$(call db_configmap_init_sql,$(1),$(SERVICES_NAMESPACE)))
 
-.PHONY: services-build-docker ## Build and push Docker images for all services
-services-build-docker:
-	@$(MAKE) separator
-	@echo "Building and pushing Docker images for all services..."
-	@for svc in $(SERVICES); do \
-	    echo "Building Docker image for $$svc..."; \
-	    docker build -t localhost:5000/go-shopping-poc/$$svc:1.0 -f cmd/$$svc/Dockerfile . ; \
-	    docker push localhost:5000/go-shopping-poc/$$svc:1.0; \
-	    echo "Docker image for $$svc built and pushed."; \
-	done
+$(call help_entry,$(1)-db-configmap-migrations,ServiceDB,Create DB migrations configmap for $(1))
+.PHONY: $(1)-db-configmap-migrations
+$(1)-db-configmap-migrations:
+	$$(call run,DB Migrations ConfigMap for $(1),$$@,$(call db_configmap_migrations_sql,$(1),$(SERVICES_NAMESPACE)))	
 
-# ------------------------------------------------------------------
-# Service(s) database secret creation
-# ------------------------------------------------------------------
+$(call help_entry,$(1)-db-create,ServiceDB,Create DB for $(1))
+.PHONY: $(1)-db-create
+$(1)-db-create: $(1)-db-secret $(1)-db-configmap-init
+	$$(call run,DB Create for $(1),$$@,$(call db_create,$(1),$(SERVICES_NAMESPACE)))
 
-.PHONY: services-db-secret ## Create database secrets in Kubernetes for services with DBs
-services-db-secret:
-	@$(MAKE) separator
-	@echo "Creating database secrets for services with a database..."
-	@# Use make-level iteration so service name is expanded into the function argument
-	@$(foreach svc,$(SERVICES_WITH_DB),$(call db_secret,$(svc),$(SERVICES_NAMESPACE)))
-	
-# ------------------------------------------------------------------
-# Service(s) database init configmap creation
-# ------------------------------------------------------------------
+$(call help_entry,$(1)-db-migrate,ServiceDB,Migrate DB for $(1))
+.PHONY: $(1)-db-migrate
+$(1)-db-migrate: $(1)-db-configmap-migrations
+	$$(call run,DB Migrate for $(1),$$@,$(call db_migrate,$(1),$(SERVICES_NAMESPACE)))
 
-.PHONY: services-db-configmap ## Create database init configmap in Kubernetes
-services-db-configmap: services-db-secret
-	@$(MAKE) separator
-	@echo "Creating database init configmaps for services with a database..."
-	@# Use make-level iteration so service name is expanded into the function argument
-	@$(foreach svc,$(SERVICES_WITH_DB),$(call db_configmap_init_sql,$(svc),$(SERVICES_NAMESPACE)))
+endef
 
-# ------------------------------------------------------------------
-# Service(s) database creation
-# ------------------------------------------------------------------
+$(foreach svc,$(strip $(SERVICES)), \
+	$(call assert_arg,svc,$(svc)) \
+	$(if $(call is_true,$(strip $(SERVICE_HAS_DB_$(svc)))), \
+		$(eval $(call SERVICE_HAS_DB_TARGETS,$(svc)))) \
+)
 
-.PHONY: services-db-create ## Perform database creation for services with DBs
-services-db-create: services-db-configmap
-	@$(MAKE) separator
-	@echo "Creating databases for services with a database..."
-	@# Use make-level iteration so service name is expanded into the function argument
-	@$(foreach svc,$(SERVICES_WITH_DB),$(call db_create,$(svc),$(SERVICES_NAMESPACE)))
+# Aggregate database targets
 
-# ------------------------------------------------------------------
-# Service(s) database migration configmap creation
-# ------------------------------------------------------------------
+$(eval $(call help_entry,services-db-create,ServiceDBAggregate,Create DBs for all services))
+.PHONY: services-db-create
+services-db-create: \
+  $(foreach svc,$(SERVICES), \
+    $(if $(call is_true,$(SERVICE_HAS_DB_$(svc))),$(svc)-db-create) \
+  )
 
-.PHONY: services-db-migrate-configmap ## Create database migration configmaps in Kubernetes
-services-db-migrate-configmap:
-	@$(MAKE) separator
-	@echo "Creating database migration configmaps for services with a database..."
-	@# Use make-level iteration so service name is expanded into the function argument
-	@$(foreach svc,$(SERVICES_WITH_DB),$(call db_configmap_migrations_sql,$(svc),$(SERVICES_NAMESPACE)))
-
-# ------------------------------------------------------------------
-# Service(s) database migration
-# ------------------------------------------------------------------
-
-.PHONY: services-db-migrate ## Perform database migration for services with DBs
-services-db-migrate: services-db-migrate-configmap services-db-create
-	@$(MAKE) separator
-	@echo "Migrating databases for services with a database..."
-	@# Use make-level iteration so service name is expanded into the function argument
-	@$(foreach svc,$(SERVICES_WITH_DB),$(call db_migrate,$(svc),$(SERVICES_NAMESPACE)))
-
-# ------------------------------------------------------------------
-# Service(s) db installation
-# ------------------------------------------------------------------
-
-.PHONY: services-db-install ## Install databases for services in Kubernetes
-services-db-install: services-db-migrate
-	@$(MAKE) separator
-	@echo "Installing all databases for services in Kubernetes..."
-
-# ------------------------------------------------------------------
-# Service(s) only installation
-# ------------------------------------------------------------------
-
-.PHONY: services-only-install ## Install only services (no DBS) in Kubernetes
-services-only-install: services-build-docker
-	@$(MAKE) separator
-	@echo "Installing all services (but no DBs) in Kubernetes..."
-	@for svc in $(SERVICES); do \
-	    echo "Installing $$svc in Kubernetes..."; \
-	    kubectl apply -f deploy/k8s/service/$$svc/; \
-	    kubectl rollout status statefulset/$$svc -n $(SERVICES_NAMESPACE) --timeout=180s; \
-	done
-
-# ------------------------------------------------------------------
-# Service(s) complete installation
-# ------------------------------------------------------------------
-
-.PHONY: services-complete-install ## Install services and databases in Kubernetes
-services-complete-install: services-db-install services-only-install
-	@$(MAKE) separator
-	@echo "Installing all services (no DBs) in Kubernetes..."
+$(eval $(call help_entry,services-db-migrate,ServiceDBAggregate,Migrate DBs for all services))
+.PHONY: services-db-migrate
+services-db-migrate: \
+  $(foreach svc,$(SERVICES), \
+	$(if $(call is_true,$(SERVICE_HAS_DB_$(svc))),$(svc)-db-migrate) \
+  )

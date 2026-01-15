@@ -2,30 +2,24 @@
 # Include this in your top-level Makefile with:
 #   include $(PROJECT_HOME)/resources/make/minio.mk
 
-SHELL := /bin/bash
-.SHELLFLAGS := -euo pipefail -c
-.ONESHELL:
-
 # ------------------------------------------------------------------
-# Info target
+# Install Minio Statefulset
 # ------------------------------------------------------------------
-.PHONY: minio-info ## Show Minio configuration details
-minio-info:
-	@$(MAKE) separator
-	@echo "Minio Configuration:"
-	@echo "-------------------------"
-	@echo "Project Home: $(PROJECT_HOME)"
-	@echo "Minio Namespace: $(MINIO_NAMESPACE)"
-	@echo "-------------------------"	
-	@echo
-
-# ------------------------------------------------------------------
-# Install target
-# ------------------------------------------------------------------
-.PHONY: minio-install ## Install Minio in Kubernetes
+$(eval $(call help_entry,minio-install,Minio,Install Minio statefulset in Kubernetes))
+.PHONY: minio-install
 minio-install:
-	@$(MAKE) separator
+	@echo
 	@echo "Installing Minio in Kubernetes..."
 	@kubectl apply -f deploy/k8s/platform/minio/
 	@kubectl rollout status statefulset/minio -n $(MINIO_NAMESPACE) --timeout=180s
+	@echo
+
+# ------------------------------------------------------------------
+# Install Minio Platform
+# ------------------------------------------------------------------
+$(eval $(call help_entry,minio-platform,Minio,Install Minio platform in Kubernetes))
+.PHONY: minio-platform
+minio-platform: minio-install
+	@echo
+	@echo "Minio installation complete."
 	@echo

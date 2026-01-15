@@ -2,30 +2,14 @@
 # Include this in your top-level Makefile with:
 #   include $(PROJECT_HOME)/resources/make/k8s.mk
 
-SHELL := /bin/bash
-.SHELLFLAGS := -euo pipefail -c
-.ONESHELL:
-
-# ------------------------------------------------------------------
-# Info target
-# ------------------------------------------------------------------
-.PHONY: k8s-info ## Show Kubernetes configuration details
-k8s-info: 
-	@$(MAKE) separator
-	@echo "Kubernetes Configuration:"
-	@echo "-------------------------"
-	@echo "Project Home: $(PROJECT_HOME)"
-	@echo "-------------------------"	
-	@echo
-
 # ------------------------------------------------------------------
 # Load namespaces into Kubernetes
 # ------------------------------------------------------------------
-.PHONY: k8s-namespaces ## Deploy all required namespaces to Kubernetes
+$(eval $(call help_entry,k8s-namespaces,Kubernetes,Create all required namespaces in Kubernetes))
+.PHONY: k8s-namespaces
 k8s-namespaces: 
-	@$(MAKE) separator
+	@echo
 	@echo "Creating namespaces in Kubernetes..."
-	@echo "------------------------------------"
 	@echo
 	@kubectl apply -f deploy/k8s/namespaces/
 	@echo
@@ -33,11 +17,11 @@ k8s-namespaces:
 # ------------------------------------------------------------------
 # Delete namespaces from Kubernetes
 # ------------------------------------------------------------------
-.PHONY: k8s-delete-namespaces ## Delete all namespaces from Kubernetes
+$(eval $(call help_entry,k8s-delete-namespaces,Kubernetes,Delete all namespaces from Kubernetes))
+.PHONY: k8s-delete-namespaces
 k8s-delete-namespaces:
-	@$(MAKE) separator
+	@echo
 	@echo "Deleting namespaces from Kubernetes..."
-	@echo "-------------------------------------"
 	@echo
 	@kubectl delete -f deploy/k8s/namespaces/
 	@echo

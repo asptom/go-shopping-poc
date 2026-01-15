@@ -2,24 +2,7 @@
  # Include this in your top-level Makefile with:
  #   include $(PROJECT_HOME)/resources/make/product_loader.mk
 
- SHELL := /bin/bash
- .SHELLFLAGS := -euo pipefail -c
- .ONESHELL:
-
-# ------------------------------------------------------------------
-# Info target
-# ------------------------------------------------------------------
-.PHONY: product-loader-info ## Show Product Loader configuration details
-product-loader-info:
-	@$(MAKE) separator
-	@echo "Product Loader Configuration:"
-	@echo "-----------------------------"
-	@echo "Project Home: $(PROJECT_HOME)"
-	@echo "Source Directory: ./cmd/product-loader"
-	@echo "Binary Output: ./bin/product-loader"
-	@echo "-----------------------------"
-	@echo
-
+ 
 # ------------------------------------------------------------------
 # Build target
 # ------------------------------------------------------------------

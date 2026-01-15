@@ -2,30 +2,14 @@
 # Include this in your top-level Makefile with:
 #   include $(PROJECT_HOME)/resources/make/config.mk
 
-SHELL := /bin/bash
-.SHELLFLAGS := -euo pipefail -c
-.ONESHELL:
-
 # ------------------------------------------------------------------
-# Info target
+# Load platform configmap used by services into Kubernetes
 # ------------------------------------------------------------------
-.PHONY: config-info ## Show config configuration details
-config-info: 
-	@$(MAKE) separator
-	@echo "Config Configuration:"
-	@echo "-------------------------"
-	@echo "Project Home: $(PROJECT_HOME)"
-	@echo "-------------------------"	
-	@echo
-
-# ------------------------------------------------------------------
-# Load configmaps into Kubernetes
-# ------------------------------------------------------------------
-.PHONY: config-install ## Deploy all required platform configmaps to Kubernetes
+$(eval $(call help_entry,config-install,Config,Create platform configmap for all services in Kubernetes))
+.PHONY: config-install
 config-install: 
-	@$(MAKE) separator
+	@echo
 	@echo "Creating platform configmaps in Kubernetes..."
-	@echo "---------------------------------------------"
 	@echo
 	@kubectl apply -f deploy/k8s/platform/config/
 	@echo
