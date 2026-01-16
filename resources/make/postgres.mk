@@ -21,14 +21,14 @@ endef
 
 $(eval $(call help_entry,postgres-secrets,PostgreSQL,Create PostgreSQL secrets in Kubernetes))
 .PHONY: postgres-secrets 
-postgres-secrets: 
-	@echo
-	@echo "Creating PostgreSQL secrets..."
-	@NEWPASS=$$(openssl rand -hex 16)
-	$(call postgres_secret,postgres-admin-secret,$(DB_NAMESPACE),$$NEWPASS,$(DB_NAMESPACE)) 
-	$(call postgres_secret,postgres-admin-bootstrap-secret,$(SERVICES_NAMESPACE),$$NEWPASS,$(DB_NAMESPACE))
-	$(call postgres_secret,postgres-admin-bootstrap-secret,$(AUTH_NAMESPACE),$$NEWPASS,$(DB_NAMESPACE))
-	@echo
+postgres-secrets:
+	$(call run,Create and verify Kafka topics,$@, \
+		set -euo pipefail; \
+		NEWPASS=$$(openssl rand -hex 16); \
+		$(call postgres_secret,postgres-admin-secret,$(DB_NAMESPACE),$$NEWPASS,$(DB_NAMESPACE)); \
+		$(call postgres_secret,postgres-admin-bootstrap-secret,$(SERVICES_NAMESPACE),$$NEWPASS,$(DB_NAMESPACE)); \
+		$(call postgres_secret,postgres-admin-bootstrap-secret,$(AUTH_NAMESPACE),$$NEWPASS,$(DB_NAMESPACE))
+	)
 
 # ------------------------------------------------------------------
 # Install Postgres statefulset
@@ -36,12 +36,12 @@ postgres-secrets:
 
 $(eval $(call help_entry,postgres-install,PostgreSQL,Install PostgreSQL statefulset in Kubernetes))
 .PHONY: postgres-install
-postgres-install: 
-	@echo
-	@echo "Installing PostgreSQL statefulset in Kubernetes..."
-	@kubectl apply -f deploy/k8s/platform/postgres/
-	@kubectl rollout status statefulset/postgres -n $(DB_NAMESPACE) --timeout=180s
-	@echo
+postgres-install:
+	$(call run,Install PostgreSQL statefulset in Kubernetes,$@, \
+		set -euo pipefail; \
+		kubectl apply -f deploy/k8s/platform/postgres/; \
+		kubectl rollout status statefulset/postgres -n $(DB_NAMESPACE) --timeout=180s; \
+	)
 
 # ------------------------------------------------------------------
 # Install Postgres platform
@@ -49,6 +49,3 @@ postgres-install:
 $(eval $(call help_entry,postgres-platform,PostgreSQL,Install PostgreSQL platform in Kubernetes))
 .PHONY: postgres-platform
 postgres-platform: postgres-secrets postgres-install
-	@echo
-	@echo "PostgreSQL installation complete."
-	@echo

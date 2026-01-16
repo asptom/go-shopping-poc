@@ -42,7 +42,7 @@ include $(PROJECT_HOME)/resources/make/product_loader.mk
 
 $(eval $(call help_entry,platform,PRIMARY,Install all platform services (Keycloak, Postgres, Minio, Kafka, Certificates)))
 .PHONY: platform 
-platform: k8s-namespaces certificates-install postgres-platform keycloak-platform kafka-platform minio-platform config-install
+platform: k8s-namespaces certificates-install postgres-platform keycloak-platform kafka-platform minio-install config-install
 
 $(eval $(call help_entry,services,PRIMARY,Install all application services))
 .PHONY: services

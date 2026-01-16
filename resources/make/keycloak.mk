@@ -11,8 +11,9 @@ KEYCLOAK_REALM_FILE := $(PROJECT_HOME)/resources/keycloak/pocstore-realm.json
 
 $(eval $(call help_entry,keycloak-db-secret,Keycloak,Create Keycloak database secret in Kubernetes))
 .PHONY: keycloak-db-secret
-keycloak-db-secret: 
-	@$(call db_secret,keycloak,$(AUTH_NAMESPACE))
+keycloak-db-secret:
+	$(call run,Create Keycloak database secret in Kubernetes,$@, \
+	$(call db_secret,keycloak,$(AUTH_NAMESPACE)))
 
 # ------------------------------------------------------------------
 # Keycloak database init configmap creation
@@ -20,32 +21,33 @@ keycloak-db-secret:
 
 $(eval $(call help_entry,keycloak-db-configmap,Keycloak,Create Keycloak database init configmap in Kubernetes))
 .PHONY: keycloak-db-configmap
-keycloak-db-configmap: 
-	@$(call db_configmap_init_sql,keycloak,$(AUTH_NAMESPACE))
+keycloak-db-configmap:
+	$(call run,Create Keycloak database init configmap in Kubernetes,$@, \
+	$(call db_configmap_init_sql,keycloak,$(AUTH_NAMESPACE)))
 
 # ------------------------------------------------------------------
 # Load Keycloak realm configmap into Kubernetes
 # ------------------------------------------------------------------
 $(eval $(call help_entry,keycloak-realm-configmap,Keycloak,Load the Keycloak realm configuration into a configmap))
 .PHONY: keycloak-realm-configmap
-keycloak-realm-configmap: 
-	@bash -euo pipefail -c '\
+keycloak-realm-configmap:
+	$(call run,Load the Keycloak realm configuration into a configmap,$@, \
+		set -euo pipefail; \
 		kubectl -n $(AUTH_NAMESPACE) create configmap keycloak-realm --from-file=realm.json=$(KEYCLOAK_REALM_FILE) --dry-run=client -o yaml | kubectl apply -f -; \
-		echo "Keycloak realm configmap created"; \
-	'
+	)
 # ------------------------------------------------------------------
 # Install Keycloak Statefulset
 # ------------------------------------------------------------------
 
 $(eval $(call help_entry,keycloak-install,Keycloak,Install Keycloak statefulset in Kubernetes))
 .PHONY: keycloak-install
-keycloak-install: keycloak-db-secret keycloak-db-configmap keycloak-realm-configmap 
-	@echo
-	@echo "Installing Keycloak statefulset in Kubernetes..."
-	@kubectl apply -f deploy/k8s/platform/keycloak/db/
-	@kubectl apply -f deploy/k8s/platform/keycloak/
-	@kubectl rollout status statefulset/keycloak -n $(AUTH_NAMESPACE) --timeout=180s
-	@echo
+keycloak-install: keycloak-db-secret keycloak-db-configmap keycloak-realm-configmap
+	$(call run,Install Keycloak statefulset in Kubernetes,$@, \
+		set -euo pipefail; \
+		kubectl apply -f deploy/k8s/platform/keycloak/db/; \
+		kubectl apply -f deploy/k8s/platform/keycloak/; \
+		kubectl rollout status statefulset/keycloak -n $(AUTH_NAMESPACE) --timeout=180s; \
+	)
 
 # ------------------------------------------------------------------
 # Install Keycloak platform
@@ -54,6 +56,3 @@ keycloak-install: keycloak-db-secret keycloak-db-configmap keycloak-realm-config
 $(eval $(call help_entry,keycloak-platform,Keycloak,Install Keycloak platform in Kubernetes))
 .PHONY: keycloak-platform
 keycloak-platform: keycloak-db-configmap keycloak-realm-configmap keycloak-install
-	@echo
-	@echo "Keycloak installation and topic creation complete."
-	@echo

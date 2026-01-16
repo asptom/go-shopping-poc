@@ -7,9 +7,8 @@
 # ------------------------------------------------------------------
 $(eval $(call help_entry,config-install,Config,Create platform configmap for all services in Kubernetes))
 .PHONY: config-install
-config-install: 
-	@echo
-	@echo "Creating platform configmaps in Kubernetes..."
-	@echo
-	@kubectl apply -f deploy/k8s/platform/config/
-	@echo
+config-install:
+	$(call run,Create platform configmap for all services in Kubernetes,$@, \
+		set -euo pipefail; \
+		kubectl apply -f deploy/k8s/platform/config/; \
+	)
