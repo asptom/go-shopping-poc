@@ -1,3 +1,6 @@
+# WARNING:  This is out of date - updates to come soon
+
+
 # Go Shopping POC
 
 A proof-of-concept microservices-based shopping platform built with Go, demonstrating Clean Architecture principles, event-driven design, and Kubernetes deployment.
