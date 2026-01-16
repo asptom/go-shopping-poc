@@ -66,7 +66,7 @@ $(call help_entry,$(1)-deploy,Service,Deploy $(1) to Kubernetes)
 .PHONY: $(1)-deploy
 $(1)-deploy:
 	$$(call run,Deploy $(1) to k8s,$$@,\
-	set -e; \
+	set -euo pipefail; \
 	kubectl apply -f deploy/k8s/service/$(1)/; \
 	kubectl rollout status statefulset/$(1) -n $(SERVICES_NAMESPACE) --timeout=180s; \
 	)

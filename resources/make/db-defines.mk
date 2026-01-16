@@ -5,6 +5,7 @@
 # Usage: @$(call db_secret,<service>,<service-namespace>)
 # --------------------------------------------------------------
 define db_secret
+	set -euo pipefail; \
 	NEWPASS=$$(openssl rand -hex 16); \
 	NEWROPASS=$$(openssl rand -hex 16); \
 	kubectl -n $(2) create secret generic $(1)-db-secret \
@@ -23,6 +24,7 @@ endef
 # Usage: @$(call db_configmap_init_sql,<service>,<service-namespace>)
 # -----------------------------------------------------------
 define db_configmap_init_sql
+	set -euo pipefail; \
 	kubectl -n $(2) create configmap $(1)-db-init-sql \
 	  --from-file=resources/postgresql/init \
 	  --dry-run=client -o yaml | kubectl apply -f -
@@ -34,6 +36,7 @@ endef
 # Usage: @$(call db_configmap_migrations_sql,<service>,<service-namespace>)
 # -----------------------------------------------------------
 define db_configmap_migrations_sql
+	set -euo pipefail; \
 	kubectl -n $(2) create configmap $(1)-db-migrations-sql \
 	  --from-file=internal/service/$(1)/migrations \
 	  --dry-run=client -o yaml | kubectl apply -f -
@@ -46,8 +49,9 @@ endef
 # ------------------------------------------------------------------
 
 define db_create
-	kubectl -n $(2) delete job $(1)-db-create --ignore-not-found
-	kubectl -n $(2) apply -f deploy/k8s/service/$(1)/db/$(1)-db-create.yaml
+	set -euo pipefail; \
+	kubectl -n $(2) delete job $(1)-db-create --ignore-not-found; \
+	kubectl -n $(2) apply -f deploy/k8s/service/$(1)/db/$(1)-db-create.yaml; \
 	kubectl wait --for=condition=complete job/$(1)-db-create -n $(2) --timeout=120s
 endef
 
@@ -58,8 +62,9 @@ endef
 # ------------------------------------------------------------------
 
 define db_migrate
-	kubectl -n $(2) delete job $(1)-db-migrate --ignore-not-found
-	kubectl -n $(2) apply -f deploy/k8s/service/$(1)/db/$(1)-db-migrate.yaml
+	set -euo pipefail; \
+	kubectl -n $(2) delete job $(1)-db-migrate --ignore-not-found; \
+	kubectl -n $(2) apply -f deploy/k8s/service/$(1)/db/$(1)-db-migrate.yaml; \
 	kubectl wait --for=condition=complete job/$(1)-db-migrate -n $(2) --timeout=120s
 endef
 
