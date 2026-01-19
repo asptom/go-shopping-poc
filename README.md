@@ -1,6 +1,3 @@
-# WARNING:  This is out of date - updates to come soon
-
-
 # Go Shopping POC
 
 A proof-of-concept microservices-based shopping platform built with Go, demonstrating Clean Architecture principles, event-driven design, and Kubernetes deployment.
@@ -64,63 +61,26 @@ Contracts-first approach with type-safe event handling:
 #### Prerequisites
 - Kubernetes cluster (Rancher Desktop, Minikube, or cloud)
 - kubectl configured to connect to your cluster
-- Bash shell (for deployment scripts)
+- GNU Make for deployment
 
-#### Step 1: Prepare Secrets
-
-```bash
-# Navigate to base secrets directory
-cd deployment/k8s/base/secret/
-
-# Copy example files and rename them
-cp customer-secret.yaml.example customer-secret.yaml
-cp product-secret.yaml.example product-secret.yaml
-cp postgres-secret.yaml.example postgres-secret.yaml
-cp minio-secret.yaml.example minio-secret.yaml
-cp keycloak-secret.yaml.example keycloak-secret.yaml
-
-# Edit each file and replace CHANGE_ME_* with actual values
-# DO NOT commit actual secrets to version control
-```
-
-#### Step 2: Deploy to Development
+#### Deploy to Development
 
 ```bash
-# Navigate to kubernetes directory
-cd deployments/kubernetes
+# Navigate to project root directory
+# Make will be used to build and deploy platforms and services
+# All passwords are generated at deployment
 
-# Run development deployment script
-./deploy-dev.sh
+gmake platform 
+gmake services
 
-# The script will:
-# 1. Check/create secrets from templates (interactive)
-# 2. Apply all ConfigMaps
-# 3. Apply all Secrets
-# 4. Deploy platform services (PostgreSQL, Kafka, MinIO, Keycloak)
-# 5. Deploy application services (customer, product, etc.)
-# 6. Show deployment status
-```
+or
 
-#### Step 3: Deploy to Production
+gmake install
 
-```bash
-# Navigate to kubernetes directory
-cd deployments/kubernetes
-
-# Edit secrets with PRODUCTION values first!
-# IMPORTANT: Make sure secrets contain production passwords/URLs
-
-# Run production deployment script
-./deploy-prod.sh
-
-# The script will:
-# 1. Apply all ConfigMaps (same as dev)
-# 2. Apply production secrets
-# 3. Deploy platform services
-# 4. Deploy application services
-# 5. Set production replicas (2 for customer, 2 for product)
-# 6. Add production labels
-# 7. Show deployment status
+# These targets will:
+# 1. Deploy platform services (PostgreSQL, Kafka, MinIO, Keycloak)
+# 2. Deploy application services (customer, product, etc.)
+# 3. Show deployment status
 ```
 
 #### Verify Deployment
@@ -139,20 +99,9 @@ kubectl get secrets --all-namespaces
 kubectl describe pod -n pocstore customer-0 | grep -A 20 "Environment"
 ```
 
-#### Update Configuration
-
-```bash
-# Edit ConfigMap
-kubectl edit configmap platform-config -n pocstore
-
-# Edit Secret
-kubectl edit secret customer-secret -n pocstore
-
-# Restart pods to apply changes
-kubectl rollout restart statefulset/customer -n pocstore
-```
-
 ### Local Development
+TODO: This needs to be looked at.  Deploying to k8s is the only current way to 
+deploy using make.  The .env files need to be reviewed and updated.  They are out of date and refect the old way to deploy.
 
 #### Using .env File
 
@@ -169,22 +118,6 @@ go run ./cmd/customer
 go run ./cmd/product
 ```
 
-#### Using Docker Compose for Infrastructure
-
-```bash
-# Copy environment template
-cp .env.example .env
-# Edit .env with your values
-
-# Start platform services
-docker-compose up -d postgres kafka minio keycloak
-
-# Run services in separate terminals (with .env sourced)
-source .env
-go run ./cmd/customer
-go run ./cmd/product
-```
-
 ### Environment Variables
 
 This project uses environment variables for all configuration.
@@ -195,7 +128,7 @@ The project follows clean architecture with proper configuration separation:
 
 **Platform ConfigMap**: Shared infrastructure (database pools, Kafka brokers, CORS, outbox)
 - Used by: customer, product, eventreader, eventwriter services
-- Location: `deployment/k8s/base/configmap/platform-configmap.yaml`
+- Location: `deploy/k8s/config/platform-configmap-for-services.yaml`
 
 **Service ConfigMaps**: Service-specific settings (topics, ports, cache settings)
 - Customer: topics, group, port
@@ -203,68 +136,26 @@ The project follows clean architecture with proper configuration separation:
 - EventReader: topics, group
 - WebSocket: URL, timeout, path
 - EventWriter: topics, group
-
-**Secrets**: Sensitive data (passwords, database URLs, API keys)
-- Stored in: `deployment/k8s/base/secret/`
-- Templates: `.yaml.example` files (safe to commit)
-- Actual secrets: `.yaml` files (never commit)
+- Location: `deply/k8s/service/<service>/<service>-configmap.yaml
 
 **Local Development**: `.env.example` template for local environment
 - Copy to `.env` and fill in actual values
 - Environment variable expansion supported: `$VAR` in values
+- Note:  this needs to be looked at env.example may need to be updated
 
 ### Adding New Services
-
-To add a new service to the deployment:
-
-1. **Create Service ConfigMap** in `deployment/k8s/base/configmap/`
-2. **Create Service Secret Template** in `deployment/k8s/base/secret/`
-3. **Add envFrom to Deployment** (reference platform-config + service-config + service-secret)
-4. **Update Deployment Scripts** to apply new ConfigMap, Secret, and Deployment
-5. **Test with `./deploy-dev.sh`**
-
-See `docs/kubernetes-deployment-guide.md` for detailed instructions.
 
 ## Quick Start
 
 ### Prerequisites
-- Go 1.21+
+- Go 1.24+
 - Rancher Desktop (Kubernetes)
 - kubectl configured
 - Docker
 
 ### Local Development Setup
 
-1. **Clone and setup**
-   ```bash
-   git clone <repository-url>
-   cd go-shopping-poc
-   ```
-
-2. **Deploy infrastructure**
-   ```bash
-   make deploy-all  # PostgreSQL, Kafka, Keycloak, MinIO
-   ```
-
-3. **Build and deploy services**
-    ```bash
-    make services-build
-    make customer-deploy
-    make eventreader-deploy
-    make product-deploy  # Deploy product service
-    ```
-
-4. **Load product data (optional)**
-    ```bash
-    go run ./cmd/product-loader -csv=/path/to/products.csv  # Run product ingestion from CSV
-    ```
-
-5. **Verify deployment**
-   ```bash
-   kubectl get pods
-   kubectl logs -f deployment/customer
-   kubectl logs -f deployment/product
-   ```
+TODO:  Revamp
 
 ## Event System Usage
 
@@ -353,17 +244,7 @@ Products include comprehensive catalog information:
 
 ## Testing
 
-```bash
-# Unit tests
-make services-test
-
-# Integration tests (requires Kafka)
-go test -tags=integration ./tests/integration/...
-
-# Coverage report
-go test -coverprofile=coverage.out ./...
-go tool cover -html=coverage.out
-```
+TODO: Testing needs to be redone and simplified
 
 ## Development
 
@@ -386,15 +267,3 @@ func NewMyService(eventBus bus.Bus) *MyService {
     }
 }
 ```
-
-## Build Commands
-
-- `make services-build` - Build all services
-- `make services-test` - Run tests
-- `make deploy-all` - Deploy to Kubernetes
-- `go run ./cmd/customer` - Run customer service locally
-- `go run ./cmd/product-loader -csv=/path/to/products.csv` - Run product loader locally
-
-## Contributing
-
-Follows Clean Architecture principles. See `AGENTS.md` for detailed guidelines. 
