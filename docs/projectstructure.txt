@@ -7,15 +7,14 @@ project/
 ├── cmd/                                # Entrypoints for each microservice
 │   ├── customer/
 │   │   └── main.go
-│   │   └── config.yaml
+│   │   └── Dockerfile
 │   ├── order/
 │   │   └── main.go
-│   │   └── config.yaml
+│   │   └── Dockerfile
 │   └── ...
 │
-├── deployments/                         # Kubernetes, Helm, Docker Compose, etc.
+├── deploy/                             # Kubernetes, Docker
 │   ├── k8s/
-│   ├── helm/
 │   └── docker-compose/
 │
 ├── docs/                                # Architecture, specs, decision records
@@ -38,24 +37,22 @@ project/
 │   │   │   │   ├── kafka/
 │   │   │   │   │   ├── event.go
 │   │   │   │   │   └── eventbus.go
-│   │   │   ├── handler/                 # Common reusable handlers
-│   │   │   │   ├── customer_handler.go  # Only if generic / reusable
-│   │   │   │   ├── order_handler.go
+│   │   │   ├── handler/                 # Common reusable handler code
 │   │   │   │   └── ...
 │   │   │   └── middleware.go            # Retry, dead letter, etc.
-│   │   └── db/                          # DB utilities (migrations, connections)
+│   │   └── dataabase/                   # DB utilities (migrations, connections)
 │   │
 │   ├── service/                         # Domain services (the actual microservices)
 │   │   ├── customer/
+│   │   ├── migrations/                  # Customer specific DDL
+│   │   │   │   └── 001_init.sql
 │   │   │   ├── entity.go
 │   │   │   ├── repository.go            # Persistence
 │   │   │   ├── service.go               # Business logic
 │   │   │   ├── handler.go               # HTTP/RPC handler
-│   │   │   ├── eventhandlers/           # Reactions to events from other domains
-│   │   │   │   └── on_order_created.go
 │   │   │   └── test/
 │   │   │   └── ...
-│   │   ├── order/
+│   │   ├── eventreader/
 │   │   │   ├── entity.go
 │   │   │   ├── repository.go
 │   │   │   ├── service.go
@@ -76,11 +73,7 @@ project/
 │   ├── keycloak/
 │   ├── make/
 │   ├── postgresql/
-│   │   ├── schemas/
-│   │   │   ├── customer_db.sql
-│   │   │   └── order_db.sql
 │   │   └── init/
-│   └── certificates/
+│   └── security/
 │
-└── scripts/                             # Utility scripts (bash, migrations, hooks)
-    └── ...
+└── ...
