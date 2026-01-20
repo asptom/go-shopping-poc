@@ -1,6 +1,7 @@
 # This file is used by an installer script to create event broker topics
 # during the initial installation of the infrastructure.
-# This should be aligned with the topics defined in the .env files
+# Topics are configured via ConfigMaps in Kubernetes deployment.
+# See: deploy/k8s/platform/config/platform-configmap-for-services.yaml
 
 # name:partitions:replication
 CustomerEvents:3:1

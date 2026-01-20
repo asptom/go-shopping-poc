@@ -72,7 +72,8 @@ type EventBusConfig struct {
 
 ### Platform Configuration
 
-The provider loads shared Kafka configuration from `config/platform-kafka.env`:
+The provider loads shared Kafka configuration from environment variables
+provided by `platform-configmap-for-services` ConfigMap in Kubernetes deployment:
 
 ```env
 KAFKA_BROKERS=["localhost:9092"]

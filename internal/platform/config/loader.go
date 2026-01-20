@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"strings"
 
@@ -13,7 +12,6 @@ import (
 // ConfigLoader provides generic configuration loading capabilities
 type ConfigLoader interface {
 	Load(config interface{}) error
-	LoadFromFile(filename string, config interface{}) error
 	LoadFromEnv(config interface{}) error
 	Validate(config interface{}) error
 }
@@ -40,61 +38,6 @@ func NewViperLoader() *ViperLoader {
 	return &ViperLoader{viper: v}
 }
 
-// LoadFromFile loads configuration from file into viper
-func (l *ViperLoader) LoadFromFile(filename string, config interface{}) error {
-	fmt.Printf("[DEBUG] Checking config file: %s\n", filename)
-
-	file, err := os.Open(filename)
-	if err != nil {
-		if os.IsNotExist(err) {
-			fmt.Printf("[DEBUG] Config file does not exist: %s\n", filename)
-			// File doesn't exist, skip silently
-			return nil
-		}
-		fmt.Printf("[DEBUG] Failed to open config file %s: %v\n", filename, err)
-		return fmt.Errorf("failed to open config file %s: %w", filename, err)
-	}
-	defer func() { _ = file.Close() }()
-
-	fmt.Printf("[DEBUG] Successfully opened config file: %s\n", filename)
-
-	// Parse simple KEY=VALUE format
-	content, err := io.ReadAll(file)
-	if err != nil {
-		return fmt.Errorf("failed to read config file %s: %w", filename, err)
-	}
-
-	lines := strings.Split(string(content), "\n")
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		if idx := strings.Index(line, "="); idx > 0 {
-			key := strings.TrimSpace(line[:idx])
-			value := strings.TrimSpace(line[idx+1:])
-
-			// Strip surrounding quotes
-			value = strings.Trim(value, "\"")
-			value = strings.Trim(value, "'")
-
-			// Expand environment variables in the value
-			value = os.ExpandEnv(value)
-
-			fmt.Printf("[DEBUG] Loaded from %s: %s = %s\n", filename, key, value)
-			l.viper.Set(key, value)
-		}
-	}
-
-	return nil
-}
-
-// applyEnvOverrides applies environment variable overrides
-func (l *ViperLoader) applyEnvOverrides(config interface{}) error {
-	// For now, just re-unmarshal to pick up any env vars
-	return l.viper.Unmarshal(config)
-}
-
 // LoadFromEnv loads configuration from environment variables
 func (l *ViperLoader) LoadFromEnv(config interface{}) error {
 
@@ -104,13 +47,6 @@ func (l *ViperLoader) LoadFromEnv(config interface{}) error {
 	}
 
 	return nil
-}
-
-// Load is a convenience method that combines file and env loading
-func (l *ViperLoader) Load(config interface{}) error {
-	// This would be implemented if we need a single method
-	// For now, we use LoadFromFile + LoadFromEnv separately
-	return fmt.Errorf("use LoadFromFile and LoadFromEnv separately")
 }
 
 // Validate performs comprehensive validation

@@ -90,7 +90,8 @@ publisher.Stop()
 
 ## Configuration
 
-The outbox pattern uses platform configuration loaded from `config/platform-outbox.env`:
+The outbox pattern uses platform configuration from environment variables
+provided by `platform-configmap-for-services` ConfigMap in Kubernetes deployment:
 
 ```env
 OUTBOX_BATCH_SIZE=10

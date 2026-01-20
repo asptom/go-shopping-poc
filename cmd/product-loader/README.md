@@ -33,9 +33,12 @@ The product loader command orchestrates the complete product ingestion workflow 
 The command requires the following environment variables to be set:
 
 - `DATABASE_URL`: PostgreSQL connection string
-- Product service configuration (loaded from config files)
-- MinIO configuration for image storage
-- Kafka configuration for event publishing
+- `PRODUCT_CACHE_DIR`: Directory for caching downloaded images
+- `MINIO_ENDPOINT`: MinIO S3 endpoint for image storage
+- `MINIO_ACCESS_KEY`: MinIO access key
+- `MINIO_SECRET_KEY`: MinIO secret key
+- `KAFKA_BROKERS`: Kafka broker addresses for event publishing
+- `KAFKA_TOPIC`: Kafka topic for product events
 
 ## CSV Format
 
@@ -84,6 +87,12 @@ Build and run using Docker:
 # Build
 docker build -t product-loader ./cmd/product-loader
 
-# Run
-docker run --env-file .env product-loader -csv /path/to/products.csv
+# Run (environment variables must be provided)
+docker run \
+  -e DATABASE_URL=postgres://localhost:5432/shop \
+  -e PRODUCT_CACHE_DIR=/cache \
+  -e MINIO_ENDPOINT=http://localhost:9000 \
+  -e MINIO_ACCESS_KEY=your-access-key \
+  -e MINIO_SECRET_KEY=your-secret-key \
+  product-loader -csv /path/to/products.csv
 ```
