@@ -106,8 +106,7 @@ method being used for development and testing.  The platforms and services consu
 environment variables that are currently only configured in the Makefiles and within
 platform or service configmaps. 
 
-The project previously had .env files but they became out-of-date and have currently been deleted.  
-The use of .env files for testing will be revisted.
+Testing will use programmatically generated environment variables.
 
 #### Configuration Architecture
 
@@ -214,7 +213,16 @@ Products include comprehensive catalog information:
 
 ## Testing
 
-TODO: Testing needs to be redone and simplified
+Testing is limited to business functionality as testing code became seriously bloated.
+The only tests we have now are for customer but more will be added in the future:
+
+```bash
+go test -v ./cmd/customer... ./internal/service/customer/...
+
+or 
+
+gmake customer-test
+```
 
 ## Development
 

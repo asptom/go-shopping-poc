@@ -39,7 +39,7 @@ $(1)-build:
 $(call help_entry,$(1)-test,Service,Test $(1))	
 .PHONY: $(1)-test
 $(1)-test:	
-	$$(call run,Test $(1),$$@,go test ./cmd/$(1)/...)
+	$$(call run,Test $(1),$$@,go test ./cmd/$(1)/... ./internal/service/$(1)/...)
 
 $(call help_entry,$(1)-lint,Service,Lint $(1))
 .PHONY: $(1)-lint
