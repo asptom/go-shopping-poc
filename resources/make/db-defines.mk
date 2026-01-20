@@ -9,12 +9,12 @@ define db_secret
 	NEWPASS=$$(openssl rand -hex 16); \
 	NEWROPASS=$$(openssl rand -hex 16); \
 	kubectl -n $(2) create secret generic $(1)-db-secret \
-		--from-literal=db_name=$(1)_db \
-		--from-literal=username=$(1)_user \
-		--from-literal=password=$$NEWPASS \
-		--from-literal=ro_username=$(1)_rouser \
-		--from-literal=ro_password=$$NEWROPASS \
-		--from-literal=db_URL="postgres://$(1)_user:$$NEWPASS@postgres.postgres.svc.cluster.local:5432/$(1)_db?sslmode=disable" \
+		--from-literal=DB_NAME=$(1)_db \
+		--from-literal=USERNAME=$(1)_user \
+		--from-literal=PASSWORD=$$NEWPASS \
+		--from-literal=RO_USERNAME=$(1)_rouser \
+		--from-literal=RO_PASSWORD=$$NEWROPASS \
+		--from-literal=DB_URL="postgres://$(1)_user:$$NEWPASS@postgres.postgres.svc.cluster.local:5432/$(1)_db?sslmode=disable" \
 		--dry-run=client -o yaml | kubectl apply -f -
 endef
 

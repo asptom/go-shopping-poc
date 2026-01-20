@@ -61,6 +61,7 @@ Contracts-first approach with type-safe event handling:
 #### Prerequisites
 - Kubernetes cluster (Rancher Desktop, Minikube, or cloud)
 - kubectl configured to connect to your cluster
+- Docker
 - GNU Make for deployment
 
 #### Deploy to Development
@@ -99,28 +100,14 @@ kubectl get secrets --all-namespaces
 kubectl describe pod -n pocstore customer-0 | grep -A 20 "Environment"
 ```
 
-### Local Development
-TODO: This needs to be looked at.  Deploying to k8s is the only current way to 
-deploy using make.  The .env files need to be reviewed and updated.  They are out of date and refect the old way to deploy.
+### Local Development / Environment Variables
+Deploying to a local kubernetes environment using gmake is currently the only
+method being used for development and testing.  The platforms and services consume
+environment variables that are currently only configured in the Makefiles and within
+platform or service configmaps. 
 
-#### Using .env File
-
-```bash
-# Copy environment template
-cp .env.example .env
-# Edit .env with your values
-
-# Source environment (optional - services load automatically)
-source .env
-
-# Run services in separate terminals
-go run ./cmd/customer
-go run ./cmd/product
-```
-
-### Environment Variables
-
-This project uses environment variables for all configuration.
+The project previously had .env files but they became out-of-date and have currently been deleted.  
+The use of .env files for testing will be revisted.
 
 #### Configuration Architecture
 
@@ -138,24 +125,7 @@ The project follows clean architecture with proper configuration separation:
 - EventWriter: topics, group
 - Location: `deply/k8s/service/<service>/<service>-configmap.yaml
 
-**Local Development**: `.env.example` template for local environment
-- Copy to `.env` and fill in actual values
-- Environment variable expansion supported: `$VAR` in values
-- Note:  this needs to be looked at env.example may need to be updated
-
 ### Adding New Services
-
-## Quick Start
-
-### Prerequisites
-- Go 1.24+
-- Rancher Desktop (Kubernetes)
-- kubectl configured
-- Docker
-
-### Local Development Setup
-
-TODO:  Revamp
 
 ## Event System Usage
 

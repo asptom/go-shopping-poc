@@ -27,7 +27,7 @@ postgres-secrets:
 		NEWPASS=$$(openssl rand -hex 16); \
 		$(call postgres_secret,postgres-admin-secret,$(DB_NAMESPACE),$$NEWPASS,$(DB_NAMESPACE)); \
 		$(call postgres_secret,postgres-admin-bootstrap-secret,$(SERVICES_NAMESPACE),$$NEWPASS,$(DB_NAMESPACE)); \
-		$(call postgres_secret,postgres-admin-bootstrap-secret,$(AUTH_NAMESPACE),$$NEWPASS,$(DB_NAMESPACE))
+		$(call postgres_secret,postgres-admin-bootstrap-secret,$(AUTH_NAMESPACE),$$NEWPASS,$(DB_NAMESPACE)); \
 	)
 
 # ------------------------------------------------------------------

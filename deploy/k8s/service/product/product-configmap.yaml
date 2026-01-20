@@ -7,10 +7,6 @@ metadata:
     app: go-shopping-poc
     component: product
 data:
-  # Product Database Settings
-  PSQL_PRODUCT_DB: "productsdb"
-  PSQL_PRODUCT_ROLE: "productsuser"
-
   # Product Service Port
   PRODUCT_SERVICE_PORT: ":8080"
 

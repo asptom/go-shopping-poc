@@ -20,11 +20,11 @@ spec:
           args:
             - |
               export PGPASSWORD="$POSTGRES_PASSWORD"
-              until pg_isready -h "$POSTGRES_HOST" -p 5432 -U "$POSTGRES_USER" -d "$db_name" >/dev/null 2>&1; do
+              until pg_isready -h "$POSTGRES_HOST" -p 5432 -U "$POSTGRES_USER" -d "$DB_NAME" >/dev/null 2>&1; do
                 echo "Waiting for database to be ready..."
                 sleep 5
               done
-              echo "Database ${db_name} is ready."
+              echo "Database ${DB_NAME} is ready."
       restartPolicy: OnFailure
       containers:
         - name: migrate
@@ -39,17 +39,17 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: customer-db-secret
-                  key: username
+                  key: USERNAME
             - name: PGPASSWORD
               valueFrom:
                 secretKeyRef:
                   name: customer-db-secret
-                  key: password
+                  key: PASSWORD
             - name: PGDATABASE
               valueFrom:
                 secretKeyRef:
                   name: customer-db-secret
-                  key: db_name
+                  key: DB_NAME
           volumeMounts:
             - name: migrations
               mountPath: /migrations

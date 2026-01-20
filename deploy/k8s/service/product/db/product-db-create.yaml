@@ -4,15 +4,17 @@ metadata:
   name: product-db-create
   namespace: postgres
 spec:
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 0
   template:
     spec:
-      restartPolicy: OnFailure
+      restartPolicy: Never
       containers:
         - name: init
           image: docker.io/postgres:18.0
           envFrom:
             - secretRef:
-                name: postgres-admin-secret
+                name: postgres-admin-bootstrap-secret
             - secretRef:
                 name: product-db-secret
           volumeMounts:
@@ -22,4 +24,4 @@ spec:
       volumes:
         - name: sql
           configMap:
-            name: product-db-sql
+            name: product-db-init-sql

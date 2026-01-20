@@ -2,16 +2,6 @@
 
 -- This schema is used to manage order-related data
 
--- Credentials are managed outside of source control in the .ENV file
--- There is a corresponding <domain>_db.sql script that is used to initialize the database
--- This script is used to create the orders schema in PostgreSQL
-
--- The following lines will be used to set the DB, USER, and PGPASSWORD used to 
--- run the psqlclient that executes this script
--- DB: $PSQL_ORDER_DB
--- USER: $PSQL_ORDER_ROLE
--- PGPASSWORD: $PSQL_ORDER_PASSWORD
-
 DROP SCHEMA IF EXISTS orders CASCADE;
 CREATE SCHEMA orders;
 

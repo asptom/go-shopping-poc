@@ -61,11 +61,11 @@ spec:
           args:
             - |
               export PGPASSWORD="$POSTGRES_PASSWORD"
-              while ! psql --host "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$db_name" -p 5432 -c 'select 1' > /dev/null 2>&1; do
+              while ! psql --host "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$DB_NAME" -p 5432 -c 'select 1' > /dev/null 2>&1; do
                 echo "Waiting for database to be ready..."
                 sleep 5
               done
-              echo "Database ${db_name} is ready."
+              echo "Database ${DB_NAME} is ready."
       containers:
         - name: keycloak
           image: quay.io/keycloak/keycloak:26.4.2
@@ -109,17 +109,17 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: keycloak-db-secret
-                  key: username
+                  key: USERNAME
             - name: KC_DB_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: keycloak-db-secret
-                  key: password
+                  key: PASSWORD
             - name: KC_DB_NAME
               valueFrom:
                 secretKeyRef:
                   name: keycloak-db-secret
-                  key: db_name
+                  key: DB_NAME
             - name: KC_DB_URL
               value: "jdbc:postgresql://postgres.postgres.svc.cluster.local:5432/$(KC_DB_NAME)"
             # - name: KC_DB_URL_HOST

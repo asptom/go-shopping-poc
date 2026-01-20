@@ -47,7 +47,7 @@ spec:
               - configMapRef:
                   name: product-config
               - secretRef:
-                  name: product-secret
+                  name: product-db-secret
             ports:
               - containerPort: 8080
             readinessProbe:

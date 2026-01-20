@@ -9,7 +9,7 @@ import (
 // Config defines customer service configuration
 type Config struct {
 	// Database configuration
-	DatabaseURL string `mapstructure:"db_URL" validate:"required"`
+	DatabaseURL string `mapstructure:"db_url" validate:"required"`
 
 	// HTTP server configuration
 	ServicePort string `mapstructure:"customer_service_port" validate:"required"`
