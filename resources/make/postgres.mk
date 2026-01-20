@@ -31,6 +31,21 @@ postgres-secrets:
 	)
 
 # ------------------------------------------------------------------
+# Get PostgreSQL credentials
+# ------------------------------------------------------------------
+
+$(eval $(call help_entry,postgres-credentials,PostgreSQL,Retrieve PostgreSQL credentials from secret))
+.PHONY: postgres-credentials
+postgres-credentials:
+	$(call run,Retrieve PostgreSQL credentials from secret,$@, \
+		set -euo pipefail; \
+		kubectl -n $(DB_NAMESPACE) get secret postgres-admin-secret -o jsonpath='{.data.POSTGRES_USER}' | base64 --decode; \
+		echo ""; \
+		kubectl -n $(DB_NAMESPACE) get secret postgres-admin-secret -o jsonpath='{.data.POSTGRES_PASSWORD}' | base64 --decode; \
+		echo ""; \
+	)
+
+# ------------------------------------------------------------------
 # Install Postgres statefulset
 # ------------------------------------------------------------------
 
