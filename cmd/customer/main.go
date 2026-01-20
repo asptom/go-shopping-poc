@@ -108,11 +108,7 @@ func main() {
 	router.Use(corsHandler)
 
 	// Health check endpoint
-	router.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"status":"ok"}`))
-	})
+	router.Get("/health", healthHandler)
 
 	// Define routes
 	router.Post("/customers", handler.CreateCustomer)
@@ -181,4 +177,11 @@ func main() {
 
 	close(done)
 	log.Printf("[INFO] Customer: Server exited")
+}
+
+// healthHandler returns a simple health check response
+func healthHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(`{"status":"ok"}`))
 }

@@ -290,7 +290,108 @@ err := utils.HandleEventWithValidation(ctx, event, func(ctx context.Context, eve
 - See `go.mod` for current version
 
 ## Testing
-- Tests are currently being refactored (see README.md)
-- Use table-driven tests where appropriate
-- Mock repository interfaces for service layer testing
-- Test files: `<name>_test.go` in the same package
+- Tests are currently being refactored (see below for implementation approach)
+
+### Test Implementation Approach (Customer Service - Jan 20, 2026)
+
+**Scope**: Targeted, business-focused tests for customer service only
+
+**Files Created** (6 files, ~855 lines total):
+1. `cmd/customer/main_test.go` (~49 lines) - Health endpoint tests
+2. `cmd/customer/README.md` (~42 lines) - Bootstrap test documentation
+3. `internal/service/customer/config_test.go` (~92 lines) - Configuration tests
+4. `internal/service/customer/entity_test.go` (~412 lines) - Domain entity validation
+5. `internal/service/customer/service_test.go` (~248 lines) - Service logic tests with mocks
+6. `internal/service/customer/validation_test.go` (~103 lines) - Event validation tests
+
+**Files Modified** (1 file, 9 lines):
+- `cmd/customer/main.go` - Extracted `healthHandler` function (9 lines added)
+
+**What Was Tested**:
+- ✅ Bootstrap layer: Health endpoint (HTTP status, headers, response body)
+- ✅ Configuration: LoadConfig(), Validate() (success, missing required fields)
+- ✅ Entities: Customer, Address, CreditCard (validation, helper methods)
+- ✅ Services: CreateCustomer, PatchCustomer, ValidatePatchData, Transform* methods
+- ✅ Validation: CustomerEvent, CustomerEventPayload (success, missing fields, invalid types)
+
+**What Was NOT Tested** (per plan):
+- ❌ Repository layer (1,391 lines) - SQL queries, transactions (integration test responsibility)
+- ❌ HTTP handlers (373 lines) - Thin wrappers (integration test responsibility)
+- ❌ Service utilities (50 lines) - Simple logging/error functions
+- ❌ Event utils (122 lines) - Platform wrapper functions
+
+**Test Coverage Results**:
+- Bootstrap layer: 3.4% coverage
+- Business logic layer: 9.6% coverage
+- Combined: ~9% coverage on core business logic
+- All 53 tests: PASS (0 failures)
+- Test execution time: <1 second total
+
+**Implementation Requirements**:
+
+1. **Idiomatic Go Structure**:
+   - Test files alongside source: `*_test.go` (not `/tests/` subdirectory)
+   - Package naming: `package customer_test` for black-box testing
+   - Import standard `testing` package (no external assertion libraries)
+
+2. **Programmatic Configuration**:
+   - Use `os.Setenv()` for test environment setup
+   - Use `os.Unsetenv()` in `defer` for cleanup
+   - Helper functions marked with `t.Helper()` for proper error reporting
+   - No `.env.test` files
+
+3. **Minimal, Focused Tests**:
+   - Test business behavior, not implementation details
+   - Test domain rules and validation logic
+   - No infrastructure dependencies (database, Kafka)
+   - Table-driven tests with clear names
+
+4. **Hand-Written Mocks**:
+   - Mock repository implemented in test files
+   - No external mock libraries
+   - Implement only methods called by tests (simple no-ops)
+   - Interface: `CustomerRepository` from service package
+
+5. **Test Patterns Used**:
+   - `t.Parallel()` at start of each test for concurrent execution
+   - Table-driven tests with struct slices for multiple scenarios
+   - Clear test names describing what's being tested
+
+6. **Environment Variables Used**:
+   - Check actual env var names in `deploy/k8s/service/<service>-configmap.yaml`
+   - Example: `db_url` (not `CUSTOMER_DB_URL`)
+   - Verify mapstructure tags in `Config` struct
+
+7. **Code Refactoring**:
+   - Extract inline handler functions for testability
+   - Update main.go to use extracted handler
+   - No behavior changes, only testability improvement
+
+8. **Running Tests**:
+   ```bash
+   # Run all customer service tests
+   go test -v ./cmd/customer/... ./internal/service/customer/...
+
+   # Run specific test file
+   go test -v ./internal/service/customer/... -run TestCustomerValidate
+
+   # Run with coverage
+   go test -cover ./cmd/customer/... ./internal/service/customer/...
+   ```
+
+**Duplication Checklist for Other Services**:
+1. [ ] Read service's entity.go to understand validation rules
+2. [ ] Read service's service.go to understand orchestration and transformation methods
+3. [ ] Read service's validation.go if event validation exists
+4. [ ] Check if `NewXxxServiceWithRepo()` function exists for test injection
+5. [ ] Find PatchRequest, PatchAddressRequest, PatchCreditCardRequest types
+6. [ ] Create test files:
+   - `cmd/<service>/main_test.go` - Health endpoint tests
+   - `internal/service/<service>/config_test.go` - Configuration tests
+   - `internal/service/<service>/entity_test.go` - Entity validation tests
+   - `internal/service/<service>/service_test.go` - Service logic tests with mocks
+   - `internal/service/<service>/validation_test.go` - Event validation tests
+7. [ ] Refactor main.go: Extract inline handler if needed
+8. [ ] Verify tests pass: `go test -v ./cmd/<service>/... ./internal/service/<service>/...`
+9. [ ] Lint: `make <service>-lint`
+10. [ ] Update AGENTS.md with test summary
