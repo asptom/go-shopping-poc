@@ -48,7 +48,7 @@ spec:
           - --console-address=:9001
           envFrom:
             - secretRef:
-                name: minio-credentials
+                name: minio-secret
           ports:
           - containerPort: 9000
             name: minio-api

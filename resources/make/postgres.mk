@@ -6,6 +6,11 @@ DB_NAMESPACE ?= database
 SERVICES_NAMESPACE ?= shopping
 AUTH_NAMESPACE ?= keycloak
 
+POSTGRES_ADMIN_SECRET := postgres-admin-secret
+POSTGRES_ADMIN_BOOTSTRAP_SECRET := postgres-admin-bootstrap-secret
+POSTGRES_SECRET_USER := POSTGRES_USER
+POSTGRES_SECRET_PASSWORD := POSTGRES_PASSWORD
+
 # ------------------------------------------------------------------
 # Create Secrets
 # ------------------------------------------------------------------
@@ -25,9 +30,9 @@ postgres-secrets:
 	$(call run,Create and verify Kafka topics,$@, \
 		set -euo pipefail; \
 		NEWPASS=$$(openssl rand -hex 16); \
-		$(call postgres_secret,postgres-admin-secret,$(DB_NAMESPACE),$$NEWPASS,$(DB_NAMESPACE)); \
-		$(call postgres_secret,postgres-admin-bootstrap-secret,$(SERVICES_NAMESPACE),$$NEWPASS,$(DB_NAMESPACE)); \
-		$(call postgres_secret,postgres-admin-bootstrap-secret,$(AUTH_NAMESPACE),$$NEWPASS,$(DB_NAMESPACE)); \
+		$(call postgres_secret,$(POSTGRES_ADMIN_SECRET),$(DB_NAMESPACE),$$NEWPASS,$(DB_NAMESPACE)); \
+		$(call postgres_secret,$(POSTGRES_ADMIN_BOOTSTRAP_SECRET),$(SERVICES_NAMESPACE),$$NEWPASS,$(DB_NAMESPACE)); \
+		$(call postgres_secret,$(POSTGRES_ADMIN_BOOTSTRAP_SECRET),$(AUTH_NAMESPACE),$$NEWPASS,$(DB_NAMESPACE)); \
 	)
 
 # ------------------------------------------------------------------
@@ -39,9 +44,9 @@ $(eval $(call help_entry,postgres-credentials,PostgreSQL,Retrieve PostgreSQL cre
 postgres-credentials:
 	$(call run,Retrieve PostgreSQL credentials from secret,$@, \
 		set -euo pipefail; \
-		kubectl -n $(DB_NAMESPACE) get secret postgres-admin-secret -o jsonpath='{.data.POSTGRES_USER}' | base64 --decode; \
+		kubectl -n $(DB_NAMESPACE) get secret $(POSTGRES_ADMIN_SECRET) -o jsonpath='{.data.$(POSTGRES_SECRET_USER)}' 2>/dev/null | base64 --decode 2>/dev/null || echo "No $(POSTGRES_SECRET_USER)"; \
 		echo ""; \
-		kubectl -n $(DB_NAMESPACE) get secret postgres-admin-secret -o jsonpath='{.data.POSTGRES_PASSWORD}' | base64 --decode; \
+		kubectl -n $(DB_NAMESPACE) get secret $(POSTGRES_ADMIN_SECRET) -o jsonpath='{.data.$(POSTGRES_SECRET_PASSWORD)}' 2>/dev/null| base64 --decode2>/dev/null || echo "No $(POSTGRES_SECRET_PASSWORD)"; \
 		echo ""; \
 	)
 

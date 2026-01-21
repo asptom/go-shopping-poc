@@ -3,10 +3,11 @@
 #   include $(PROJECT_HOME)/resources/make/services.mk
 
 #Service settings
-SERVICES := customer eventreader
+SERVICES := customer eventreader product
 
 SERVICE_HAS_DB_customer := true
 SERVICE_HAS_DB_eventreader := false
+SERVICE_HAS_DB_product := true
 
 #Kubernetes settings
 SERVICES_NAMESPACE ?= shopping
@@ -153,6 +154,11 @@ $(call help_entry,$(1)-db-migrate,ServiceDB,Migrate DB for $(1))
 $(1)-db-migrate: $(1)-db-configmap-migrations
 	$$(call run,DB Migrate for $(1),$$@,$(call db_migrate,$(1),$(SERVICES_NAMESPACE)))
 
+$(call help_entry,$(1)-db-credentials,ServiceDB,Get DB credentials for $(1))
+.PHONY: $(1)-db-credentials
+$(1)-db-credentials:
+	$$(call run,Retrieve DB credentials for $(1),$$@,$(call db_credentials,$(1),$(SERVICES_NAMESPACE)))
+        
 endef
 
 $(foreach svc,$(strip $(SERVICES)), \

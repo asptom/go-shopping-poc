@@ -5,17 +5,17 @@
 # Usage: @$(call db_secret,<service>,<service-namespace>)
 # --------------------------------------------------------------
 define db_secret
-	set -euo pipefail; \
-	NEWPASS=$$(openssl rand -hex 16); \
-	NEWROPASS=$$(openssl rand -hex 16); \
+	$(eval DB_SECRET_PASS := $(shell openssl rand -hex 16)) \
+	$(eval DB_SECRET_RO_PASS := $(shell openssl rand -hex 16)) \
+	(set -euo pipefail; \
 	kubectl -n $(2) create secret generic $(1)-db-secret \
 		--from-literal=DB_NAME=$(1)_db \
 		--from-literal=USERNAME=$(1)_user \
-		--from-literal=PASSWORD=$$NEWPASS \
+		--from-literal=PASSWORD=$(DB_SECRET_PASS) \
 		--from-literal=RO_USERNAME=$(1)_rouser \
-		--from-literal=RO_PASSWORD=$$NEWROPASS \
-		--from-literal=DB_URL="postgres://$(1)_user:$$NEWPASS@postgres.postgres.svc.cluster.local:5432/$(1)_db?sslmode=disable" \
-		--dry-run=client -o yaml | kubectl apply -f -
+		--from-literal=RO_PASSWORD=$(DB_SECRET_RO_PASS) \
+		--from-literal=DB_URL="postgres://$(1)_user:$(DB_SECRET_PASS)@postgres.postgres.svc.cluster.local:5432/$(1)_db?sslmode=disable" \
+		--dry-run=client -o yaml) | kubectl apply -f -
 endef
 
 # -----------------------------------------------------------
@@ -68,4 +68,16 @@ define db_migrate
 	kubectl wait --for=condition=complete job/$(1)-db-migrate -n $(2) --timeout=120s
 endef
 
+# ------------------------------------------------------------------
+# Function to retrieve DB credentials for a service
+#
+# Usage: @$(call db_credentials,<service>,<service-namespace>)
+# ------------------------------------------------------------------
 
+define db_credentials
+	set -euo pipefail; \
+    kubectl -n $(2) get secret $(1)-db-secret -o jsonpath='{.data.USERNAME}' 2>/dev/null | base64 --decode 2>/dev/null || echo "No USERNAME"; \
+	echo ""; \
+    kubectl -n $(2) get secret $(1)-db-secret -o jsonpath='{.data.PASSWORD}' 2>/dev/null | base64 --decode 2>/dev/null || echo "No PASSWORD"; \
+	echo "";
+endef

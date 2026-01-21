@@ -2,7 +2,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: product-db-create
-  namespace: postgres
+  namespace: shopping
 spec:
   ttlSecondsAfterFinished: 300
   backoffLimit: 0

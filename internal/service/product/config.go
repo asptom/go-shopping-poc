@@ -10,7 +10,7 @@ import (
 // Config defines product service configuration
 type Config struct {
 	// Database configuration
-	DatabaseURL string `mapstructure:"psql_product_db_url" validate:"required"`
+	DatabaseURL string `mapstructure:"db_url" validate:"required"`
 
 	// HTTP server configuration
 	ServicePort string `mapstructure:"product_service_port" validate:"required"`
@@ -25,6 +25,10 @@ type Config struct {
 
 	// MinIO bucket configuration
 	MinIOBucket string `mapstructure:"minio_bucket" validate:"required"`
+
+	// Kafka configuration
+	WriteTopic string `mapstructure:"product_write_topic" validate:"required"`
+	Group      string `mapstructure:"product_group"`
 }
 
 // LoadConfig loads product service configuration
@@ -54,6 +58,9 @@ func (c *Config) Validate() error {
 	}
 	if c.MinIOBucket == "" {
 		return errors.New("MinIO bucket is required")
+	}
+	if c.WriteTopic == "" {
+		return errors.New("write topic is required")
 	}
 	return nil
 }

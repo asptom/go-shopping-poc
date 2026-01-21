@@ -34,7 +34,7 @@ include $(PROJECT_HOME)/resources/make/k8s.mk
 include $(PROJECT_HOME)/resources/make/keycloak.mk
 include $(PROJECT_HOME)/resources/make/services.mk
 include $(PROJECT_HOME)/resources/make/config.mk
-include $(PROJECT_HOME)/resources/make/product_loader.mk
+include $(PROJECT_HOME)/resources/make/product-load.mk
 
 # ------------------------------------------------------------------
 # --- Targets ---
@@ -64,9 +64,6 @@ help:
 	@echo "📘 Go Shopping POC — Make Targets"
 	@echo "=================================="
 	@echo
-	@echo "install			Full setup: clean, build, docker-build, create namespaces, install postgres, kafka, certificates, keycloak, minio, and services"
-	@echo "uninstall		Uninstall all services, and all supporting components"
-	@echo ""
 	@echo "Available targets:"
 	$(foreach cat,$(HELP_CATEGORIES), \
 		echo ""; \
