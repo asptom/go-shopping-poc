@@ -21,5 +21,5 @@ $(eval $(call help_entry,k8s-delete-namespaces,Kubernetes,Delete all namespaces 
 k8s-delete-namespaces:
 	$(call run,Delete namespaces from Kubernetes,$@, \
 		set -euo pipefail; \
-		kubectl delete -f deploy/k8s/namespaces/;\
+		kubectl delete -f deploy/k8s/namespaces/ --ignore-not-found;\
 	)
