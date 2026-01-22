@@ -48,6 +48,8 @@ spec:
                   name: product-config
               - secretRef:
                   name: product-db-secret
+              - secretRef:
+                  name: minio-bootstrap-secret
             ports:
               - containerPort: 8080
             readinessProbe:

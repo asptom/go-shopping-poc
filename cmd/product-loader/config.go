@@ -10,7 +10,7 @@ import (
 // Config defines product loader configuration
 type Config struct {
 	// Database configuration
-	DatabaseURL string `mapstructure:"psql_product_db_url" validate:"required"`
+	DatabaseURL string `mapstructure:"db_url_local" validate:"required"`
 
 	// HTTP server configuration (not used by loader)
 	ServicePort string `mapstructure:"product_service_port"`

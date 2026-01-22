@@ -15,6 +15,7 @@ define db_secret
 		--from-literal=RO_USERNAME=$(1)_rouser \
 		--from-literal=RO_PASSWORD=$(DB_SECRET_RO_PASS) \
 		--from-literal=DB_URL="postgres://$(1)_user:$(DB_SECRET_PASS)@postgres.postgres.svc.cluster.local:5432/$(1)_db?sslmode=disable" \
+		--from-literal=DB_URL_LOCAL="postgres://$(1)_user:$(DB_SECRET_PASS)@localhost:30432/$(1)_db?sslmode=disable" \
 		--dry-run=client -o yaml) | kubectl apply -f -
 endef
 

@@ -137,7 +137,7 @@ func main() {
 	router.Delete("/customers/{id}/default-credit-card", handler.ClearDefaultCreditCard)
 
 	// Start HTTP server with graceful shutdown
-	serverAddr := "0.0.0.0:8080"
+	serverAddr := "0.0.0.0" + cfg.ServicePort
 
 	server := &http.Server{
 		Addr:         serverAddr,

@@ -10,7 +10,8 @@ MINIO_NAMESPACE ?= minio
 MINIO_SECRET ?= minio-secret
 MINIO_SECRET_USER ?= MINIO_ROOT_USER
 MINIO_SECRET_PASSWORD ?= MINIO_ROOT_PASSWORD
-MINIO_ENDPOINT ?= http://api.minio.local
+MINIO_ENDPOINT ?= api.minio.local
+MINIO_BUCKET ?= productimages
 
 # ------------------------------------------------------------------
 # Load products into Minio and Postgres database
@@ -19,14 +20,18 @@ $(eval $(call help_entry,product-load,Product,Load products from CSV into platfo
 .PHONY: product-load
 product-load:
 	$(call run,Load products from CSV into platform,$@, \
+		$(eval PRODUCT_DATABASE_URL := $(shell kubectl -n $(SERVICES_NAMESPACE) get secret product-db-secret -o jsonpath='{.data.DB_URL_LOCAL}' 2>/dev/null | base64 --decode 2>/dev/null || echo "No DB_URL_LOCAL")) \
+		$(eval MINIO_ACCESS_KEY := $(shell kubectl -n $(MINIO_NAMESPACE) get secret $(MINIO_SECRET) -o jsonpath='{.data.$(MINIO_SECRET_USER)}' 2>/dev/null | base64 --decode 2>/dev/null || echo "No $(MINIO_SECRET_USER)")) \
+		$(eval MINIO_SECRET_KEY := $(shell kubectl -n $(MINIO_NAMESPACE) get secret $(MINIO_SECRET) -o jsonpath='{.data.$(MINIO_SECRET_PASSWORD)}' 2>/dev/null | base64 --decode 2>/dev/null || echo "No $(MINIO_SECRET_PASSWORD)")) \
 		set -euo pipefail; \
-		@PRODUCT_DATABASE_URL=$$(shell kubectl -n $(SERVICES_NAMESPACE) get secret product-db-secret -o jsonpath='data.DB_URL_LOCAL' 2>/dev/null | base64 --decode 2>/dev/null || echo "No DB_URL_LOCAL"); \
-		@MINIO_ACCESS_KEY=$$(shell kubectl -n $(MINIO_NAMESPACE) get secret $(MINIO_SECRET) -o jsonpath='data.$(MINIO_SECRET_USER)' 2>/dev/null | base64 --decode 2>/dev/null || echo "No $(MINIO_SECRET_USER)"); \
-		@MINIO_SECRET_KEY=$$(shell kubectl -n $(MINIO_NAMESPACE) get secret $(MINIO_SECRET) -o jsonpath='data.$(MINIO_SECRET_PASSWORD)' 2>/dev/null| base64 --decode 2>/dev/null || echo "No $(MINIO_SECRET_PASSWORD)"); \
-		export DATABASE_URL=$$PRODUCT_DATABASE_URL;\
-  		export PRODUCT_CACHE_DIR=$$PRODUCT_CCHE_DIR; \
-  		export MINIO_ENDPOINT=$$MINIO_ENDPOINT; \
-  		export MINIO_ACCESS_KEY=$$MINIO_ACCESS_KEY; \
-  		export MINIO_SECRET_KEY=$$MINIO_SECRET_KEY; \
-		go run $(PROJECT_HOME)/cmd/product-loader -csv=$(PRODUCT_CSV_FILE); \
+		\echo "PRODUCT_DATABASE_URL = $(PRODUCT_DATABASE_URL)"; \
+		export DB_URL_LOCAL=$(PRODUCT_DATABASE_URL);\
+  		export IMAGE_CACHE_DIR=$(PRODUCT_CACHE_DIR); \
+  		export CSV_PATH=$(PRODUCT_CSV_FILE); \
+		export MINIO_ENDPOINT_KUBERNETES=null
+		export MINIO_ENDPOINT_LOCAL=$(MINIO_ENDPOINT); \
+  		export MINIO_ACCESS_KEY=$(MINIO_ACCESS_KEY); \
+  		export MINIO_SECRET_KEY=$(MINIO_SECRET_KEY); \
+		export MINIO_BUCKET=$(MINIO_BUCKET)
+		go run $(PROJECT_HOME)/cmd/product-loader \
 	)

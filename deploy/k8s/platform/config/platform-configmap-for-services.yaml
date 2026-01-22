@@ -37,4 +37,5 @@ data:
 
   # MinIO Platform Settings
   MINIO_ENDPOINT_KUBERNETES: "minio.minio.svc.cluster.local:9000"
+  MINIO_ENDPOINT_LOCAL: "http://api.minio.local"
   MINIO_TLS_VERIFY: "false"

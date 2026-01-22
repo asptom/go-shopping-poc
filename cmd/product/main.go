@@ -159,7 +159,7 @@ func main() {
 	router.Post("/products/ingest", handler.IngestProducts)
 
 	// Start HTTP server with graceful shutdown
-	serverAddr := "0.0.0.0:" + cfg.ServicePort
+	serverAddr := "0.0.0.0" + cfg.ServicePort
 
 	server := &http.Server{
 		Addr:         serverAddr,

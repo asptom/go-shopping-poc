@@ -46,7 +46,7 @@ postgres-credentials:
 		set -euo pipefail; \
 		kubectl -n $(DB_NAMESPACE) get secret $(POSTGRES_ADMIN_SECRET) -o jsonpath='{.data.$(POSTGRES_SECRET_USER)}' 2>/dev/null | base64 --decode 2>/dev/null || echo "No $(POSTGRES_SECRET_USER)"; \
 		echo ""; \
-		kubectl -n $(DB_NAMESPACE) get secret $(POSTGRES_ADMIN_SECRET) -o jsonpath='{.data.$(POSTGRES_SECRET_PASSWORD)}' 2>/dev/null| base64 --decode2>/dev/null || echo "No $(POSTGRES_SECRET_PASSWORD)"; \
+		kubectl -n $(DB_NAMESPACE) get secret $(POSTGRES_ADMIN_SECRET) -o jsonpath='{.data.$(POSTGRES_SECRET_PASSWORD)}' 2>/dev/null| base64 --decode 2>/dev/null || echo "No $(POSTGRES_SECRET_PASSWORD)"; \
 		echo ""; \
 	)
 

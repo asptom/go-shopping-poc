@@ -3,7 +3,9 @@
 #   include $(PROJECT_HOME)/resources/make/minio.mk
 
 MINIO_NAMESPACE ?= minio
+SERVICES_NAMESPACE ?= shopping
 MINIO_SECRET := minio-secret
+MINIO_BOOTSTRAP_SECRET := minio-bootstrap-secret
 MINIO_SECRET_USER := MINIO_ROOT_USER
 MINIO_SECRET_PASSWORD := MINIO_ROOT_PASSWORD
 MINIO_USER := minioadmin
@@ -20,6 +22,10 @@ minio-secret:
 		kubectl -n $(MINIO_NAMESPACE) create secret generic $(MINIO_SECRET) \
 			--from-literal=$(MINIO_SECRET_USER)=$(MINIO_USER) \
 			--from-literal=$(MINIO_SECRET_PASSWORD)=$$NEWPASS \
+			--dry-run=client -o yaml | kubectl apply -f -; \
+		kubectl -n $(SERVICES_NAMESPACE) create secret generic $(MINIO_BOOTSTRAP_SECRET) \
+			--from-literal=MINIO_ACCESS_KEY=$(MINIO_USER) \
+			--from-literal=MINIO_SECRET_KEY=$$NEWPASS \
 			--dry-run=client -o yaml | kubectl apply -f -; \
 	)
 
