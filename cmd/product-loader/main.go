@@ -87,15 +87,7 @@ func runProductLoader(ctx context.Context, cliConfig *CLIConfig) error {
 	}
 
 	// Convert loader config to product service config
-	cfg := &product.Config{
-		DatabaseURL:  loaderCfg.DatabaseURL,
-		ServicePort:  "", // not used by loader
-		CacheDir:     loaderCfg.CacheDir,
-		CacheMaxAge:  loaderCfg.CacheMaxAge,
-		CacheMaxSize: loaderCfg.CacheMaxSize,
-		CSVBatchSize: loaderCfg.CSVBatchSize,
-		MinIOBucket:  loaderCfg.MinIOBucket, // Use bucket from loader config
-	}
+	cfg := productConfigFromLoaderConfig(loaderCfg)
 
 	// Load database connection configuration
 	dbConnConfigPtr, err := config.LoadConfig[database.ConnectionConfig]("platform-database")
@@ -165,22 +157,22 @@ func runProductLoader(ctx context.Context, cliConfig *CLIConfig) error {
 	repo := product.NewProductRepository(platformDB.DB())
 	log.Printf("[DEBUG] Product Loader: Product repository created")
 
-	// Create product infrastructure
-	infrastructure := &product.ProductInfrastructure{
+	// Create admin infrastructure
+	infrastructure := &product.AdminInfrastructure{
 		Database:       platformDB,
 		ObjectStorage:  minioStorage,
 		OutboxWriter:   outboxWriter,
 		HTTPDownloader: httpDownloader,
 	}
 
-	// Create product service
-	productService := product.NewProductService(repo, cfg, infrastructure)
-	log.Printf("[DEBUG] Product Loader: Product service created")
+	// Create admin service
+	adminService := product.NewAdminService(repo, cfg, infrastructure)
+	log.Printf("[DEBUG] Product Loader: Admin service created")
 
 	// Create service wrapper for lifecycle management
 	loaderService := &ProductLoaderService{
 		BaseService: service.NewBaseService("product-loader"),
-		service:     productService,
+		service:     adminService,
 		csvPath:     cliConfig.CSVPath,
 		batchID:     cliConfig.BatchID,
 		useCache:    cliConfig.UseCache,
@@ -278,14 +270,27 @@ func main() {
 	}
 }
 
-// ProductLoaderService wraps the product service for lifecycle management
+// ProductLoaderService wraps the admin service for lifecycle management
 type ProductLoaderService struct {
 	*service.BaseService
-	service    *product.ProductService
+	service    *product.AdminService
 	csvPath    string
 	batchID    string
 	useCache   bool
 	resetCache bool
+}
+
+// productConfigFromLoaderConfig converts loader config to product config
+func productConfigFromLoaderConfig(loaderCfg *Config) *product.Config {
+	return &product.Config{
+		DatabaseURL:  loaderCfg.DatabaseURL,
+		ServicePort:  "", // not used by loader
+		CacheDir:     loaderCfg.CacheDir,
+		CacheMaxAge:  loaderCfg.CacheMaxAge,
+		CacheMaxSize: loaderCfg.CacheMaxSize,
+		CSVBatchSize: loaderCfg.CSVBatchSize,
+		MinIOBucket:  loaderCfg.MinIOBucket, // Use bucket from loader config
+	}
 }
 
 // RunIngestion executes the product ingestion workflow

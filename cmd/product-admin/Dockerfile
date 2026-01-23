@@ -7,7 +7,7 @@ RUN go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o product ./cmd/product
+RUN CGO_ENABLED=0 GOOS=linux go build -o product-admin ./cmd/product-admin
 
 FROM alpine:latest
 
@@ -15,8 +15,8 @@ RUN apk --no-cache add ca-certificates
 
 WORKDIR /root/
 
-COPY --from=builder /app/product .
+COPY --from=builder /app/product-admin .
 
-EXPOSE 8081
+EXPOSE 8082
 
-CMD ["./product"]
+CMD ["./product-admin"]

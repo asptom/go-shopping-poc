@@ -45,6 +45,10 @@ const (
 	ProductIngestionStarted   ProductEventType = "product.ingestion.started"
 	ProductIngestionCompleted ProductEventType = "product.ingestion.completed"
 	ProductIngestionFailed    ProductEventType = "product.ingestion.failed"
+
+	ProductViewed         ProductEventType = "product.viewed"
+	ProductSearchExecuted ProductEventType = "product.search.executed"
+	ProductCategoryViewed ProductEventType = "product.category.viewed"
 )
 
 // ProductEventPayload represents the data structure for product events
@@ -150,4 +154,16 @@ func NewProductIngestionCompletedEvent(batchID string, details map[string]string
 
 func NewProductIngestionFailedEvent(batchID string, details map[string]string) *ProductEvent {
 	return NewProductEvent("", ProductIngestionFailed, batchID, details)
+}
+
+func NewProductViewedEvent(productID string, details map[string]string) *ProductEvent {
+	return NewProductEvent(productID, ProductViewed, productID, details)
+}
+
+func NewProductSearchExecutedEvent(query string, details map[string]string) *ProductEvent {
+	return NewProductEvent("", ProductSearchExecuted, query, details)
+}
+
+func NewProductCategoryViewedEvent(category string, details map[string]string) *ProductEvent {
+	return NewProductEvent("", ProductCategoryViewed, category, details)
 }

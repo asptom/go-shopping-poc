@@ -9,6 +9,7 @@ metadata:
 data:
   # General Settings (shared by all services)
   LOG_LEVEL: "info"
+
   # Database Connection Pool Settings (shared by all services)
   DATABASE_MAX_OPEN_CONNS: "25"
   DATABASE_MAX_IDLE_CONNS: "25"
@@ -19,23 +20,27 @@ data:
   DATABASE_HEALTH_CHECK_INTERVAL: "30s"
   DATABASE_HEALTH_CHECK_TIMEOUT: "5s"
 
-  # Kafka Configuration (shared)
+  # Kafka Configuration (shared by services that need it)
   KAFKA_BROKERS: "kafka-clusterip.kafka.svc.cluster.local:9092"
 
-  # Outbox Pattern Configuration (shared)
+  # Outbox Pattern Configuration (shared by services that publish events)
   OUTBOX_BATCH_SIZE: "10"
   OUTBOX_DELETE_BATCH_SIZE: "10"
   OUTBOX_PROCESS_INTERVAL: "30s"
   OUTBOX_MAX_RETRIES: "3"
 
-  # CORS Configuration (shared)
+  # CORS Configuration (shared by services that need it)
   CORS_ALLOWED_ORIGINS: "http://localhost:4200,http://localhost:3000"
   CORS_ALLOWED_METHODS: "GET,POST,PUT,DELETE,PATCH,OPTIONS"
   CORS_ALLOWED_HEADERS: "Content-Type,Authorization,X-Requested-With"
   CORS_ALLOW_CREDENTIALS: "true"
   CORS_MAX_AGE: "3600"
 
-  # MinIO Platform Settings
+  # MinIO Platform Settings (shared by services that need it)
   MINIO_ENDPOINT_KUBERNETES: "minio.minio.svc.cluster.local:9000"
-  MINIO_ENDPOINT_LOCAL: "http://api.minio.local"
+  MINIO_ENDPOINT_LOCAL: "api.minio.local"
   MINIO_TLS_VERIFY: "false"
+
+  # Keycloak Configuration (shared by authenticated services)
+  KEYCLOAK_ISSUER: "http://keycloak.keycloak.svc.cluster.local:8080/realms/pocstore-realm"
+  KEYCLOAK_JWKS_URL: "http://keycloak.keycloak.svc.cluster.local:8080/realms/pocstore-realm/protocol/openid-connect/certs"

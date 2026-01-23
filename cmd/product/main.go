@@ -11,15 +11,11 @@ import (
 
 	"go-shopping-poc/internal/platform/cors"
 	"go-shopping-poc/internal/platform/database"
-	"go-shopping-poc/internal/platform/downloader"
 	"go-shopping-poc/internal/platform/event"
 	"go-shopping-poc/internal/platform/outbox"
-	"go-shopping-poc/internal/platform/storage"
-
 	"go-shopping-poc/internal/service/product"
 
 	"github.com/go-chi/chi/v5"
-	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 func main() {
@@ -29,9 +25,8 @@ func main() {
 		}
 	}()
 	log.SetFlags(log.LstdFlags)
-	log.Printf("[INFO] Product: Product service started...")
+	log.Printf("[INFO] Product: Product catalog service started...")
 
-	// Load service-specific configuration
 	cfg, err := product.LoadConfig()
 	if err != nil {
 		log.Fatalf("Product: Failed to load config: %v", err)
@@ -39,13 +34,11 @@ func main() {
 
 	log.Printf("[DEBUG] Product: Configuration loaded successfully")
 
-	// Get database URL from service config
 	dbURL := cfg.DatabaseURL
 	if dbURL == "" {
 		log.Fatalf("Product: Database URL is required in service config")
 	}
 
-	// Create database provider
 	log.Printf("[DEBUG] Product: Creating database provider")
 	dbProvider, err := database.NewDatabaseProvider(dbURL)
 	if err != nil {
@@ -58,11 +51,10 @@ func main() {
 		}
 	}()
 
-	// Create event bus provider
 	log.Printf("[DEBUG] Product: Creating event bus provider")
 	eventBusConfig := event.EventBusConfig{
-		WriteTopic: "product-events",  // Service-specific topic
-		GroupID:    "product-service", // Service-specific group
+		WriteTopic: "ProductEvents",
+		GroupID:    "ProductCatalogGroup",
 	}
 	eventBusProvider, err := event.NewEventBusProvider(eventBusConfig)
 	if err != nil {
@@ -70,15 +62,6 @@ func main() {
 	}
 	eventBus := eventBusProvider.GetEventBus()
 
-	// Create storage provider
-	log.Printf("[DEBUG] Product: Creating storage provider")
-	storageProvider, err := storage.NewStorageProvider()
-	if err != nil {
-		log.Fatalf("Product: Failed to create storage provider: %v", err)
-	}
-	minioStorage := storageProvider.GetObjectStorage()
-
-	// Create outbox provider
 	log.Printf("[DEBUG] Product: Creating outbox provider")
 	outboxProvider, err := outbox.NewOutboxProvider(platformDB, eventBus)
 	if err != nil {
@@ -87,47 +70,27 @@ func main() {
 	outboxPublisher := outboxProvider.GetOutboxPublisher()
 	outboxPublisher.Start()
 	defer outboxPublisher.Stop()
-	outboxWriter := outboxProvider.GetOutboxWriter()
 
-	// Create service with dependency injection
 	log.Printf("[DEBUG] Product: Creating product repository")
 	repo := product.NewProductRepository(platformDB.DB())
 	log.Printf("[DEBUG] Product: Repository created successfully")
 
-	// Create downloader provider
-	log.Printf("[DEBUG] Product: Creating downloader provider")
-	downloaderConfig := downloader.DownloaderProviderConfig{
-		CacheDir:     cfg.CacheDir,
-		CacheMaxAge:  cfg.CacheMaxAge,
-		CacheMaxSize: cfg.CacheMaxSize,
+	log.Printf("[DEBUG] Product: Creating catalog service")
+	catalogInfra := &product.CatalogInfrastructure{
+		Database:     platformDB,
+		OutboxWriter: outbox.NewWriter(platformDB),
 	}
-	downloaderProvider, err := downloader.NewDownloaderProvider(downloaderConfig)
-	if err != nil {
-		log.Fatalf("Product: Failed to create downloader provider: %v", err)
-	}
-	httpDownloader := downloaderProvider.GetHTTPDownloader()
-
-	// Create infrastructure struct
-	infrastructure := &product.ProductInfrastructure{
-		Database:       platformDB,
-		ObjectStorage:  minioStorage,
-		OutboxWriter:   outboxWriter,
-		HTTPDownloader: httpDownloader,
-	}
-
-	service := product.NewProductService(repo, cfg, infrastructure)
+	catalogService := product.NewCatalogService(repo, catalogInfra, cfg)
 	log.Printf("[DEBUG] Product: Service created successfully")
 
-	log.Printf("[DEBUG] Product: Creating product handler")
-	handler := product.NewProductHandler(service)
+	log.Printf("[DEBUG] Product: Creating catalog handler")
+	catalogHandler := product.NewCatalogHandler(catalogService)
 	log.Printf("[DEBUG] Product: Handler created successfully")
 
-	// Set up router
 	log.Printf("[DEBUG] Product: Setting up HTTP router")
 	router := chi.NewRouter()
 	log.Printf("[DEBUG] Product: Router setup completed")
 
-	// Create CORS provider
 	log.Printf("[DEBUG] Product: Creating CORS provider")
 	corsProvider, err := cors.NewCORSProvider()
 	if err != nil {
@@ -136,29 +99,22 @@ func main() {
 	corsHandler := corsProvider.GetCORSHandler()
 	router.Use(corsHandler)
 
-	// Health check endpoint
 	router.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"status":"ok"}`))
 	})
 
-	// Define routes
-	router.Post("/products", handler.CreateProduct)
-	router.Get("/products/{id}", handler.GetProduct)
-	router.Put("/products/{id}", handler.UpdateProduct)
-	router.Delete("/products/{id}", handler.DeleteProduct)
+	productRouter := chi.NewRouter()
+	productRouter.Get("/products", catalogHandler.GetAllProducts)
+	productRouter.Get("/products/{id}", catalogHandler.GetProduct)
+	productRouter.Get("/products/search", catalogHandler.SearchProducts)
+	productRouter.Get("/products/category/{category}", catalogHandler.GetProductsByCategory)
+	productRouter.Get("/products/brand/{brand}", catalogHandler.GetProductsByBrand)
+	productRouter.Get("/products/in-stock", catalogHandler.GetProductsInStock)
 
-	// Search and filter endpoints
-	router.Get("/products/search", handler.SearchProducts)
-	router.Get("/products/category/{category}", handler.GetProductsByCategory)
-	router.Get("/products/brand/{brand}", handler.GetProductsByBrand)
-	router.Get("/products/in-stock", handler.GetProductsInStock)
+	router.Mount("/api/v1", productRouter)
 
-	// Ingestion endpoint
-	router.Post("/products/ingest", handler.IngestProducts)
-
-	// Start HTTP server with graceful shutdown
 	serverAddr := "0.0.0.0" + cfg.ServicePort
 
 	server := &http.Server{
@@ -169,30 +125,24 @@ func main() {
 		IdleTimeout:  120 * time.Second,
 	}
 
-	// Channel to listen for interrupt signal
 	done := make(chan bool, 1)
 	quit := make(chan os.Signal, 1)
 
-	// Register interrupt signals
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 
-	// Start server in a goroutine
 	go func() {
-		log.Printf("[INFO] Product: Starting HTTP server on %s (Traefik will handle TLS)", serverAddr)
+		log.Printf("[INFO] Product: Starting HTTP server on %s", serverAddr)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Product: Failed to start HTTP server: %v", err)
 		}
 	}()
 
-	// Wait for interrupt signal
 	<-quit
 	log.Printf("[INFO] Product: Shutting down server...")
 
-	// Create a deadline for shutdown
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	// Attempt graceful shutdown
 	if err := server.Shutdown(ctx); err != nil {
 		log.Fatalf("Product: Server forced to shutdown: %v", err)
 	}

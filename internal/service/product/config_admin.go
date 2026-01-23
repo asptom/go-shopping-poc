@@ -7,8 +7,8 @@ import (
 	"go-shopping-poc/internal/platform/config"
 )
 
-// Config defines product service configuration
-type Config struct {
+// AdminConfig defines product admin service configuration
+type AdminConfig struct {
 	// Database configuration
 	DatabaseURL string `mapstructure:"db_url" validate:"required"`
 
@@ -29,30 +29,25 @@ type Config struct {
 	// Kafka configuration
 	WriteTopic string `mapstructure:"product_write_topic" validate:"required"`
 	Group      string `mapstructure:"product_group"`
+
+	// Keycloak configuration
+	KeycloakIssuer       string `mapstructure:"keycloak_issuer" validate:"required"`
+	KeycloakJWKSURL      string `mapstructure:"keycloak_jwks_url" validate:"required"`
+	KeycloakClientSecret string `mapstructure:"keycloak_client_secret"`
 }
 
-// LoadConfig loads product service configuration
-func LoadConfig() (*Config, error) {
-	return config.LoadConfig[Config]("product")
+// LoadAdminConfig loads product admin service configuration
+func LoadAdminConfig() (*AdminConfig, error) {
+	return config.LoadConfig[AdminConfig]("product-admin")
 }
 
-// Validate performs product service specific validation
-func (c *Config) Validate() error {
+// Validate performs admin service specific validation
+func (c *AdminConfig) Validate() error {
 	if c.DatabaseURL == "" {
 		return errors.New("database URL is required")
 	}
 	if c.ServicePort == "" {
 		return errors.New("service port is required")
-	}
-	// CacheDir is optional for catalog service
-	if c.CacheMaxAge < 0 {
-		return errors.New("cache max age cannot be negative")
-	}
-	if c.CacheMaxSize < 0 {
-		return errors.New("cache max size cannot be negative")
-	}
-	if c.CSVBatchSize < 0 {
-		return errors.New("CSV batch size cannot be negative")
 	}
 	if c.MinIOBucket == "" {
 		return errors.New("MinIO bucket is required")
@@ -60,15 +55,11 @@ func (c *Config) Validate() error {
 	if c.WriteTopic == "" {
 		return errors.New("write topic is required")
 	}
-	return nil
-}
-
-// DefaultConfig returns a configuration with sensible defaults
-func DefaultConfig() *Config {
-	return &Config{
-		CacheMaxAge:  24 * time.Hour,
-		CacheMaxSize: 0,
-		CSVBatchSize: 100,
-		MinIOBucket:  "productimages",
+	if c.KeycloakIssuer == "" {
+		return errors.New("keycloak issuer is required")
 	}
+	if c.KeycloakJWKSURL == "" {
+		return errors.New("keycloak JWKS URL is required")
+	}
+	return nil
 }

@@ -24,14 +24,13 @@ product-load:
 		$(eval MINIO_ACCESS_KEY := $(shell kubectl -n $(MINIO_NAMESPACE) get secret $(MINIO_SECRET) -o jsonpath='{.data.$(MINIO_SECRET_USER)}' 2>/dev/null | base64 --decode 2>/dev/null || echo "No $(MINIO_SECRET_USER)")) \
 		$(eval MINIO_SECRET_KEY := $(shell kubectl -n $(MINIO_NAMESPACE) get secret $(MINIO_SECRET) -o jsonpath='{.data.$(MINIO_SECRET_PASSWORD)}' 2>/dev/null | base64 --decode 2>/dev/null || echo "No $(MINIO_SECRET_PASSWORD)")) \
 		set -euo pipefail; \
-		\echo "PRODUCT_DATABASE_URL = $(PRODUCT_DATABASE_URL)"; \
 		export DB_URL_LOCAL=$(PRODUCT_DATABASE_URL);\
   		export IMAGE_CACHE_DIR=$(PRODUCT_CACHE_DIR); \
   		export CSV_PATH=$(PRODUCT_CSV_FILE); \
-		export MINIO_ENDPOINT_KUBERNETES=null
-		export MINIO_ENDPOINT_LOCAL=$(MINIO_ENDPOINT); \
-  		export MINIO_ACCESS_KEY=$(MINIO_ACCESS_KEY); \
-  		export MINIO_SECRET_KEY=$(MINIO_SECRET_KEY); \
-		export MINIO_BUCKET=$(MINIO_BUCKET)
+		export MINIO_ENDPOINT_KUBERNETES=null;\
+        export MINIO_ENDPOINT_LOCAL=$(MINIO_ENDPOINT); \
+        export MINIO_ACCESS_KEY=$(MINIO_ACCESS_KEY); \
+        export MINIO_SECRET_KEY=$(MINIO_SECRET_KEY); \
+		export MINIO_BUCKET=$(MINIO_BUCKET); \
 		go run $(PROJECT_HOME)/cmd/product-loader \
 	)

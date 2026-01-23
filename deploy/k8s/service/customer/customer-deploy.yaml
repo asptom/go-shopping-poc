@@ -41,13 +41,135 @@ spec:
           - name: customer
             image: localhost:5000/go-shopping-poc/customer:1.0
             imagePullPolicy: Always
-            envFrom:
-              - configMapRef:
-                  name: platform-config
-              - configMapRef:
-                  name: customer-config
-              - secretRef:
-                  name: customer-db-secret
+            env:
+              # Platform config (selective)
+              - name: LOG_LEVEL
+                valueFrom:
+                  configMapKeyRef:
+                    name: platform-config
+                    key: LOG_LEVEL
+
+              # Database Connection Pool Settings
+              - name: DATABASE_MAX_OPEN_CONNS
+                valueFrom:
+                  configMapKeyRef:
+                    name: platform-config
+                    key: DATABASE_MAX_OPEN_CONNS
+              - name: DATABASE_MAX_IDLE_CONNS
+                valueFrom:
+                  configMapKeyRef:
+                    name: platform-config
+                    key: DATABASE_MAX_IDLE_CONNS
+              - name: DATABASE_CONN_MAX_LIFETIME
+                valueFrom:
+                  configMapKeyRef:
+                    name: platform-config
+                    key: DATABASE_CONN_MAX_LIFETIME
+              - name: DATABASE_CONN_MAX_IDLE_TIME
+                valueFrom:
+                  configMapKeyRef:
+                    name: platform-config
+                    key: DATABASE_CONN_MAX_IDLE_TIME
+              - name: DATABASE_CONNECT_TIMEOUT
+                valueFrom:
+                  configMapKeyRef:
+                    name: platform-config
+                    key: DATABASE_CONNECT_TIMEOUT
+              - name: DATABASE_QUERY_TIMEOUT
+                valueFrom:
+                  configMapKeyRef:
+                    name: platform-config
+                    key: DATABASE_QUERY_TIMEOUT
+              - name: DATABASE_HEALTH_CHECK_INTERVAL
+                valueFrom:
+                  configMapKeyRef:
+                    name: platform-config
+                    key: DATABASE_HEALTH_CHECK_INTERVAL
+              - name: DATABASE_HEALTH_CHECK_TIMEOUT
+                valueFrom:
+                  configMapKeyRef:
+                    name: platform-config
+                    key: DATABASE_HEALTH_CHECK_TIMEOUT
+
+              # Kafka Configuration
+              - name: KAFKA_BROKERS
+                valueFrom:
+                  configMapKeyRef:
+                    name: platform-config
+                    key: KAFKA_BROKERS
+
+              # Outbox Pattern Configuration
+              - name: OUTBOX_BATCH_SIZE
+                valueFrom:
+                  configMapKeyRef:
+                    name: platform-config
+                    key: OUTBOX_BATCH_SIZE
+              - name: OUTBOX_DELETE_BATCH_SIZE
+                valueFrom:
+                  configMapKeyRef:
+                    name: platform-config
+                    key: OUTBOX_DELETE_BATCH_SIZE
+              - name: OUTBOX_PROCESS_INTERVAL
+                valueFrom:
+                  configMapKeyRef:
+                    name: platform-config
+                    key: OUTBOX_PROCESS_INTERVAL
+              - name: OUTBOX_MAX_RETRIES
+                valueFrom:
+                  configMapKeyRef:
+                    name: platform-config
+                    key: OUTBOX_MAX_RETRIES
+
+              # CORS Configuration
+              - name: CORS_ALLOWED_ORIGINS
+                valueFrom:
+                  configMapKeyRef:
+                    name: platform-config
+                    key: CORS_ALLOWED_ORIGINS
+              - name: CORS_ALLOWED_METHODS
+                valueFrom:
+                  configMapKeyRef:
+                    name: platform-config
+                    key: CORS_ALLOWED_METHODS
+              - name: CORS_ALLOWED_HEADERS
+                valueFrom:
+                  configMapKeyRef:
+                    name: platform-config
+                    key: CORS_ALLOWED_HEADERS
+              - name: CORS_ALLOW_CREDENTIALS
+                valueFrom:
+                  configMapKeyRef:
+                    name: platform-config
+                    key: CORS_ALLOW_CREDENTIALS
+              - name: CORS_MAX_AGE
+                valueFrom:
+                  configMapKeyRef:
+                    name: platform-config
+                    key: CORS_MAX_AGE
+
+              # Service config (selective)
+              - name: CUSTOMER_SERVICE_PORT
+                valueFrom:
+                  configMapKeyRef:
+                    name: customer-config
+                    key: CUSTOMER_SERVICE_PORT
+              - name: CUSTOMER_WRITE_TOPIC
+                valueFrom:
+                  configMapKeyRef:
+                    name: customer-config
+                    key: CUSTOMER_WRITE_TOPIC
+              - name: CUSTOMER_GROUP
+                valueFrom:
+                  configMapKeyRef:
+                    name: customer-config
+                    key: CUSTOMER_GROUP
+
+              # Secrets (selective)
+              - name: DB_URL
+                valueFrom:
+                  secretKeyRef:
+                    name: customer-db-secret
+                    key: DB_URL
             ports:
               - containerPort: 8080
             readinessProbe:
@@ -74,7 +196,7 @@ spec:
     - host: pocstore.local
       http:
         paths:
-          - path: /
+          - path: /api/v1/customers
             pathType: Prefix
             backend:
               service:

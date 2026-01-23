@@ -3,11 +3,17 @@
 #   include $(PROJECT_HOME)/resources/make/services.mk
 
 #Service settings
-SERVICES := customer eventreader product
+SERVICES := customer eventreader product product-admin
 
-SERVICE_HAS_DB_customer := true
-SERVICE_HAS_DB_eventreader := false
-SERVICE_HAS_DB_product := true
+SERVICE_BUILDS_DB_customer := true
+SERVICE_BUILDS_DB_eventreader := false
+SERVICE_BUILDS_DB_product := true
+SERVICE_BUILDS_DB_product-admin := false
+
+SERVICE_INTERNAL_DIR_customer := customer
+SERVICE_INTERNAL_DIR_eventreader := eventreader
+SERVICE_INTERNAL_DIR_product := product
+SERVICE_INTERNAL_DIR_product-admin := product
 
 #Kubernetes settings
 SERVICES_NAMESPACE ?= shopping
@@ -39,8 +45,8 @@ $(1)-build:
 
 $(call help_entry,$(1)-test,Service,Test $(1))	
 .PHONY: $(1)-test
-$(1)-test:	
-	$$(call run,Test $(1),$$@,go test ./cmd/$(1)/... ./internal/service/$(1)/...)
+$(1)-test:
+	$$(call run,Test $(1),$$@,go test ./cmd/$(1)/... ./internal/service/$$(SERVICE_INTERNAL_DIR_$(1))/...)
 
 $(call help_entry,$(1)-lint,Service,Lint $(1))
 .PHONY: $(1)-lint
@@ -125,7 +131,7 @@ services-uninstall: $(addsuffix -uninstall,$(SERVICES))
 
 # Generate per-service database targets
 
-define SERVICE_HAS_DB_TARGETS
+define SERVICE_BUILDS_DB_TARGETS
 $(call assert_arg,service-name,$(1))
 $(call dbg,Generating targets for services with a database '$(1)')
 
@@ -163,8 +169,8 @@ endef
 
 $(foreach svc,$(strip $(SERVICES)), \
 	$(call assert_arg,svc,$(svc)) \
-	$(if $(call is_true,$(strip $(SERVICE_HAS_DB_$(svc)))), \
-		$(eval $(call SERVICE_HAS_DB_TARGETS,$(svc)))) \
+	$(if $(call is_true,$(strip $(SERVICE_BUILDS_DB_$(svc)))), \
+		$(eval $(call SERVICE_BUILDS_DB_TARGETS,$(svc)))) \
 )
 
 # Aggregate database targets
@@ -173,12 +179,12 @@ $(eval $(call help_entry,services-db-create,ServiceDBAggregate,Create DBs for al
 .PHONY: services-db-create
 services-db-create: \
   $(foreach svc,$(SERVICES), \
-    $(if $(call is_true,$(SERVICE_HAS_DB_$(svc))),$(svc)-db-create) \
+    $(if $(call is_true,$(SERVICE_BUILDS_DB_$(svc))),$(svc)-db-create) \
   )
 
 $(eval $(call help_entry,services-db-migrate,ServiceDBAggregate,Migrate DBs for all services))
 .PHONY: services-db-migrate
 services-db-migrate: \
   $(foreach svc,$(SERVICES), \
-	$(if $(call is_true,$(SERVICE_HAS_DB_$(svc))),$(svc)-db-migrate) \
+	$(if $(call is_true,$(SERVICE_BUILDS_DB_$(svc))),$(svc)-db-migrate) \
   )

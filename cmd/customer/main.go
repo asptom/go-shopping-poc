@@ -111,31 +111,33 @@ func main() {
 	router.Get("/health", healthHandler)
 
 	// Define routes
-	router.Post("/customers", handler.CreateCustomer)
-	router.Get("/customers/{email}", handler.GetCustomerByEmailPath)
-	router.Put("/customers", handler.UpdateCustomer)
-	router.Patch("/customers/{id}", handler.PatchCustomer)
+	customerRouter := chi.NewRouter()
+	customerRouter.Post("/customers", handler.CreateCustomer)
+	customerRouter.Get("/customers/{email}", handler.GetCustomerByEmailPath)
+	customerRouter.Put("/customers", handler.UpdateCustomer)
+	customerRouter.Patch("/customers/{id}", handler.PatchCustomer)
 
 	// Address endpoints
-	router.Post("/customers/{id}/addresses", handler.AddAddress)
-	router.Put("/customers/addresses/{addressId}", handler.UpdateAddress)
-	router.Delete("/customers/addresses/{addressId}", handler.DeleteAddress)
+	customerRouter.Post("/customers/{id}/addresses", handler.AddAddress)
+	customerRouter.Put("/customers/addresses/{addressId}", handler.UpdateAddress)
+	customerRouter.Delete("/customers/addresses/{addressId}", handler.DeleteAddress)
 
 	// Credit card endpoints
-	router.Post("/customers/{id}/credit-cards", handler.AddCreditCard)
-	router.Put("/customers/credit-cards/{cardId}", handler.UpdateCreditCard)
-	router.Delete("/customers/credit-cards/{cardId}", handler.DeleteCreditCard)
+	customerRouter.Post("/customers/{id}/credit-cards", handler.AddCreditCard)
+	customerRouter.Put("/customers/credit-cards/{cardId}", handler.UpdateCreditCard)
+	customerRouter.Delete("/customers/credit-cards/{cardId}", handler.DeleteCreditCard)
 
 	// Default address endpoints
-	router.Put("/customers/{id}/default-shipping-address/{addressId}", handler.SetDefaultShippingAddress)
-	router.Put("/customers/{id}/default-billing-address/{addressId}", handler.SetDefaultBillingAddress)
-	router.Delete("/customers/{id}/default-shipping-address", handler.ClearDefaultShippingAddress)
-	router.Delete("/customers/{id}/default-billing-address", handler.ClearDefaultBillingAddress)
+	customerRouter.Put("/customers/{id}/default-shipping-address/{addressId}", handler.SetDefaultShippingAddress)
+	customerRouter.Put("/customers/{id}/default-billing-address/{addressId}", handler.SetDefaultBillingAddress)
+	customerRouter.Delete("/customers/{id}/default-shipping-address", handler.ClearDefaultShippingAddress)
+	customerRouter.Delete("/customers/{id}/default-billing-address", handler.ClearDefaultBillingAddress)
 
 	// Default credit card endpoints
-	router.Put("/customers/{id}/default-credit-card/{cardId}", handler.SetDefaultCreditCard)
-	router.Delete("/customers/{id}/default-credit-card", handler.ClearDefaultCreditCard)
+	customerRouter.Put("/customers/{id}/default-credit-card/{cardId}", handler.SetDefaultCreditCard)
+	customerRouter.Delete("/customers/{id}/default-credit-card", handler.ClearDefaultCreditCard)
 
+	router.Mount("/api/v1", customerRouter)
 	// Start HTTP server with graceful shutdown
 	serverAddr := "0.0.0.0" + cfg.ServicePort
 

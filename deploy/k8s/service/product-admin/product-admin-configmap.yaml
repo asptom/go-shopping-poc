@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: product-admin-config
+  namespace: shopping
+  labels:
+    app: go-shopping-poc
+    component: product-admin
+data:
+  # Admin Service Port
+  PRODUCT_SERVICE_PORT: ":8082"
+
+  # Admin Kafka Settings
+  PRODUCT_WRITE_TOPIC: "ProductEvents"
+  PRODUCT_GROUP: "ProductAdminGroup"
+
+  # Image Processing Configuration
+  IMAGE_CACHE_DIR: "/tmp/product-cache"
+  IMAGE_CACHE_MAX_AGE: "24h"
+  IMAGE_CACHE_MAX_SIZE: "0"
+  CSV_BATCH_SIZE: "100"
+
+  # MinIO Bucket (for image uploads)
+  MINIO_BUCKET: "productimages"

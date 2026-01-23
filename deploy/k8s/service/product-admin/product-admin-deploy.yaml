@@ -1,45 +1,45 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: product-svc
+  name: product-admin-svc
   namespace: shopping
   labels:
-    app.kubernetes.io/name: product-svc
+    app.kubernetes.io/name: product-admin-svc
     app.kubernetes.io/version: v1.0
 spec:
   type: ClusterIP
   selector:
-    app.kubernetes.io/name: product
+    app.kubernetes.io/name: product-admin
     app.kubernetes.io/version: v1.0
   ports:
     - name: http
       port: 80
-      targetPort: 8081
+      targetPort: 8082
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: product
+  name: product-admin
   namespace: shopping
   labels:
-    app.kubernetes.io/name: product
+    app.kubernetes.io/name: product-admin
     app.kubernetes.io/version: v1.0
 spec:
-  serviceName: product-svc
+  serviceName: product-admin-svc
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: product
+      app.kubernetes.io/name: product-admin
       app.kubernetes.io/version: v1.0
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: product
+        app.kubernetes.io/name: product-admin
         app.kubernetes.io/version: v1.0
     spec:
       containers:
-        - name: product
-          image: localhost:5000/go-shopping-poc/product:1.0
+        - name: product-admin
+          image: localhost:5000/go-shopping-poc/product-admin:1.0
           imagePullPolicy: Always
           env:
             # Platform config (selective)
@@ -147,38 +147,106 @@ spec:
                   name: platform-config
                   key: CORS_MAX_AGE
 
+            # MinIO Configuration
+            - name: MINIO_ENDPOINT_KUBERNETES
+              valueFrom:
+                configMapKeyRef:
+                  name: platform-config
+                  key: MINIO_ENDPOINT_KUBERNETES
+            - name: MINIO_ENDPOINT_LOCAL
+              valueFrom:
+                configMapKeyRef:
+                  name: platform-config
+                  key: MINIO_ENDPOINT_LOCAL
+            - name: MINIO_TLS_VERIFY
+              valueFrom:
+                configMapKeyRef:
+                  name: platform-config
+                  key: MINIO_TLS_VERIFY
+
+            # Keycloak Configuration
+            - name: KEYCLOAK_ISSUER
+              valueFrom:
+                configMapKeyRef:
+                  name: platform-config
+                  key: KEYCLOAK_ISSUER
+            - name: KEYCLOAK_JWKS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: platform-config
+                  key: KEYCLOAK_JWKS_URL
             # Service config (selective)
             - name: PRODUCT_SERVICE_PORT
               valueFrom:
                 configMapKeyRef:
-                  name: product-config
+                  name: product-admin-config
                   key: PRODUCT_SERVICE_PORT
             - name: PRODUCT_WRITE_TOPIC
               valueFrom:
                 configMapKeyRef:
-                  name: product-config
+                  name: product-admin-config
                   key: PRODUCT_WRITE_TOPIC
             - name: PRODUCT_GROUP
               valueFrom:
                 configMapKeyRef:
-                  name: product-config
+                  name: product-admin-config
                   key: PRODUCT_GROUP
             - name: MINIO_BUCKET
               valueFrom:
                 configMapKeyRef:
-                  name: product-config
+                  name: product-admin-config
+                  key: MINIO_BUCKET
+            - name: IMAGE_CACHE_DIR
+              valueFrom:
+                configMapKeyRef:
+                  name: product-admin-config
+                  key: IMAGE_CACHE_DIR
+            - name: IMAGE_CACHE_MAX_AGE
+              valueFrom:
+                configMapKeyRef:
+                  name: product-admin-config
+                  key: IMAGE_CACHE_MAX_AGE
+            - name: IMAGE_CACHE_MAX_SIZE
+              valueFrom:
+                configMapKeyRef:
+                  name: product-admin-config
+                  key: IMAGE_CACHE_MAX_SIZE
+            - name: CSV_BATCH_SIZE
+              valueFrom:
+                configMapKeyRef:
+                  name: product-admin-config
+                  key: CSV_BATCH_SIZE
+            - name: MINIO_BUCKET
+              valueFrom:
+                configMapKeyRef:
+                  name: product-admin-config
                   key: MINIO_BUCKET
             - name: DB_URL
               valueFrom:
                 secretKeyRef:
                   name: product-db-secret
                   key: DB_URL
+            - name: KEYCLOAK_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: product-admin-keycloak-secret
+                  key: KEYCLOAK_CLIENT_SECRET
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-bootstrap-secret
+                  key: MINIO_ACCESS_KEY
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-bootstrap-secret
+                  key: MINIO_SECRET_KEY
           ports:
-            - containerPort: 8081
+            - containerPort: 8082
           readinessProbe:
             httpGet:
               path: /health
-              port: 8081
+              port: 8082
             initialDelaySeconds: 5
             periodSeconds: 10
             timeoutSeconds: 5
@@ -187,10 +255,10 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: product-ingress
+  name: product-admin-ingress
   namespace: shopping
   labels:
-    app.kubernetes.io/name: product-ingress
+    app.kubernetes.io/name: product-admin-ingress
     app.kubernetes.io/token: v1.0
   annotations:
     traefik.ingress.kubernetes.io/router.entrypoints: websecure,web
@@ -199,11 +267,11 @@ spec:
     - host: pocstore.local
       http:
         paths:
-          - path: /api/v1/products
+          - path: /api/v1/admin/products
             pathType: Prefix
             backend:
               service:
-                name: product-svc
+                name: product-admin-svc
                 port:
                   number: 80
   tls:

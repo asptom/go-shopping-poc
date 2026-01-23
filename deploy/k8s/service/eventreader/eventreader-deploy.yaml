@@ -22,8 +22,34 @@ spec:
         - name: eventreader
           image: localhost:5000/go-shopping-poc/eventreader:1.0
           imagePullPolicy: Always
-          envFrom:
-            - configMapRef:
-                name: platform-config
-            - configMapRef:
-                name: eventreader-config
+          env:
+            # Platform config (selective)
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: platform-config
+                  key: LOG_LEVEL
+
+            # Service config (selective)
+            - name: EVENT_READER_WRITE_TOPIC
+              valueFrom:
+                configMapKeyRef:
+                  name: eventreader-config
+                  key: EVENT_READER_WRITE_TOPIC
+            - name: EVENT_READER_READ_TOPICS
+              valueFrom:
+                configMapKeyRef:
+                  name: eventreader-config
+                  key: EVENT_READER_READ_TOPICS
+            - name: EVENT_READER_GROUP
+              valueFrom:
+                configMapKeyRef:
+                  name: eventreader-config
+                  key: EVENT_READER_GROUP
+
+            # Platform Kafka settings
+            - name: KAFKA_BROKERS
+              valueFrom:
+                configMapKeyRef:
+                  name: platform-config
+                  key: KAFKA_BROKERS
