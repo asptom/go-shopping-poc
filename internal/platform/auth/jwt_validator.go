@@ -2,8 +2,12 @@ package auth
 
 import (
 	"context"
+	"crypto/rsa"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 	"net/http"
 	"strings"
 
@@ -21,29 +25,46 @@ var (
 	ErrMissingRole       = errors.New("missing required role")
 )
 
+// JWKS represents a JSON Web Key Set
+type JWKS struct {
+	Keys []JWK `json:"keys"`
+}
+
+// JWK represents a JSON Web Key
+type JWK struct {
+	Kty string `json:"kty"`
+	Use string `json:"use"`
+	Kid string `json:"kid"`
+	N   string `json:"n"`
+	E   string `json:"e"`
+}
+
 // KeycloakValidator validates JWT tokens from Keycloak
 type KeycloakValidator struct {
-	issuer     string
-	jwksURL    string
-	signingKey []byte
+	issuer  string
+	jwksURL string
 }
 
 // NewKeycloakValidator creates a new Keycloak JWT validator
 func NewKeycloakValidator(issuer, jwksURL string) *KeycloakValidator {
 	return &KeycloakValidator{
-		issuer:     issuer,
-		jwksURL:    jwksURL,
-		signingKey: []byte("secret"),
+		issuer:  issuer,
+		jwksURL: jwksURL,
 	}
 }
 
 // ValidateToken validates a JWT token and returns claims
 func (k *KeycloakValidator) ValidateToken(ctx context.Context, token string) (*Claims, error) {
 	parsedToken, err := jwt.ParseWithClaims(token, &Claims{}, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		// Support both HMAC and RSA
+		switch method := token.Method; method {
+		case jwt.SigningMethodHS256:
+			return []byte("secret"), nil
+		case jwt.SigningMethodRS256:
+			return k.getPublicKey(token.Header["kid"].(string))
+		default:
+			return nil, fmt.Errorf("unexpected signing method: %v", method)
 		}
-		return k.signingKey, nil
 	})
 
 	if err != nil {
@@ -58,6 +79,44 @@ func (k *KeycloakValidator) ValidateToken(ctx context.Context, token string) (*C
 	}
 
 	return nil, ErrInvalidToken
+}
+
+// getPublicKey fetches the RSA public key from JWKS
+func (k *KeycloakValidator) getPublicKey(kid string) (*rsa.PublicKey, error) {
+	resp, err := http.Get(k.jwksURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch JWKS: %v", err)
+	}
+	defer resp.Body.Close()
+
+	var jwks JWKS
+	if err := json.NewDecoder(resp.Body).Decode(&jwks); err != nil {
+		return nil, fmt.Errorf("failed to decode JWKS: %v", err)
+	}
+
+	for _, key := range jwks.Keys {
+		if key.Kid == kid && key.Kty == "RSA" && key.Use == "sig" {
+			// Decode the modulus and exponent
+			nBytes, err := base64.RawURLEncoding.DecodeString(key.N)
+			if err != nil {
+				return nil, fmt.Errorf("failed to decode modulus: %v", err)
+			}
+			eBytes, err := base64.RawURLEncoding.DecodeString(key.E)
+			if err != nil {
+				return nil, fmt.Errorf("failed to decode exponent: %v", err)
+			}
+
+			n := new(big.Int).SetBytes(nBytes)
+			e := int(new(big.Int).SetBytes(eBytes).Int64())
+
+			return &rsa.PublicKey{
+				N: n,
+				E: e,
+			}, nil
+		}
+	}
+
+	return nil, fmt.Errorf("key with kid %s not found", kid)
 }
 
 // HasRole checks if the claims contain a specific role
