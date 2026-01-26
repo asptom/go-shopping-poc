@@ -5,6 +5,4 @@
 
 # name:partitions:replication
 CustomerEvents:3:1
-OrderEvents:3:1
-PaymentEvents:3:1
-ReaderEvents:3:1
+ProductEvents:3:1
