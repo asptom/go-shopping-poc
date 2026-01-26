@@ -216,11 +216,6 @@ spec:
                 configMapKeyRef:
                   name: product-admin-config
                   key: CSV_BATCH_SIZE
-            - name: MINIO_BUCKET
-              valueFrom:
-                configMapKeyRef:
-                  name: product-admin-config
-                  key: MINIO_BUCKET
             - name: DB_URL
               valueFrom:
                 secretKeyRef:

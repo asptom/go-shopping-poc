@@ -7,7 +7,7 @@ KEYCLOAK_SECRET := keycloak-secret
 KEYCLOAK_SECRET_USER := KC_BOOTSTRAP_ADMIN_USERNAME
 KEYCLOAK_SECRET_PASSWORD := KC_BOOTSTRAP_ADMIN_PASSWORD
 KEYCLOAK_ADMIN_USER := admin
-KEYCLOAK_REALM_FILE := $(PROJECT_HOME)/resources/keycloak/pocstore-realm.json
+KEYCLOAK_REALM_FILE := $(PROJECT_HOME)/resources/keycloak/new-pocstore-realm.json
 
 # ------------------------------------------------------------------
 # Keycloak admin secret creation

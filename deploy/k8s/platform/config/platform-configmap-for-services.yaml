@@ -42,5 +42,5 @@ data:
   MINIO_TLS_VERIFY: "false"
 
   # Keycloak Configuration (shared by authenticated services)
-  KEYCLOAK_ISSUER: "http://keycloak.keycloak.svc.cluster.local:8080/realms/pocstore-realm"
+  KEYCLOAK_ISSUER: "http://keycloak.local/realms/pocstore-realm"
   KEYCLOAK_JWKS_URL: "http://keycloak.keycloak.svc.cluster.local:8080/realms/pocstore-realm/protocol/openid-connect/certs"

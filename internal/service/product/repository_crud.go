@@ -88,7 +88,7 @@ func (r *productRepository) UpdateProduct(ctx context.Context, product *Product)
 	product.UpdatedAt = time.Now()
 
 	query := `
-		UPDATE products SET
+		UPDATE products.products SET
 			name = $2, description = $3, initial_price = $4, final_price = $5,
 			currency = $6, in_stock = $7, color = $8, size = $9, main_image = $10,
 			country_code = $11, image_count = $12, model_number = $13,

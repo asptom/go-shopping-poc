@@ -8,18 +8,25 @@ set -e
 # Configuration
 KEYCLOAK_URL="http://keycloak.local/realms/pocstore-realm/protocol/openid-connect/token"
 CLIENT_ID="product-admin"
-CLIENT_SECRET="r8TVI1qouUZvtzTlSUP6MqFdvjZbuqa8"
+CLIENT_SECRET="VVEXlDcyC2GLGldvpxTZAC905L4kYCkL"
 USERNAME="product-admin-user"
 PASSWORD="admin123"
-PRODUCT_ID="40121298"
+PRODUCT_ID="39664424"
 PRODUCT_ADMIN_URL="http://pocstore.local/api/v1/admin/products/$PRODUCT_ID"
 
 echo "Authenticating with Keycloak..."
 
+# # Get access token
+# TOKEN_RESPONSE=$(curl -s -X POST "$KEYCLOAK_URL" \
+#   -H "Content-Type: application/x-www-form-urlencoded" \
+#   -d "grant_type=password&client_id=$CLIENT_ID&client_secret=$CLIENT_SECRET&username=$USERNAME&password=$PASSWORD")
+
 # Get access token
 TOKEN_RESPONSE=$(curl -s -X POST "$KEYCLOAK_URL" \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "grant_type=password&client_id=$CLIENT_ID&client_secret=$CLIENT_SECRET&username=$USERNAME&password=$PASSWORD")
+  -d grant_type=password -d client_id=$CLIENT_ID \
+  -d username=$USERNAME -d password=$PASSWORD -d scope=openid \
+  -d client_secret=$CLIENT_SECRET)
+
 
 # Check if token request succeeded
 if echo "$TOKEN_RESPONSE" | grep -q "error"; then
@@ -39,7 +46,7 @@ echo "Authentication successful. Updating product..."
 
 # Product update payload (complete product record required)
 PRODUCT_DATA='{
-  "id": 40121298,
+  "id": 39664424,
   "name": "Sample Product",
   "description": "A sample product for testing",
   "initial_price": 29.99,
