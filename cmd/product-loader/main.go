@@ -13,7 +13,7 @@ import (
 	"go-shopping-poc/internal/platform/config"
 	"go-shopping-poc/internal/platform/database"
 	"go-shopping-poc/internal/platform/downloader"
-	"go-shopping-poc/internal/platform/outbox"
+	"go-shopping-poc/internal/platform/outbox/providers"
 	"go-shopping-poc/internal/platform/service"
 	"go-shopping-poc/internal/platform/storage/minio"
 	"go-shopping-poc/internal/service/product"
@@ -150,7 +150,8 @@ func runProductLoader(ctx context.Context, cliConfig *CLIConfig) error {
 	log.Printf("[DEBUG] Product Loader: MinIO storage initialized")
 
 	// Initialize outbox writer
-	outboxWriter := outbox.NewWriter(platformDB)
+	writerProvider := providers.NewWriterProvider(platformDB)
+	outboxWriter := writerProvider.GetWriter()
 	log.Printf("[DEBUG] Product Loader: Outbox writer initialized")
 
 	// Create product repository

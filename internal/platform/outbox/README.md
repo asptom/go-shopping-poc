@@ -10,12 +10,27 @@ The `Writer` handles storing events in the outbox table within database transact
 ### Publisher
 The `Publisher` reads events from the outbox table and publishes them to external systems (e.g., message brokers). It runs as a background process with configurable batch processing.
 
-### Provider
-The `OutboxProvider` encapsulates the setup and configuration of outbox components, providing a clean interface for dependency injection.
+### Providers
+The outbox pattern uses separated providers for different use cases:
+
+- **WriterProvider**: Provides writer-only functionality for write-only services
+- **PublisherProvider**: Provides publisher functionality for services that need to publish events
 
 ## Usage
 
-### Basic Setup
+### Write-Only Service Setup
+
+```go
+// Load dependencies
+dbProvider := database.NewDatabaseProvider("postgres://...")
+db := dbProvider.GetDatabase()
+
+// Create writer provider
+writerProvider := providers.NewWriterProvider(db)
+writer := writerProvider.GetWriter()
+```
+
+### Write+Publish Service Setup
 
 ```go
 // Load dependencies
@@ -28,15 +43,16 @@ eventBusProvider := event.NewEventBusProvider(event.EventBusConfig{
 })
 eventBus := eventBusProvider.GetEventBus()
 
-// Create outbox provider
-outboxProvider, err := outbox.NewOutboxProvider(db, eventBus)
-if err != nil {
-    log.Fatal(err)
+// Create providers
+writerProvider := providers.NewWriterProvider(db)
+publisherProvider := providers.NewPublisherProvider(db, eventBus)
+if publisherProvider == nil {
+    log.Fatal("Failed to create publisher provider")
 }
 
 // Get components
-writer := outboxProvider.GetOutboxWriter()
-publisher := outboxProvider.GetOutboxPublisher()
+writer := writerProvider.GetWriter()
+publisher := publisherProvider.GetPublisher()
 
 // Start the publisher
 publisher.Start()

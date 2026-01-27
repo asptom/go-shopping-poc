@@ -11,8 +11,7 @@ import (
 
 	"go-shopping-poc/internal/platform/cors"
 	"go-shopping-poc/internal/platform/database"
-	"go-shopping-poc/internal/platform/event"
-	"go-shopping-poc/internal/platform/outbox"
+	"go-shopping-poc/internal/platform/outbox/providers"
 	"go-shopping-poc/internal/service/product"
 
 	"github.com/go-chi/chi/v5"
@@ -51,25 +50,8 @@ func main() {
 		}
 	}()
 
-	log.Printf("[DEBUG] Product: Creating event bus provider")
-	eventBusConfig := event.EventBusConfig{
-		WriteTopic: "ProductEvents",
-		GroupID:    "ProductCatalogGroup",
-	}
-	eventBusProvider, err := event.NewEventBusProvider(eventBusConfig)
-	if err != nil {
-		log.Fatalf("Product: Failed to create event bus provider: %v", err)
-	}
-	eventBus := eventBusProvider.GetEventBus()
-
-	log.Printf("[DEBUG] Product: Creating outbox provider")
-	outboxProvider, err := outbox.NewOutboxProvider(platformDB, eventBus)
-	if err != nil {
-		log.Fatalf("Product: Failed to create outbox provider: %v", err)
-	}
-	outboxPublisher := outboxProvider.GetOutboxPublisher()
-	outboxPublisher.Start()
-	defer outboxPublisher.Stop()
+	log.Printf("[DEBUG] Product: Creating outbox writer provider")
+	writerProvider := providers.NewWriterProvider(platformDB)
 
 	log.Printf("[DEBUG] Product: Creating product repository")
 	repo := product.NewProductRepository(platformDB.DB())
@@ -78,7 +60,7 @@ func main() {
 	log.Printf("[DEBUG] Product: Creating catalog service")
 	catalogInfra := &product.CatalogInfrastructure{
 		Database:     platformDB,
-		OutboxWriter: outbox.NewWriter(platformDB),
+		OutboxWriter: writerProvider.GetWriter(),
 	}
 	catalogService := product.NewCatalogService(repo, catalogInfra, cfg)
 	log.Printf("[DEBUG] Product: Service created successfully")

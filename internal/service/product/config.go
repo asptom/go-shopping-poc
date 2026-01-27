@@ -25,10 +25,6 @@ type Config struct {
 
 	// MinIO bucket configuration
 	MinIOBucket string `mapstructure:"minio_bucket" validate:"required"`
-
-	// Kafka configuration
-	WriteTopic string `mapstructure:"product_write_topic" validate:"required"`
-	Group      string `mapstructure:"product_group"`
 }
 
 // LoadConfig loads product service configuration
@@ -56,9 +52,6 @@ func (c *Config) Validate() error {
 	}
 	if c.MinIOBucket == "" {
 		return errors.New("MinIO bucket is required")
-	}
-	if c.WriteTopic == "" {
-		return errors.New("write topic is required")
 	}
 	return nil
 }

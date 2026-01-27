@@ -12,7 +12,7 @@ import (
 	"go-shopping-poc/internal/platform/cors"
 	"go-shopping-poc/internal/platform/database"
 	"go-shopping-poc/internal/platform/event"
-	"go-shopping-poc/internal/platform/outbox"
+	"go-shopping-poc/internal/platform/outbox/providers"
 
 	"go-shopping-poc/internal/service/customer"
 
@@ -67,16 +67,17 @@ func main() {
 	}
 	eventBus := eventBusProvider.GetEventBus()
 
-	// Create outbox provider
-	log.Printf("[DEBUG] Customer: Creating outbox provider")
-	outboxProvider, err := outbox.NewOutboxProvider(db, eventBus)
-	if err != nil {
-		log.Fatalf("Customer: Failed to create outbox provider: %v", err)
+	// Create outbox providers
+	log.Printf("[DEBUG] Customer: Creating outbox providers")
+	writerProvider := providers.NewWriterProvider(db)
+	publisherProvider := providers.NewPublisherProvider(db, eventBus)
+	if publisherProvider == nil {
+		log.Fatalf("Customer: Failed to create publisher provider")
 	}
-	outboxPublisher := outboxProvider.GetOutboxPublisher()
+	outboxPublisher := publisherProvider.GetPublisher()
 	outboxPublisher.Start()
 	defer outboxPublisher.Stop()
-	outboxWriter := outboxProvider.GetOutboxWriter()
+	outboxWriter := writerProvider.GetWriter()
 
 	// Create CORS provider
 	log.Printf("[DEBUG] Customer: Creating CORS provider")

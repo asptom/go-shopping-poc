@@ -14,7 +14,7 @@ import (
 	"go-shopping-poc/internal/platform/database"
 	"go-shopping-poc/internal/platform/downloader"
 	"go-shopping-poc/internal/platform/event"
-	"go-shopping-poc/internal/platform/outbox"
+	"go-shopping-poc/internal/platform/outbox/providers"
 	"go-shopping-poc/internal/platform/storage"
 	"go-shopping-poc/internal/service/product"
 
@@ -72,15 +72,16 @@ func main() {
 	}
 	minioStorage := storageProvider.GetObjectStorage()
 
-	log.Printf("[DEBUG] Product-Admin: Creating outbox provider")
-	outboxProvider, err := outbox.NewOutboxProvider(platformDB, eventBus)
-	if err != nil {
-		log.Fatalf("Product-Admin: Failed to create outbox provider: %v", err)
+	log.Printf("[DEBUG] Product-Admin: Creating outbox providers")
+	writerProvider := providers.NewWriterProvider(platformDB)
+	publisherProvider := providers.NewPublisherProvider(platformDB, eventBus)
+	if publisherProvider == nil {
+		log.Fatalf("Product-Admin: Failed to create publisher provider")
 	}
-	outboxPublisher := outboxProvider.GetOutboxPublisher()
+	outboxPublisher := publisherProvider.GetPublisher()
 	outboxPublisher.Start()
 	defer outboxPublisher.Stop()
-	outboxWriter := outboxProvider.GetOutboxWriter()
+	outboxWriter := writerProvider.GetWriter()
 
 	log.Printf("[DEBUG] Product-Admin: Creating downloader provider")
 	downloaderConfig := downloader.DownloaderProviderConfig{

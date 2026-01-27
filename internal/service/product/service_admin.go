@@ -56,8 +56,6 @@ func NewAdminService(repo ProductRepository, config interface{}, infrastructure 
 			CacheMaxSize: c.CacheMaxSize,
 			CSVBatchSize: c.CSVBatchSize,
 			MinIOBucket:  c.MinIOBucket,
-			WriteTopic:   c.WriteTopic,
-			Group:        c.Group,
 		}
 	case *Config:
 		cfg = c
