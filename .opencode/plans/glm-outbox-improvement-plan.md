@@ -420,67 +420,120 @@ go test -run TestFullEventFlow ./cmd/customer/cmd_customer_test.go
 
 ---
 
-### Phase 7: Kubernetes Deployment Updates (2 days)
-**Goal**: Update all service deployments to use new outbox publisher
+### Phase 7: Service-Lifecycle Verification (1 day)
+**Goal**: Verify outbox publishers run in-service (not as separate pods)
+
+**Background**: The current architecture already has the correct design - each service manages its own outbox publisher process-local, not as a separate pod. The publisher MUST connect to each service's database to read its outbox.outbox table. This is the standard microservices outbox pattern where:
+
+```
+Customer Service Pod (1)
+ ├─ PostgreSQL: customer_db
+ │    ├─ customers table (domain operations)
+ │    └─ outbox.outbox table (events) ← reader by in-service publisher
+ └─ Publisher runs here (background goroutine)
+
+Product Admin Service Pod (2)
+ ├─ PostgreSQL: product_admin_db
+ │    ├─ products table (domain operations)
+ │    └─ outbox.outbox table (events) ← reader by in-service publisher
+ └─ Publisher runs here
+```
+
+**Key Principle**: Each publisher connects to ITS OWN service's database, not a shared database.
 
 **Tasks**:
-7.1 Create outbox publisher deployment:
-   - Separate pod for outbox publisher (not per-service)
-   - Use platform ConfigMap for outbox config
-   - Resource requests: CPU=100m, Memory=64Mi
 
-7.2 Update each service deployment:
-   - Add Publisher startup in `main.go`:
+7.1 Verify Customer Service (already implemented correctly):
+   - Confirm publisher created in main.go:72-80
+   - Check for `PublisherProvider` creation
+   - Verify `outboxPublisher.Start()` and `defer outboxPublisher.Stop()` present
+   - Confirm publisher is passed to infrastructure (line 92: `infrastructure = customer.NewCustomerInfrastructure(..., outboxPublisher)`)
+
+7.2 Check Product Admin Service (`cmd/product-admin/main.go`):
+   - Search for `publisherProvider` or `outboxPublisher` in main.go
+   - If missing, add following pattern before event publishing:
      ```go
-     publisher := providers.NewPublisherProvider(platformDB.GetDatabase(), eventBus)
-     publisher.GetPublisher().Start()
-     defer publisher.GetPublisher().Stop()
+     // Create outbox providers
+     publisherProvider := providers.NewPublisherProvider(db, eventBus)
+     if publisherProvider == nil {
+         log.Fatalf("Product Admin: Failed to create publisher provider")
+     }
+     outboxPublisher := publisherProvider.GetPublisher()
+     outboxPublisher.Start()
+     defer outboxPublisher.Stop()
      ```
-   - Ensure proper cleanup in signal handler
-   - Add health check for outbox publisher status
+   - Ensure publisher is passed to Admin service infrastructure
+   - Verify it's started in main.go BEFORE `IngestProductsFromCSV()` is called
+   - Product Admin should publish ALL product-db outbox events (Product and Product Loader share this outbox table)
 
-7.3 Update platform ConfigMap (`deploy/k8s/platform/platform-configmap.yaml`):
-   ```yaml
-   data:
-     outbox_batch_size: "10"
-     outbox_delete_batch_size: "50"
-     outbox_process_interval: "5"
-   ```
+7.3 Verify Product Loader Service (`cmd/product-loader/main.go`):
+   - Search for `publisherProvider` in main.go
+   - If found, remove it (Product Loader does NOT need a publisher)
+   - Product Loader shares product_db with Product and Product Admin
+   - Product Admin publishes all product-db outbox events
+   - Product Loader only needs write access to product-db (no outbox publishing)
 
-7.4 Add outbox namespace to platform:
-   - Ensure outbox DB table created in shared schema
-   - Update RBAC if needed (publisher service account)
+7.4 Verify Service-Embedded Publisher Deployment:
+   - Each K8s service deployment should contain exactly ONE pod (the service pod)
+   - NOT two pods: service-pod and separate outbox-publisher-pod
+   - Publisher runs in the same container as API handlers
+   - Verify ConfigMaps don't duplicate publisher configuration
 
-7.5 Rollout strategy:
-   - Deploy publisher first
-   - Roll out services one by one
-   - Monitor after each service deployment
-   - Kubernetes liveness probes for outbox
+7.5 Kubernetes Deployment Review:
+   - Check `deploy/k8s/service/customer-deployment.yaml` - should have no separate publisher entry
+   - Check `deploy/k8s/service/product-admin-deployment.yaml` - similar verification
+   - Check `deploy/k8s/service/product-loader-deployment.yaml` - similar verification
+   - Ensure any environment variables for outbox config are in service ConfigMap, not duplicate
+
+**Do NOT do**:
+- ❌ Create separate outbox publisher deployment in Kubernetes
+- ❌ Add publisher pod to service deployments (duplicates the in-service publisher)
+- ❌ Create cross-database publisher connecting to all services (incorrect architectural approach)
+- ❌ Add outbox namespace that requires connecting to all databases
+
+**Do do**:
+- ✅ Keep current in-service publisher design in all services
+- ✅ Verify publisher exists in any missing services (Product Admin, Product Loader)
+- ✅ Remove any duplicate publisher pod definitions from K8s manifests
+- ✅ Ensure ConfigMaps share outbox settings across related services
 
 **Deliverables**:
-- `deploy/k8s/platform/outbox-deployment.yaml` (new file)
-- Updated `deploy/k8s/service/customer-deployment.yaml`
-- Updated `deploy/k8s/service/product-deployment.yaml`
-- Updated `deploy/k8s/service/product-admin-deployment.yaml`
-- Updated `deploy/k8s/service/product-loader-deployment.yaml`
-- Updated `deploy/k8s/platform/platform-configmap.yaml`
+- Documented verification showing publisher in Customer Service (line 72-80 in main.go)
+- Updated `cmd/product-admin/main.go` with publisher initialization (if missing)
+- Updated `cmd/product-loader/main.go` with publisher initialization (if needed)
+- Verified K8s manifests don't contain separate publisher deployments
+- Updated ConfigMaps for service settings (shared config, not duplication)
 
 **Testing**:
 ```bash
-# Deploy platform + outbox
-make platform
+# Verify customer has publisher implementation
+grep -n "outboxPublisher" cmd/customer/main.go
+# Should find: outboxPublisher.Start() and defer outboxPublisher.Stop()
+# Should see Publisher passed to infrastructure: infrastructure = customer.NewCustomerInfrastructure(..., outboxPublisher)
 
-# Start outbox publisher
-kubectl apply -f deploy/k8s/platform/outbox-deployment.yaml
+# Verify product-admin has publisher
+grep -n "outboxPublisher" cmd/product-admin/main.go
+# Add if missing
 
-# Deploy services one by one
-kubectl apply -f deploy/k8s/service/customer-deployment.yaml
-kubectl apply -f deploy/k8s/service/product-deployment.yaml
-kubectl apply -f deploy/k8s/service/product-admin-deployment.yaml
-kubectl apply -f deploy/k8s/service/product-loader-deployment.yaml
+# Verify product-loader has publisher needed for bulk events
+grep -n "outboxPublisher" cmd/product-loader/main.go
+# Add if missing
 
-# Verify outbox running
-kubectl logs -f deployment/outbox-publisher -n platform
+# Check no duplicate pod definitions created
+grep -r "outbox-deployment" deploy/k8s/
+# Should return no results (or very few if generic)
+
+# Verify single pod per service in K8s
+kubectl get pods -n <namespace> --selector=app=<service>
+# Should show exactly 1 pod, e.g., customer-xxx
+
+# Start services and verify publisher is running
+kubectl logs -f deployment/customer -n <namespace> | grep "Outbox Publisher"
+kubectl logs -f deployment/product-admin -n <namespace> | grep "Outbox Publisher"
+kubectl logs -f deployment/product-loader -n <namespace> | grep "Outbox Publisher"
+
+# Verify publisher connects to correct database
+# Check logs for connection details to validate database isolation
 ```
 
 ---
@@ -559,10 +612,10 @@ curl http://localhost:<port>/health/deep
 - Phase 4: 2 days
 - Phase 5: 2 days
 - Phase 6: 1 day
-- Phase 7: 2 days
+- Phase 7: 1 day
 - Phase 8: 1 day
 
-**Total**: 15 days (3 weeks)
+**Total**: 14 days (3 weeks)
 
 **Risk Factors**:
 - Phase 3 (testing) may take longer if issues discovered
