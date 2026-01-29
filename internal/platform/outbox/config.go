@@ -7,10 +7,10 @@ import (
 
 // Config defines shared outbox configuration
 type Config struct {
-	BatchSize       int           `mapstructure:"OUTBOX_BATCH_SIZE" default:"10"`
-	DeleteBatchSize int           `mapstructure:"OUTBOX_DELETE_BATCH_SIZE" default:"10"`
-	ProcessInterval time.Duration `mapstructure:"OUTBOX_PROCESS_INTERVAL" default:"5s"`
-	MaxRetries      int           `mapstructure:"OUTBOX_MAX_RETRIES" default:"3"`
+	BatchSize        int           `mapstructure:"OUTBOX_BATCH_SIZE" default:"10"`
+	ProcessInterval  time.Duration `mapstructure:"OUTBOX_PROCESS_INTERVAL" default:"5s"`
+	OperationTimeout time.Duration `mapstructure:"OUTBOX_OPERATION_TIMEOUT" default:"25s"`
+	MaxRetries       int           `mapstructure:"OUTBOX_MAX_RETRIES" default:"3"`
 }
 
 // Validate performs outbox-specific validation
@@ -18,11 +18,11 @@ func (c *Config) Validate() error {
 	if c.BatchSize <= 0 {
 		return fmt.Errorf("batch size must be positive")
 	}
-	if c.DeleteBatchSize <= 0 {
-		return fmt.Errorf("delete batch size must be positive")
-	}
 	if c.ProcessInterval <= 0 {
 		return fmt.Errorf("process interval must be positive")
+	}
+	if c.OperationTimeout <= 0 {
+		return fmt.Errorf("operation timeout must be positive")
 	}
 	if c.MaxRetries < 0 {
 		return fmt.Errorf("max retries cannot be negative")

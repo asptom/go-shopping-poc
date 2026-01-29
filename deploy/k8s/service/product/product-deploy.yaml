@@ -104,16 +104,16 @@ spec:
                 configMapKeyRef:
                   name: platform-config
                   key: OUTBOX_BATCH_SIZE
-            - name: OUTBOX_DELETE_BATCH_SIZE
-              valueFrom:
-                configMapKeyRef:
-                  name: platform-config
-                  key: OUTBOX_DELETE_BATCH_SIZE
             - name: OUTBOX_PROCESS_INTERVAL
               valueFrom:
                 configMapKeyRef:
                   name: platform-config
                   key: OUTBOX_PROCESS_INTERVAL
+            - name: OUTBOX_OPERATION_TIMEOUT
+              valueFrom:
+                configMapKeyRef:
+                  name: platform-config
+                  key: OUTBOX_OPERATION_TIMEOUT
             - name: OUTBOX_MAX_RETRIES
               valueFrom:
                 configMapKeyRef:

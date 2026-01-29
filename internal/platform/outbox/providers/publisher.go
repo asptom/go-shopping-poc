@@ -29,7 +29,7 @@ func NewPublisherProvider(db database.Database, eventBus bus.Bus) PublisherProvi
 	}
 
 	log.Printf("[DEBUG] PublisherProvider: Creating publisher-only provider")
-	publisher := outbox.NewPublisher(db, eventBus, cfg.BatchSize, cfg.DeleteBatchSize, cfg.ProcessInterval)
+	publisher := outbox.NewPublisher(db, eventBus, *cfg)
 	return &PublisherProviderImpl{
 		publisher: publisher,
 	}

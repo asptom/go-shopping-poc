@@ -25,8 +25,8 @@ data:
 
   # Outbox Pattern Configuration (shared by services that publish events)
   OUTBOX_BATCH_SIZE: "10"
-  OUTBOX_DELETE_BATCH_SIZE: "10"
   OUTBOX_PROCESS_INTERVAL: "30s"
+  OUTBOX_OPERATION_TIMEOUT: "25s"
   OUTBOX_MAX_RETRIES: "3"
 
   # CORS Configuration (shared by services that need it)
