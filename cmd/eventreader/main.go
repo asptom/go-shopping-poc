@@ -110,6 +110,23 @@ func registerEventHandlers(service *eventreader.EventReaderService) error {
 
 	log.Printf("[INFO] Eventreader: Successfully registered CustomerCreated handler")
 
+	// Register CustomerCreated handler using the clean generic method
+	productCreatedHandler := eventhandlers.NewOnProductCreated()
+
+	// Log handler registration details
+	log.Printf("[INFO] Eventreader: Registering handler for event type: %s", productCreatedHandler.EventType())
+	log.Printf("[INFO] Eventreader: Handler will process events from topic: %s", events.ProductEvent{}.Topic())
+
+	if err := eventreader.RegisterHandler(
+		service,
+		productCreatedHandler.CreateFactory(),
+		productCreatedHandler.CreateHandler(),
+	); err != nil {
+		return fmt.Errorf("failed to register ProductAdded handler: %w", err)
+	}
+
+	log.Printf("[INFO] Eventreader: Successfully registered ProductCreated reated handler")
+
 	// Future handlers can be registered here using the same generic method:
 	// customerUpdatedHandler := eventhandlers.NewOnCustomerUpdated()
 	// if err := eventreader.RegisterHandler(
@@ -153,9 +170,14 @@ func logServiceInformation(service *eventreader.EventReaderService) {
 
 	// Log specific topic mapping for customer events
 	customerEvent := &events.CustomerEvent{}
-	log.Printf("[INFO] Eventreader: Customer events will be processed from topic: %s", customerEvent.Topic())
-	log.Printf("[INFO] Eventreader: Customer event types include: %s, %s",
+	log.Printf("[INFO] Eventreader:   Customer events will be processed from topic: %s", customerEvent.Topic())
+	log.Printf("[INFO] Eventreader:   Customer event types include: %s, %s",
 		events.CustomerCreated, events.CustomerUpdated)
+
+	productEvent := &events.ProductEvent{}
+	log.Printf("[INFO] Eventreader:   Product events will be processed from topic: %s", productEvent.Topic())
+	log.Printf("[INFO] Eventreader:   Product event types include: %s",
+		events.ProductCreated)
 
 	log.Printf("[INFO] Eventreader: Service is ready to start processing events")
 }

@@ -2,10 +2,9 @@ package outbox
 
 import (
 	"context"
-	"database/sql"
+	"errors"
 	"fmt"
 	"log"
-	"sync"
 	"time"
 
 	"go-shopping-poc/internal/platform/database"
@@ -16,16 +15,12 @@ import (
 
 // Publisher is responsible for publishing events from the outbox to an external system (e.g., message broker).
 type Publisher struct {
-	db               database.Database
-	publisher        bus.Bus
-	batchSize        int           // Number of events to process in a single batch
-	processInterval  time.Duration // Time between outbox scans
-	operationTimeout time.Duration // Timeout for individual operations
-
-	// Lifecycle management
-	isStarted bool
-	stopChan  chan struct{}
-	mu        sync.Mutex
+	db              database.Database
+	publisher       bus.Bus
+	batchSize       int           // Number of events to process in a single batch
+	processInterval time.Duration // Time between outbox scans
+	shutdownCtx     context.Context
+	shutdownCancel  context.CancelFunc
 }
 
 var (
@@ -51,238 +46,128 @@ func init() {
 }
 
 func NewPublisher(db database.Database, publisher bus.Bus, cfg Config) *Publisher {
+	ctx, cancel := context.WithCancel(context.Background())
 	return &Publisher{
-		db:               db,
-		publisher:        publisher,
-		batchSize:        cfg.BatchSize,
-		processInterval:  cfg.ProcessInterval,
-		operationTimeout: cfg.OperationTimeout,
+		db:              db,
+		publisher:       publisher,
+		batchSize:       cfg.BatchSize,
+		processInterval: cfg.ProcessInterval,
+		shutdownCtx:     ctx,
+		shutdownCancel:  cancel,
 	}
 }
 
 // Start begins the publishing process.
-func (p *Publisher) Start() error {
-	p.mu.Lock()
-	if p.isStarted {
-		p.mu.Unlock()
-		return fmt.Errorf("publisher already started")
-	}
-	p.isStarted = true
-	p.stopChan = make(chan struct{})
-	p.mu.Unlock()
+func (p *Publisher) Start() {
+	go func() {
+		ticker := time.NewTicker(p.processInterval)
+		defer ticker.Stop()
 
-	go p.run()
-	return nil
-}
-
-// Stop stops the publishing process gracefully.
-func (p *Publisher) Stop() error {
-	p.mu.Lock()
-	if !p.isStarted {
-		p.mu.Unlock()
-		return fmt.Errorf("publisher not started")
-	}
-	p.isStarted = false
-	p.mu.Unlock()
-
-	// Signal stop
-	close(p.stopChan)
-
-	// Wait a bit for cleanup
-	select {
-	case <-time.After(5 * time.Second):
-		log.Printf("[WARN] Publisher shutdown timeout")
-	case <-time.After(1 * time.Second): // Graceful timeout
-	}
-
-	return nil
-}
-
-// run handles the main publisher loop
-func (p *Publisher) run() {
-	ticker := time.NewTicker(p.processInterval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-p.stopChan:
-			log.Printf("[DEBUG] Publisher stopping")
-			return
-		case <-ticker.C:
-			p.processOutbox()
-		}
-	}
-}
-
-func (p *Publisher) processOutbox() {
-	operationCtx, operationCancel := context.WithTimeout(context.Background(), p.operationTimeout)
-	defer operationCancel()
-
-	query := `SELECT id, event_type, topic, event_payload, created_at, times_attempted, published_at 
-               FROM outbox.outbox 
-               WHERE published_at IS NULL 
-               LIMIT $1`
-
-	log.Printf("[DEBUG] Batch size for query: %v", p.batchSize)
-	log.Printf("[DEBUG] Query: %s", query)
-
-	rows, err := p.db.Query(operationCtx, query, p.batchSize)
-	if err != nil {
-		log.Printf("[ERROR] Failed to read outbox events: %v", err)
-		return
-	}
-	defer func() { _ = rows.Close() }()
-
-	log.Printf("[DEBUG] Query executed successfully, checking rows")
-
-	rowCount := 0
-	for rows.Next() {
-		rowCount++
-		log.Printf("[DEBUG] Processing row %d", rowCount)
-
-		var eventID int64
-		var eventType string
-		var topic string
-		var eventPayload string
-		var createdAt time.Time
-		var timesAttempted int
-		var publishedAt sql.NullTime
-
-		if err := rows.Scan(&eventID, &eventType, &topic, &eventPayload, &createdAt, &timesAttempted, &publishedAt); err != nil {
-			log.Printf("[ERROR] Failed to scan outbox event %d: %v", rowCount, err)
-			continue
-		}
-
-		log.Printf("[DEBUG] Row %d - eventID: %d, eventType: %s, topic: %s", rowCount, eventID, eventType, topic)
-		log.Printf("[DEBUG] Will publish outbox event to topic: %s", topic)
-
-		start := time.Now()
-
-		if err := p.publisher.PublishRaw(operationCtx, topic, eventType, []byte(eventPayload)); err != nil {
-			log.Printf("[ERROR] Failed to publish event %d: %v", eventID, err)
-			retryCount := timesAttempted + 1
-			updateQuery := "UPDATE outbox.outbox SET times_attempted = $1 WHERE id = $2"
-			_, updateErr := p.db.Exec(operationCtx, updateQuery, retryCount, eventID)
-			if updateErr != nil {
-				log.Printf("[ERROR] Failed to update retry count for event %v: %v", eventID, updateErr)
+		for {
+			select {
+			case <-p.shutdownCtx.Done():
+				return
+			case <-ticker.C:
+				p.processOutbox()
 			}
-			eventsProcessedTotal.WithLabelValues(topic, "failed").Inc()
-			continue
 		}
+	}()
+}
 
-		// Mark as published
-		now := time.Now()
-		retryCount := timesAttempted + 1
-		updateQuery := "UPDATE outbox.outbox SET published_at = $1, times_attempted = $2 WHERE id = $3"
-		_, updateErr := p.db.Exec(operationCtx, updateQuery, now, retryCount, eventID)
-		if updateErr != nil {
-			log.Printf("[ERROR] Failed to mark event %v as published: %v", eventID, updateErr)
-			continue
-		}
-
-		eventsProcessedTotal.WithLabelValues(topic, "success").Inc()
-		eventProcessingTime.WithLabelValues(topic).Observe(time.Since(start).Seconds())
-		log.Printf("[INFO] Published event ID: %v to topic: %s", eventID, topic)
-	}
-
-	// Check for iteration errors
-	if err := rows.Err(); err != nil {
-		log.Printf("[ERROR] Error during row iteration: %v", err)
-	}
-
-	log.Printf("[DEBUG] Processed outbox events, total rows: %d", rowCount)
+func (p *Publisher) Stop() {
+	p.shutdownCancel()
 }
 
 // processOutbox reads events from the outbox and publishes them.
-func (p *Publisher) processOutbox_old() {
-	// Use a separate context for this operation
-	operationCtx, operationCancel := context.WithTimeout(context.Background(), p.operationTimeout)
-	defer operationCancel()
+func (p *Publisher) processOutbox() error {
+	ctx := p.shutdownCtx
 
-	query := `SELECT id, event_type, topic, event_payload, created_at, times_attempted, published_at 
-               FROM outbox.outbox 
-               WHERE published_at IS NULL 
-               LIMIT $1`
+	log.Printf("[DEBUG] Outbox Publisher: ---------------------------")
+	log.Printf("[DEBUG] Outbox Publisher: Processing outbox events...")
 
-	log.Printf("[DEBUG] Batch size for query: %v", p.batchSize)
+	query := `SELECT id, event_type, topic, event_payload, created_at, times_attempted, published_at FROM outbox.outbox WHERE published_at IS NULL LIMIT $1`
 
-	// Execute with the operation context
-	rows, err := p.db.Query(operationCtx, query, p.batchSize)
+	rows, err := p.db.Query(ctx, query, p.batchSize)
 	if err != nil {
-		log.Printf("[ERROR] Failed to read outbox events: %v", err)
-		return
+		if errors.Is(err, context.Canceled) {
+			log.Printf("[DEBUG] Outbox Publisher: Context cancelled during query, stopping")
+			return nil
+		}
+		log.Printf("[ERROR] Outbox Publisher: Failed to read outbox events: %v", err)
+		return err
 	}
-	defer func() { _ = rows.Close() }() // Check error if needed
+	defer rows.Close()
 
-	log.Printf("[DEBUG] Query executed successfully")
-
-	// Process events sequentially within the operation context
-	rowCount := 0
+	outboxEvents := []OutboxEvent{}
 	for rows.Next() {
-		rowCount++
-		log.Printf("[DEBUG] Processing row %d", rowCount)
-
-		var eventID int64
-		var eventType string
-		var topic string
-		var eventPayload string
-		var createdAt time.Time
-		var timesAttempted int
-		var publishedAt sql.NullTime
-
-		if err := rows.Scan(&eventID, &eventType, &topic, &eventPayload, &createdAt, &timesAttempted, &publishedAt); err != nil {
-			log.Printf("[ERROR] Failed to scan outbox event: %v", err)
-			continue
-		}
-
-		log.Printf("[DEBUG] Row %d - eventID: %d, eventType: %s, topic: %s", rowCount, eventID, eventType, topic)
-
-		log.Printf("[DEBUG] Will publish outbox event to topic: %s", topic)
-
-		// Record start time for metrics
-		start := time.Now()
-
-		// Publish with operation context
-		if err := p.publisher.PublishRaw(operationCtx, topic, eventType, []byte(eventPayload)); err != nil {
-			// Handle publish error and update retry count
-			retryCount := timesAttempted + 1
-			updateQuery := "UPDATE outbox.outbox SET times_attempted = $1 WHERE id = $2"
-			_, updateErr := p.db.Exec(operationCtx, updateQuery, retryCount, eventID)
-
-			if updateErr != nil {
-				log.Printf("[ERROR] Failed to update retry count for event %v: %v", eventID, updateErr)
+		var event OutboxEvent
+		err := rows.Scan(&event.ID, &event.EventType, &event.Topic, &event.EventPayload, &event.CreatedAt, &event.TimesAttempted, &event.PublishedAt)
+		if err != nil {
+			if errors.Is(err, context.Canceled) {
+				log.Printf("[DEBUG] Outbox Publisher: Context cancelled during scan, stopping iteration")
+				return nil
 			}
-
-			// Record failed event metric
-			eventsProcessedTotal.WithLabelValues(topic, "failed").Inc()
-
+			log.Printf("[ERROR] Outbox Publisher: Failed to scan outbox event: %v", err)
 			continue
 		}
-
-		// Mark as published
-		now := time.Now()
-		retryCount := timesAttempted + 1
-		updateQuery := "UPDATE outbox.outbox SET published_at = $1, times_attempted = $2 WHERE id = $3"
-		_, updateErr := p.db.Exec(operationCtx, updateQuery, now, retryCount, eventID)
-
-		if updateErr != nil {
-			log.Printf("[ERROR] Failed to mark event %v as published: %v", eventID, updateErr)
-			continue
-		}
-
-		// Record successful event metric
-		eventsProcessedTotal.WithLabelValues(topic, "success").Inc()
-		eventProcessingTime.WithLabelValues(topic).Observe(time.Since(start).Seconds())
-
-		log.Printf("[INFO] Published event ID: %v to topic: %s", eventID, topic)
+		outboxEvents = append(outboxEvents, event)
 	}
 
-	log.Printf("[DEBUG] Processed outbox events")
+	if err := rows.Err(); err != nil {
+		if errors.Is(err, context.Canceled) {
+			log.Printf("[DEBUG] Outbox Publisher: Context cancelled during iteration, stopping")
+			return nil
+		}
+		log.Printf("[ERROR] Outbox Publisher: Error iterating over outbox events: %v", err)
+		return err
+	}
+
+	if len(outboxEvents) == 0 {
+		log.Printf("[DEBUG] Outbox Publisher: No new outbox events to process")
+		return nil
+	}
+
+	for _, outboxEvent := range outboxEvents {
+		log.Printf("[DEBUG] Outbox Publisher: Will publish outbox event to topic: %s", outboxEvent.Topic)
+
+		// Check if we're shutting down before processing each event
+		select {
+		case <-p.shutdownCtx.Done():
+			log.Printf("[DEBUG] Outbox Publisher: Shutdown detected, stopping event processing")
+			return nil
+		default:
+		}
+
+		// Use PublishRaw to avoid double marshaling and support both legacy and typed handlers
+		err := p.publishEvent(ctx, outboxEvent)
+		if err != nil {
+			log.Printf("[ERROR] Outbox Publisher: Failed to publish event %v: %v", outboxEvent.ID, err)
+			outboxEvent.TimesAttempted++
+
+			updateQuery := "UPDATE outbox.outbox SET times_attempted = $1 WHERE id = $2"
+			_, err = p.db.Exec(ctx, updateQuery, outboxEvent.TimesAttempted, outboxEvent.ID)
+			if err != nil {
+				log.Printf("[ERROR] Outbox Publisher: Failed to update times attempted for event %v: %v", outboxEvent.ID, err)
+			}
+			continue
+		}
+	}
+	log.Printf("[DEBUG] Outbox Publisher: Processed %d outbox events", len(outboxEvents))
+	return nil
 }
 
-// IsStarted returns true if the publisher is running
-func (p *Publisher) IsStarted() bool {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	return p.isStarted
+// publishEvent publishes a single event and marks it as published.
+func (p *Publisher) publishEvent(ctx context.Context, event OutboxEvent) error {
+	if err := p.publisher.PublishRaw(ctx, event.Topic, event.EventType, []byte(event.EventPayload)); err != nil {
+		return WrapWithContext(ErrPublishFailed, fmt.Sprintf("failed to publish event %d", event.ID))
+	}
+
+	updateQuery := "UPDATE outbox.outbox SET published_at = NOW(), times_attempted = $1 WHERE id = $2"
+	_, err := p.db.Exec(ctx, updateQuery, event.TimesAttempted+1, event.ID)
+	if err != nil {
+		return WrapWithContext(errors.New("failed to update event status"), "failed to mark event as published")
+	}
+
+	log.Printf("[INFO] Outbox Publisher: Published event ID: %v to topic %s", event.ID, event.Topic)
+	return nil
 }

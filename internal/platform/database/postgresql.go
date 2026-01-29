@@ -128,7 +128,7 @@ func (c *PostgreSQLClient) Query(ctx context.Context, query string, args ...inte
 	queryCtx, cancel := context.WithTimeout(ctx, c.connConfig.QueryTimeout)
 	defer cancel()
 
-	log.Printf("[DEBUG] Database: Executing query: %s", query)
+	//log.Printf("[DEBUG] Database: Executing query: %s", query)
 
 	start := time.Now()
 	rows, err := c.db.QueryContext(queryCtx, query, args...)
@@ -139,7 +139,7 @@ func (c *PostgreSQLClient) Query(ctx context.Context, query string, args ...inte
 		return nil, fmt.Errorf("query execution failed: %w", err)
 	}
 
-	log.Printf("[DEBUG] Database: Query completed in %v", latency)
+	//log.Printf("[DEBUG] Database: Query completed in %v", latency)
 	return rows, nil
 }
 
@@ -153,7 +153,7 @@ func (c *PostgreSQLClient) QueryRow(ctx context.Context, query string, args ...i
 	queryCtx, cancel := context.WithTimeout(ctx, c.connConfig.QueryTimeout)
 	defer cancel()
 
-	log.Printf("[DEBUG] Database: Executing query row: %s", query)
+	//log.Printf("[DEBUG] Database: Executing query row: %s", query)
 
 	return c.db.QueryRowContext(queryCtx, query, args...)
 }
@@ -168,7 +168,7 @@ func (c *PostgreSQLClient) Exec(ctx context.Context, query string, args ...inter
 	queryCtx, cancel := context.WithTimeout(ctx, c.connConfig.QueryTimeout)
 	defer cancel()
 
-	log.Printf("[DEBUG] Database: Executing exec: %s", query)
+	//log.Printf("[DEBUG] Database: Executing exec: %s", query)
 
 	start := time.Now()
 	result, err := c.db.ExecContext(queryCtx, query, args...)
@@ -179,7 +179,7 @@ func (c *PostgreSQLClient) Exec(ctx context.Context, query string, args ...inter
 		return nil, fmt.Errorf("exec execution failed: %w", err)
 	}
 
-	log.Printf("[DEBUG] Database: Exec completed in %v", latency)
+	//log.Printf("[DEBUG] Database: Exec completed in %v", latency)
 	return result, nil
 }
 
@@ -197,7 +197,7 @@ func (c *PostgreSQLClient) BeginTx(ctx context.Context, opts *sql.TxOptions) (Tx
 		return nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
 
-	return &PostgreSQLTx{tx: tx}, nil
+	return &PostgreSQLTx{tx: tx, ctx: ctx}, nil
 }
 
 // Stats returns database statistics
@@ -220,7 +220,13 @@ func (c *PostgreSQLClient) SelectContext(ctx context.Context, dest interface{}, 
 
 // PostgreSQLTx implements the Tx interface for PostgreSQL transactions
 type PostgreSQLTx struct {
-	tx *sqlx.Tx
+	tx  *sqlx.Tx
+	ctx context.Context
+}
+
+// Context returns the transaction's context for cancellation and tracing
+func (t *PostgreSQLTx) Context() context.Context {
+	return t.ctx
 }
 
 // Query executes a query within the transaction

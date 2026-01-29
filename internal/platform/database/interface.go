@@ -112,6 +112,9 @@ type Database interface {
 
 // Tx defines the interface for database transactions
 type Tx interface {
+	// Context returns the transaction's context for cancellation and tracing
+	Context() context.Context
+
 	// Query operations within transaction
 	Query(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
 	QueryRow(ctx context.Context, query string, args ...interface{}) *sql.Row
