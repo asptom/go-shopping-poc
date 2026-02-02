@@ -147,6 +147,33 @@ spec:
                   name: platform-config
                   key: CORS_MAX_AGE
 
+            # MinIO Configuration
+            - name: MINIO_ENDPOINT_KUBERNETES
+              valueFrom:
+                configMapKeyRef:
+                  name: platform-config
+                  key: MINIO_ENDPOINT_KUBERNETES
+            - name: MINIO_ENDPOINT_LOCAL
+              valueFrom:
+                configMapKeyRef:
+                  name: platform-config
+                  key: MINIO_ENDPOINT_LOCAL
+            - name: MINIO_TLS_VERIFY
+              valueFrom:
+                configMapKeyRef:
+                  name: platform-config
+                  key: MINIO_TLS_VERIFY
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-bootstrap-secret
+                  key: MINIO_ACCESS_KEY
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-bootstrap-secret
+                  key: MINIO_SECRET_KEY
+
             # Service config (selective)
             - name: PRODUCT_SERVICE_PORT
               valueFrom:

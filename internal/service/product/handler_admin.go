@@ -16,12 +16,16 @@ import (
 // including create, update, delete, and image management.
 // Authentication will be added in Phase 6.
 type AdminHandler struct {
-	service *AdminService
+	service      *AdminService
+	urlGenerator *ImageURLGenerator
 }
 
 // NewAdminHandler creates a new admin handler instance.
-func NewAdminHandler(service *AdminService) *AdminHandler {
-	return &AdminHandler{service: service}
+func NewAdminHandler(service *AdminService, urlGenerator *ImageURLGenerator) *AdminHandler {
+	return &AdminHandler{
+		service:      service,
+		urlGenerator: urlGenerator,
+	}
 }
 
 // CreateProduct handles POST /api/v1/admin/products - creates a new product
@@ -46,6 +50,9 @@ func (h *AdminHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to create product")
 		return
 	}
+
+	// ENRICH: Generate presigned URLs (product may have no images yet)
+	h.urlGenerator.EnrichProductWithImageURLs(r.Context(), &product)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -97,6 +104,9 @@ func (h *AdminHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// ENRICH: Generate presigned URLs for response
+	h.urlGenerator.EnrichProductWithImageURLs(r.Context(), &product)
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(product); err != nil {
@@ -146,18 +156,31 @@ func (h *AdminHandler) AddProductImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var image ProductImage
-	if err := json.NewDecoder(r.Body).Decode(&image); err != nil {
+	// UPDATED: Use AddSingleImageRequest structure
+	var req struct {
+		ImageURL string `json:"image_url"`
+		IsMain   bool   `json:"is_main"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Invalid JSON in request body")
 		return
 	}
 
-	image.ProductID = productID
+	if req.ImageURL == "" {
+		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeValidation, "image_url is required")
+		return
+	}
 
-	if err := h.service.AddProductImage(r.Context(), &image); err != nil {
+	// CHANGED: Use AddSingleImage which handles download + Minio upload
+	image, err := h.service.AddSingleImage(r.Context(), productID, req.ImageURL, req.IsMain)
+	if err != nil {
 		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to add product image")
 		return
 	}
+
+	// ENRICH: Generate presigned URL for response
+	url, _ := h.urlGenerator.GenerateImageURL(r.Context(), image.MinioObjectName)
+	image.ImageURL = url
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -181,18 +204,42 @@ func (h *AdminHandler) UpdateProductImage(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	var image ProductImage
-	if err := json.NewDecoder(r.Body).Decode(&image); err != nil {
+	// CHANGED: Only allow updating metadata (not image_url or minio_object_name)
+	var req struct {
+		IsMain      bool   `json:"is_main"`
+		ImageOrder  int    `json:"image_order"`
+		ContentType string `json:"content_type"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Invalid JSON in request body")
 		return
 	}
 
-	image.ID = imageID
+	// Get existing image to preserve MinioObjectName
+	existingImage, err := h.service.GetProductImageByID(r.Context(), imageID)
+	if err != nil {
+		errors.SendError(w, http.StatusNotFound, errors.ErrorTypeNotFound, "Image not found")
+		return
+	}
 
-	if err := h.service.UpdateProductImage(r.Context(), &image); err != nil {
+	image := &ProductImage{
+		ID:          imageID,
+		ProductID:   existingImage.ProductID,
+		IsMain:      req.IsMain,
+		ImageOrder:  req.ImageOrder,
+		ContentType: req.ContentType,
+		// Preserve existing MinioObjectName - cannot be changed
+		MinioObjectName: existingImage.MinioObjectName,
+	}
+
+	if err := h.service.UpdateProductImage(r.Context(), image); err != nil {
 		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to update product image")
 		return
 	}
+
+	// ENRICH: Generate presigned URL for response
+	url, _ := h.urlGenerator.GenerateImageURL(r.Context(), image.MinioObjectName)
+	image.ImageURL = url
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -255,7 +302,23 @@ func (h *AdminHandler) SetMainImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	// Get the updated image to return with presigned URL
+	image, err := h.service.GetProductImageByID(r.Context(), imageID)
+	if err != nil {
+		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to retrieve updated image")
+		return
+	}
+
+	// ENRICH: Generate presigned URL for response
+	url, _ := h.urlGenerator.GenerateImageURL(r.Context(), image.MinioObjectName)
+	image.ImageURL = url
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(image); err != nil {
+		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to encode response")
+		return
+	}
 }
 
 // IngestProducts handles POST /api/v1/admin/products/ingest - ingests products from CSV

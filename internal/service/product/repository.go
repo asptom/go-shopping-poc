@@ -45,7 +45,9 @@ type ProductRepository interface {
 	UpdateProductImage(ctx context.Context, image *ProductImage) error
 	DeleteProductImage(ctx context.Context, imageID int64) error
 	GetProductImages(ctx context.Context, productID int64) ([]ProductImage, error)
-	SetMainImage(ctx context.Context, productID int64, imageID int64) error
+	GetProductImageByID(ctx context.Context, imageID int64) (*ProductImage, error)
+	// UPDATED: SetMainImage renamed to SetMainImageFlag - no longer updates products table
+	SetMainImageFlag(ctx context.Context, productID int64, imageID int64) error
 
 	BulkInsertProducts(ctx context.Context, products []*Product) error
 	BulkInsertProductImages(ctx context.Context, images []*ProductImage) error

@@ -22,7 +22,7 @@ CREATE TABLE products.Products (
     in_stock BOOLEAN DEFAULT true,
     color VARCHAR(100),
     size VARCHAR(100),
-    main_image TEXT,
+    -- REMOVED: main_image column - now using is_main flag in product_images table
     country_code VARCHAR(2),
     image_count INTEGER,
     model_number VARCHAR(100),
@@ -39,14 +39,14 @@ CREATE TABLE products.Products (
 CREATE TABLE products.Product_images (
     id SERIAL PRIMARY KEY,
     product_id BIGINT REFERENCES products.Products(id) ON DELETE CASCADE,
-    image_url TEXT NOT NULL,
-    minio_object_name VARCHAR(500),
+    image_url TEXT,  -- Now optional - presigned URLs generated at handler layer
+    minio_object_name VARCHAR(500) NOT NULL,  -- Required for Minio-only storage
     is_main BOOLEAN DEFAULT false,
     image_order INTEGER DEFAULT 0,
     file_size BIGINT,
     content_type VARCHAR(100),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(product_id, image_url)
+    UNIQUE(product_id, minio_object_name)  -- Changed from image_url to minio_object_name
 );
 
 -- Performance indexes
@@ -67,6 +67,29 @@ $$ language 'plpgsql';
 CREATE TRIGGER update_products_updated_at 
     BEFORE UPDATE ON products.Products 
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Trigger to auto-update image_count on products table
+CREATE OR REPLACE FUNCTION update_image_count()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        UPDATE products.Products SET image_count = COALESCE(image_count, 0) + 1 WHERE id = NEW.product_id;
+        RETURN NEW;
+    ELSIF TG_OP = 'DELETE' THEN
+        UPDATE products.Products SET image_count = GREATEST(COALESCE(image_count, 0) - 1, 0) WHERE id = OLD.product_id;
+        RETURN OLD;
+    ELSIF TG_OP = 'UPDATE' AND NEW.product_id != OLD.product_id THEN
+        UPDATE products.Products SET image_count = GREATEST(COALESCE(image_count, 0) - 1, 0) WHERE id = OLD.product_id;
+        UPDATE products.Products SET image_count = COALESCE(image_count, 0) + 1 WHERE id = NEW.product_id;
+        RETURN NEW;
+    END IF;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER update_product_image_count
+    AFTER INSERT OR DELETE OR UPDATE ON products.Product_images
+    FOR EACH ROW EXECUTE FUNCTION update_image_count();
 
 -- ==========================================================
 -- Outbox pattern for event sourcing

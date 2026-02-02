@@ -31,7 +31,6 @@ All endpoints return product objects with the following structure:
   "in_stock": true,
   "color": "WiFi 2+32GB",
   "size": "9\"",
-  "main_image": "https://img.ltwebstatic.com/images3_spmp/2024/08/22/8d/1724320460505d5f92185ac1622479673d08b3e9b3.jpg",
   "country_code": "US",
   "image_count": 22,
   "model_number": "",
@@ -42,7 +41,19 @@ All endpoints return product objects with the following structure:
   "all_available_sizes": "[\"S\",\"M\",\"L\"]",
   "created_at": "2026-01-15T10:30:00Z",
   "updated_at": "2026-01-15T10:30:00Z",
-  "images": []
+  "images": [
+    {
+      "id": 1,
+      "product_id": 1,
+      "image_url": "https://minio.example.com/productimages/products/1/image_0.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...",
+      "minio_object_name": "products/1/image_0.jpg",
+      "is_main": true,
+      "image_order": 0,
+      "file_size": 152344,
+      "content_type": "image/jpeg",
+      "created_at": "2026-01-15T10:30:00Z"
+    }
+  ]
 }
 ```
 
@@ -59,7 +70,6 @@ All endpoints return product objects with the following structure:
 | `in_stock` | boolean | Whether product is currently available |
 | `color` | string | Product color variant |
 | `size` | string | Product size |
-| `main_image` | string | URL to primary product image |
 | `country_code` | string | 2-letter ISO country code |
 | `image_count` | integer | Number of product images |
 | `model_number` | string | Product model/SKU |
@@ -70,14 +80,14 @@ All endpoints return product objects with the following structure:
 | `all_available_sizes` | string | JSON string array of available sizes |
 | `created_at` | datetime | Product creation timestamp |
 | `updated_at` | datetime | Last update timestamp |
-| `images` | array | Additional product images (currently empty) |
+| `images` | array | Product images array with presigned URLs (1-hour expiry) |
 
 ### Frontend Integration Notes
 
 - **Price Display**: Show `final_price` as current price. If `final_price < initial_price`, display both prices to show discount
 - **Discount Calculation**: Use formula `((initial_price - final_price) / initial_price) * 100` to calculate discount percentage
 - **Availability**: Use `in_stock` flag to show/hide "Add to Cart" or "Out of Stock" status
-- **Images**: Use `main_image` for product thumbnails and main display
+- **Images**: Use the `images` array. Find the image with `is_main: true` for the primary display. All image URLs are presigned Minio URLs with 1-hour expiry
 - **Search**: Product search is case-insensitive full-text search across name, description, and other fields
 
 ---
@@ -117,7 +127,6 @@ GET /api/v1/products?limit=20&offset=0
       "in_stock": true,
       "color": "WiFi 2+32GB",
       "size": "9\"",
-      "main_image": "https://img.ltwebstatic.com/images3_spmp/2024/08/22/8d/1724320460505d5f92185ac1622479673d08b3e9b3.jpg",
       "country_code": "US",
       "image_count": 22,
       "model_number": "",
@@ -128,7 +137,19 @@ GET /api/v1/products?limit=20&offset=0
       "all_available_sizes": "[]",
       "created_at": "2026-01-15T10:30:00Z",
       "updated_at": "2026-01-15T10:30:00Z",
-      "images": []
+      "images": [
+        {
+          "id": 1,
+          "product_id": 1,
+          "image_url": "https://minio.example.com/productimages/products/1/image_0.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...",
+          "minio_object_name": "products/1/image_0.jpg",
+          "is_main": true,
+          "image_order": 0,
+          "file_size": 152344,
+          "content_type": "image/jpeg",
+          "created_at": "2026-01-15T10:30:00Z"
+        }
+      ]
     },
     {
       "id": 2,
@@ -140,7 +161,6 @@ GET /api/v1/products?limit=20&offset=0
       "in_stock": true,
       "color": "Black",
       "size": "one-size",
-      "main_image": "https://img.ltwebstatic.com/images3_spmp/2024/08/02/4a/1722580878d4864b8ed432eca43af9e8a9c2226916.jpg",
       "country_code": "US",
       "image_count": 15,
       "model_number": "",
@@ -151,7 +171,19 @@ GET /api/v1/products?limit=20&offset=0
       "all_available_sizes": "[]",
       "created_at": "2026-01-15T10:30:00Z",
       "updated_at": "2026-01-15T10:30:00Z",
-      "images": []
+      "images": [
+        {
+          "id": 2,
+          "product_id": 2,
+          "image_url": "https://minio.example.com/productimages/products/2/image_0.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...",
+          "minio_object_name": "products/2/image_0.jpg",
+          "is_main": true,
+          "image_order": 0,
+          "file_size": 98765,
+          "content_type": "image/jpeg",
+          "created_at": "2026-01-15T10:30:00Z"
+        }
+      ]
     }
   ],
   "limit": 20,
@@ -194,7 +226,6 @@ GET /api/v1/products/1
   "in_stock": true,
   "color": "WiFi 2+32GB",
   "size": "9\"",
-  "main_image": "https://img.ltwebstatic.com/images3_spmp/2024/08/22/8d/1724320460505d5f92185ac1622479673d08b3e9b3.jpg",
   "country_code": "US",
   "image_count": 22,
   "model_number": "",
@@ -205,7 +236,19 @@ GET /api/v1/products/1
   "all_available_sizes": "[]",
   "created_at": "2026-01-15T10:30:00Z",
   "updated_at": "2026-01-15T10:30:00Z",
-  "images": []
+  "images": [
+    {
+      "id": 1,
+      "product_id": 1,
+      "image_url": "https://minio.example.com/productimages/products/1/image_0.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...",
+      "minio_object_name": "products/1/image_0.jpg",
+      "is_main": true,
+      "image_order": 0,
+      "file_size": 152344,
+      "content_type": "image/jpeg",
+      "created_at": "2026-01-15T10:30:00Z"
+    }
+  ]
 }
 ```
 
@@ -256,7 +299,6 @@ GET /api/v1/products/search?q=Chevrolet&limit=10&offset=0
       "in_stock": true,
       "color": "Black",
       "size": "one-size",
-      "main_image": "https://img.ltwebstatic.com/images3_spmp/2024/08/02/4a/1722580878d4864b8ed432eca43af9e8a9c2226916.jpg",
       "country_code": "US",
       "image_count": 15,
       "model_number": "",
@@ -267,7 +309,19 @@ GET /api/v1/products/search?q=Chevrolet&limit=10&offset=0
       "all_available_sizes": "[]",
       "created_at": "2026-01-15T10:30:00Z",
       "updated_at": "2026-01-15T10:30:00Z",
-      "images": []
+      "images": [
+        {
+          "id": 2,
+          "product_id": 2,
+          "image_url": "https://minio.example.com/productimages/products/2/image_0.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...",
+          "minio_object_name": "products/2/image_0.jpg",
+          "is_main": true,
+          "image_order": 0,
+          "file_size": 98765,
+          "content_type": "image/jpeg",
+          "created_at": "2026-01-15T10:30:00Z"
+        }
+      ]
     },
     {
       "id": 3,
@@ -279,7 +333,6 @@ GET /api/v1/products/search?q=Chevrolet&limit=10&offset=0
       "in_stock": true,
       "color": "Carbon Fiber",
       "size": "Standard",
-      "main_image": "https://example.com/images/camaro-splitter.jpg",
       "country_code": "US",
       "image_count": 8,
       "model_number": "CAM-FBS-2023",
@@ -290,7 +343,19 @@ GET /api/v1/products/search?q=Chevrolet&limit=10&offset=0
       "all_available_sizes": "[\"Standard\",\"Custom\"]",
       "created_at": "2026-01-15T10:30:00Z",
       "updated_at": "2026-01-15T10:30:00Z",
-      "images": []
+      "images": [
+        {
+          "id": 3,
+          "product_id": 3,
+          "image_url": "https://minio.example.com/productimages/products/3/image_0.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...",
+          "minio_object_name": "products/3/image_0.jpg",
+          "is_main": true,
+          "image_order": 0,
+          "file_size": 234567,
+          "content_type": "image/jpeg",
+          "created_at": "2026-01-15T10:30:00Z"
+        }
+      ]
     }
   ],
   "query": "Chevrolet",
@@ -352,7 +417,6 @@ GET /api/v1/products/category/Car%20Electronics?limit=10&offset=0
       "in_stock": true,
       "color": "WiFi 2+32GB",
       "size": "9\"",
-      "main_image": "https://img.ltwebstatic.com/images3_spmp/2024/08/22/8d/1724320460505d5f92185ac1622479673d08b3e9b3.jpg",
       "country_code": "US",
       "image_count": 22,
       "model_number": "",
@@ -363,7 +427,19 @@ GET /api/v1/products/category/Car%20Electronics?limit=10&offset=0
       "all_available_sizes": "[]",
       "created_at": "2026-01-15T10:30:00Z",
       "updated_at": "2026-01-15T10:30:00Z",
-      "images": []
+      "images": [
+        {
+          "id": 1,
+          "product_id": 1,
+          "image_url": "https://minio.example.com/productimages/products/1/image_0.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...",
+          "minio_object_name": "products/1/image_0.jpg",
+          "is_main": true,
+          "image_order": 0,
+          "file_size": 152344,
+          "content_type": "image/jpeg",
+          "created_at": "2026-01-15T10:30:00Z"
+        }
+      ]
     },
     {
       "id": 4,
@@ -375,7 +451,6 @@ GET /api/v1/products/category/Car%20Electronics?limit=10&offset=0
       "in_stock": true,
       "color": "Black",
       "size": "Compact",
-      "main_image": "https://example.com/images/carplay-adapter.jpg",
       "country_code": "US",
       "image_count": 5,
       "model_number": "CP-5G-WF",
@@ -386,7 +461,19 @@ GET /api/v1/products/category/Car%20Electronics?limit=10&offset=0
       "all_available_sizes": "[]",
       "created_at": "2026-01-15T10:30:00Z",
       "updated_at": "2026-01-15T10:30:00Z",
-      "images": []
+      "images": [
+        {
+          "id": 4,
+          "product_id": 4,
+          "image_url": "https://minio.example.com/productimages/products/4/image_0.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...",
+          "minio_object_name": "products/4/image_0.jpg",
+          "is_main": true,
+          "image_order": 0,
+          "file_size": 87654,
+          "content_type": "image/jpeg",
+          "created_at": "2026-01-15T10:30:00Z"
+        }
+      ]
     }
   ],
   "category": "Car Electronics",
@@ -448,7 +535,6 @@ GET /api/v1/products/brand/Junsun?limit=20&offset=0
       "in_stock": true,
       "color": "WiFi 2+32GB",
       "size": "9\"",
-      "main_image": "https://img.ltwebstatic.com/images3_spmp/2024/08/22/8d/1724320460505d5f92185ac1622479673d08b3e9b3.jpg",
       "country_code": "US",
       "image_count": 22,
       "model_number": "",
@@ -459,7 +545,19 @@ GET /api/v1/products/brand/Junsun?limit=20&offset=0
       "all_available_sizes": "[]",
       "created_at": "2026-01-15T10:30:00Z",
       "updated_at": "2026-01-15T10:30:00Z",
-      "images": []
+      "images": [
+        {
+          "id": 1,
+          "product_id": 1,
+          "image_url": "https://minio.example.com/productimages/products/1/image_0.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...",
+          "minio_object_name": "products/1/image_0.jpg",
+          "is_main": true,
+          "image_order": 0,
+          "file_size": 152344,
+          "content_type": "image/jpeg",
+          "created_at": "2026-01-15T10:30:00Z"
+        }
+      ]
     },
     {
       "id": 5,
@@ -471,7 +569,6 @@ GET /api/v1/products/brand/Junsun?limit=20&offset=0
       "in_stock": true,
       "color": "Black",
       "size": "7\"",
-      "main_image": "https://example.com/images/junsun-7inch.jpg",
       "country_code": "US",
       "image_count": 12,
       "model_number": "JS-AND12-7",
@@ -482,7 +579,19 @@ GET /api/v1/products/brand/Junsun?limit=20&offset=0
       "all_available_sizes": "[]",
       "created_at": "2026-01-15T10:30:00Z",
       "updated_at": "2026-01-15T10:30:00Z",
-      "images": []
+      "images": [
+        {
+          "id": 5,
+          "product_id": 5,
+          "image_url": "https://minio.example.com/productimages/products/5/image_0.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...",
+          "minio_object_name": "products/5/image_0.jpg",
+          "is_main": true,
+          "image_order": 0,
+          "file_size": 145678,
+          "content_type": "image/jpeg",
+          "created_at": "2026-01-15T10:30:00Z"
+        }
+      ]
     }
   ],
   "brand": "Junsun",
@@ -538,7 +647,6 @@ GET /api/v1/products/in-stock?limit=15&offset=0
       "in_stock": true,
       "color": "WiFi 2+32GB",
       "size": "9\"",
-      "main_image": "https://img.ltwebstatic.com/images3_spmp/2024/08/22/8d/1724320460505d5f92185ac1622479673d08b3e9b3.jpg",
       "country_code": "US",
       "image_count": 22,
       "model_number": "",
@@ -549,7 +657,19 @@ GET /api/v1/products/in-stock?limit=15&offset=0
       "all_available_sizes": "[]",
       "created_at": "2026-01-15T10:30:00Z",
       "updated_at": "2026-01-15T10:30:00Z",
-      "images": []
+      "images": [
+        {
+          "id": 1,
+          "product_id": 1,
+          "image_url": "https://minio.example.com/productimages/products/1/image_0.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...",
+          "minio_object_name": "products/1/image_0.jpg",
+          "is_main": true,
+          "image_order": 0,
+          "file_size": 152344,
+          "content_type": "image/jpeg",
+          "created_at": "2026-01-15T10:30:00Z"
+        }
+      ]
     },
     {
       "id": 2,
@@ -561,7 +681,6 @@ GET /api/v1/products/in-stock?limit=15&offset=0
       "in_stock": true,
       "color": "Black",
       "size": "one-size",
-      "main_image": "https://img.ltwebstatic.com/images3_spmp/2024/08/02/4a/1722580878d4864b8ed432eca43af9e8a9c2226916.jpg",
       "country_code": "US",
       "image_count": 15,
       "model_number": "",
@@ -584,7 +703,6 @@ GET /api/v1/products/in-stock?limit=15&offset=0
       "in_stock": true,
       "color": "Black",
       "size": "Compact",
-      "main_image": "https://example.com/images/carplay-adapter.jpg",
       "country_code": "US",
       "image_count": 5,
       "model_number": "CP-5G-WF",
@@ -595,7 +713,19 @@ GET /api/v1/products/in-stock?limit=15&offset=0
       "all_available_sizes": "[]",
       "created_at": "2026-01-15T10:30:00Z",
       "updated_at": "2026-01-15T10:30:00Z",
-      "images": []
+      "images": [
+        {
+          "id": 4,
+          "product_id": 4,
+          "image_url": "https://minio.example.com/productimages/products/4/image_0.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...",
+          "minio_object_name": "products/4/image_0.jpg",
+          "is_main": true,
+          "image_order": 0,
+          "file_size": 87654,
+          "content_type": "image/jpeg",
+          "created_at": "2026-01-15T10:30:00Z"
+        }
+      ]
     }
   ],
   "limit": 15,
@@ -605,6 +735,155 @@ GET /api/v1/products/in-stock?limit=15&offset=0
 ```
 
 **Use Case:** "Shop Now" homepage section, availability filter, or showing only purchasable products
+
+---
+
+### 7. Get Product Images
+
+**Endpoint:** `GET /api/v1/products/{id}/images`
+
+**Description:** Retrieve all images for a specific product with presigned URLs. Use this for product detail galleries or when you need to display all product images.
+
+**Path Parameters:**
+
+| Parameter | Type | Validation | Description |
+|-----------|------|------------|-------------|
+| `id` | integer | Required, positive | Unique product identifier |
+
+**Example Request:**
+```
+GET /api/v1/products/1/images
+```
+
+**Success Response:** `200 OK`
+
+```json
+{
+  "product_id": 1,
+  "images": [
+    {
+      "id": 1,
+      "product_id": 1,
+      "image_url": "https://minio.example.com/productimages/products/1/image_0.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...",
+      "minio_object_name": "products/1/image_0.jpg",
+      "is_main": true,
+      "image_order": 0,
+      "file_size": 152344,
+      "content_type": "image/jpeg",
+      "created_at": "2026-01-15T10:30:00Z"
+    },
+    {
+      "id": 2,
+      "product_id": 1,
+      "image_url": "https://minio.example.com/productimages/products/1/image_1.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...",
+      "minio_object_name": "products/1/image_1.jpg",
+      "is_main": false,
+      "image_order": 1,
+      "file_size": 98765,
+      "content_type": "image/jpeg",
+      "created_at": "2026-01-15T10:30:00Z"
+    }
+  ],
+  "count": 2
+}
+```
+
+**Error Response:** `404 Not Found`
+
+```json
+{
+  "error_type": "not_found",
+  "message": "No images found for product"
+}
+```
+
+**Use Case:** Product image gallery on product detail page
+
+---
+
+### 8. Get Product Main Image
+
+**Endpoint:** `GET /api/v1/products/{id}/main-image`
+
+**Description:** Retrieve only the main image (the one with `is_main: true`) for a specific product with a presigned URL. Use this for product thumbnails, cards, or when you only need the primary image.
+
+**Path Parameters:**
+
+| Parameter | Type | Validation | Description |
+|-----------|------|------------|-------------|
+| `id` | integer | Required, positive | Unique product identifier |
+
+**Example Request:**
+```
+GET /api/v1/products/1/main-image
+```
+
+**Success Response:** `200 OK`
+
+```json
+{
+  "id": 1,
+  "product_id": 1,
+  "image_url": "https://minio.example.com/productimages/products/1/image_0.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...",
+  "minio_object_name": "products/1/image_0.jpg",
+  "is_main": true,
+  "image_order": 0,
+  "file_size": 152344,
+  "content_type": "image/jpeg",
+  "created_at": "2026-01-15T10:30:00Z"
+}
+```
+
+**Error Response:** `404 Not Found`
+
+```json
+{
+  "error_type": "not_found",
+  "message": "No main image found for product"
+}
+```
+
+**Use Case:** Product thumbnails in catalog lists, product cards, search results
+
+---
+
+### 9. Get Direct Image
+
+**Endpoint:** `GET /api/v1/products/{id}/images/{imageName}`
+
+**Description:** Stream an image directly from Minio storage. This endpoint returns the raw image data with appropriate cache headers. This is the recommended way to access product images as it doesn't use presigned URLs and avoids signature mismatch issues.
+
+**Path Parameters:**
+
+| Parameter | Type | Validation | Description |
+|-----------|------|------------|-------------|
+| `id` | integer | Required, positive | Product ID |
+| `imageName` | string | Required | Image filename (e.g., "image_0.jpg") |
+
+**Example Request:**
+```
+GET /api/v1/products/40121298/images/image_0.jpg
+```
+
+**Success Response:** `200 OK`
+
+Returns raw image bytes with headers:
+- `Content-Type`: image/jpeg (or appropriate MIME type)
+- `Cache-Control: public, max-age=3600` (1 hour caching)
+- `ETag`: Object ETag for cache validation
+
+**Error Response:** `404 Not Found`
+
+```json
+{
+  "error_type": "not_found",
+  "message": "Image not found"
+}
+```
+
+**Security Note:** Object names are validated to prevent path traversal attacks (e.g., "../" is rejected).
+
+**Use Case:** Direct image embedding with CDN-style caching, image hotlinking
 
 ---
 
@@ -672,9 +951,112 @@ The Product Catalog service is configured via the following environment variable
 
 ---
 
+## Image Handling Guide
+
+### Overview
+
+Product images are now stored in Minio object storage and served via **presigned URLs** with a **1-hour expiry**. This provides secure, temporary access to images without exposing the storage backend.
+
+### Key Changes from Previous Implementation
+
+1. **Removed `main_image` field**: The `main_image` field has been removed from Product entities
+2. **New `images` array**: All products now include an `images` array containing `ProductImage` objects
+3. **Presigned URLs**: Image URLs in `image_url` field are presigned Minio URLs (1-hour expiry)
+4. **Main image flag**: Use `is_main: true` to identify the primary product image
+
+### Image URL Types
+
+There are two ways to access product images:
+
+#### 1. Presigned URLs (Recommended for most use cases)
+- **Source**: Returned in `image_url` field from all product endpoints
+- **Expiry**: 1 hour from generation
+- **Best for**: Product listings, detail pages, immediate display
+- **Pros**: Direct access, no additional requests needed
+- **Cons**: URLs expire after 1 hour (refresh by re-fetching product)
+
+#### 2. Direct Image Endpoint (Best for caching/CDN)
+- **Endpoint**: `GET /api/v1/images/{objectName}`
+- **Best for**: Heavy traffic pages, CDN integration, long-term caching
+- **Pros**: Better caching (1-hour browser cache), no URL expiry issues
+- **Cons**: Requires separate request per image
+
+### Finding the Main Image
+
+```typescript
+// Option 1: From product.images array
+const mainImage = product.images.find(img => img.is_main);
+
+// Option 2: Using the dedicated endpoint
+const mainImage = await productService.getProductMainImage(productId);
+```
+
+### Image URL Refresh Strategy
+
+Since presigned URLs expire after 1 hour, consider these strategies:
+
+1. **Short-lived pages**: For product detail pages where users spend < 1 hour, use presigned URLs directly
+2. **Long-lived pages**: For catalog pages displayed for extended periods:
+   - Use the direct image endpoint: `/api/v1/images/{objectName}`
+   - Or implement periodic refresh by re-fetching products
+3. **Image galleries**: Use presigned URLs and refresh when user navigates
+
+### Example: Product Card Component
+
+```typescript
+@Component({
+  selector: 'app-product-card',
+  template: `
+    <div class="product-card">
+      <img [src]="mainImageUrl" [alt]="product.name" loading="lazy">
+      <h3>{{ product.name }}</h3>
+      <p class="price">{{ product.final_price | currency:product.currency }}</p>
+    </div>
+  `
+})
+export class ProductCardComponent {
+  @Input() product!: Product;
+
+  get mainImageUrl(): string {
+    const mainImage = this.product.images.find(img => img.is_main);
+    return mainImage?.image_url || '/assets/placeholder.jpg';
+  }
+}
+```
+
+### Example: Product Gallery Component
+
+```typescript
+@Component({
+  selector: 'app-product-gallery',
+  template: `
+    <div class="gallery">
+      <img [src]="selectedImage?.image_url" [alt]="product.name">
+      <div class="thumbnails">
+        <img *ngFor="let img of product.images"
+             [src]="img.image_url"
+             [class.active]="img.id === selectedImage?.id"
+             (click)="selectedImage = img"
+             loading="lazy">
+      </div>
+    </div>
+  `
+})
+export class ProductGalleryComponent {
+  @Input() product!: Product;
+  selectedImage: ProductImage | undefined;
+
+  ngOnInit() {
+    this.selectedImage = this.product.images.find(img => img.is_main);
+  }
+}
+```
+
+---
+
 ## Frontend Development Notes
 
-1. **Image Loading**: Product images are hosted externally. Implement lazy loading for performance
+1. **Image Loading**: Product images are now served via Minio with presigned URLs (1-hour expiry). The `images` array contains all product images with `image_url` as presigned URLs. Use `is_main` flag to identify the primary image
 2. **Currency Formatting**: Products use `currency` field (default USD). Format prices appropriately
 3. **Discount Display**: Show discount badge/indicator when `final_price < initial_price`
 4. **Stock Indicators**: Use `in_stock` field to control "Add to Cart" button state
@@ -729,6 +1111,32 @@ export class ProductService {
       params: { limit: limit.toString(), offset: offset.toString() }
     });
   }
+
+  getProductImages(productId: number): Observable<any> {
+    return this.http.get(`${this.apiUrl}/products/${productId}/images`);
+  }
+
+  getProductMainImage(productId: number): Observable<ProductImage> {
+    return this.http.get<ProductImage>(`${this.apiUrl}/products/${productId}/main-image`);
+  }
+
+  getDirectImage(productId: number, imageName: string): Observable<Blob> {
+    return this.http.get(`${this.apiUrl}/products/${productId}/images/${imageName}`, {
+      responseType: 'blob'
+    });
+  }
+
+  // Helper method to find main image from product
+  getMainImage(product: Product): ProductImage | undefined {
+    return product.images.find(img => img.is_main);
+  }
+
+  // Helper method to extract image name from minio_object_name
+  // Example: "products/40121298/image_0.jpg" -> "image_0.jpg"
+  getImageName(minioObjectName: string): string {
+    const parts = minioObjectName.split('/');
+    return parts[parts.length - 1];
+  }
 }
 ```
 
@@ -745,7 +1153,6 @@ export interface Product {
   in_stock: boolean;
   color: string;
   size: string;
-  main_image: string;
   country_code: string;
   image_count: number;
   model_number: string;
@@ -777,8 +1184,12 @@ export interface ProductImage {
 ## Testing
 
 When developing the frontend, ensure you test:
-- All 6 endpoints with various parameter combinations
+- All 9 endpoints with various parameter combinations
+- Image URL expiry handling (test that presigned URLs expire after 1 hour)
+- Image loading performance with presigned URLs vs direct endpoint
 - Pagination edge cases (empty results, single page, multiple pages)
-- Error conditions (invalid product ID, empty search query)
+- Error conditions (invalid product ID, empty search query, missing images)
 - Performance with large result sets
 - URL encoding for category/brand names with special characters
+- Main image detection using `is_main` flag
+- Products with no images (empty `images` array)

@@ -17,16 +17,16 @@ import (
 
 // Product represents a product entity in the e-commerce system.
 type Product struct {
-	ID                int64         `json:"id" db:"id"`
-	Name              string        `json:"name" db:"name"`
-	Description       string        `json:"description" db:"description"`
-	InitialPrice      float64       `json:"initial_price" db:"initial_price"`
-	FinalPrice        float64       `json:"final_price" db:"final_price"`
-	Currency          string        `json:"currency" db:"currency"`
-	InStock           bool          `json:"in_stock" db:"in_stock"`
-	Color             string        `json:"color" db:"color"`
-	Size              string        `json:"size" db:"size"`
-	MainImage         string        `json:"main_image" db:"main_image"`
+	ID           int64   `json:"id" db:"id"`
+	Name         string  `json:"name" db:"name"`
+	Description  string  `json:"description" db:"description"`
+	InitialPrice float64 `json:"initial_price" db:"initial_price"`
+	FinalPrice   float64 `json:"final_price" db:"final_price"`
+	Currency     string  `json:"currency" db:"currency"`
+	InStock      bool    `json:"in_stock" db:"in_stock"`
+	Color        string  `json:"color" db:"color"`
+	Size         string  `json:"size" db:"size"`
+	// REMOVED: MainImage - now determined by is_main flag in Images slice
 	CountryCode       string        `json:"country_code" db:"country_code"`
 	ImageCount        int           `json:"image_count" db:"image_count"`
 	ModelNumber       string        `json:"model_number" db:"model_number"`
@@ -42,7 +42,8 @@ type Product struct {
 	Images []ProductImage `json:"images,omitempty"`
 
 	// Temporary fields for ingestion (not persisted)
-	ImageURLs []string `json:"image_urls,omitempty"`
+	ImageURLs    []string `json:"image_urls,omitempty"`
+	MainImageURL string   `json:"-"` // ADDED: Track main image URL during CSV ingestion (not persisted to DB)
 }
 
 // Validate performs domain validation on the Product entity
@@ -130,19 +131,15 @@ func (p *Product) HasImages() bool {
 	return p.ImageCount > 0 || len(p.Images) > 0
 }
 
-// GetMainImage returns the main image URL, checking both the field and images slice
+// GetMainImage returns the main image object name from the Images slice
+// Returns empty string if no main image found - caller must generate presigned URL
 func (p *Product) GetMainImage() string {
-	if p.MainImage != "" {
-		return p.MainImage
-	}
-
-	// Check images slice for main image
+	// Iterate over Images slice for main image
 	for _, img := range p.Images {
 		if img.IsMain {
-			return img.ImageURL
+			return img.MinioObjectName // Return object name, not URL
 		}
 	}
-
 	return ""
 }
 
@@ -209,16 +206,18 @@ func (pi *ProductImage) Validate() error {
 		return errors.New("product ID is required and must be positive")
 	}
 
-	if strings.TrimSpace(pi.ImageURL) == "" {
-		return errors.New("image URL is required")
+	// CHANGED: Require MinioObjectName instead of ImageURL
+	if strings.TrimSpace(pi.MinioObjectName) == "" {
+		return errors.New("minio object name is required")
 	}
 
-	if len(pi.ImageURL) > 2000 {
-		return errors.New("image URL must be 2000 characters or less")
-	}
-
-	if pi.MinioObjectName != "" && len(pi.MinioObjectName) > 500 {
+	if len(pi.MinioObjectName) > 500 {
 		return errors.New("MinIO object name must be 500 characters or less")
+	}
+
+	// ImageURL is now optional (transient field) - only validate length if provided
+	if pi.ImageURL != "" && len(pi.ImageURL) > 2000 {
+		return errors.New("image URL must be 2000 characters or less")
 	}
 
 	if pi.ImageOrder < 0 {

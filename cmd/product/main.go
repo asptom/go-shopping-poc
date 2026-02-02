@@ -9,9 +9,11 @@ import (
 	"syscall"
 	"time"
 
+	"go-shopping-poc/internal/platform/config"
 	"go-shopping-poc/internal/platform/cors"
 	"go-shopping-poc/internal/platform/database"
 	"go-shopping-poc/internal/platform/outbox/providers"
+	"go-shopping-poc/internal/platform/storage/minio"
 	"go-shopping-poc/internal/service/product"
 
 	"github.com/go-chi/chi/v5"
@@ -65,8 +67,42 @@ func main() {
 	catalogService := product.NewCatalogService(repo, catalogInfra, cfg)
 	log.Printf("[DEBUG] Product: Service created successfully")
 
+	log.Printf("[DEBUG] Product: Loading MinIO configuration")
+	minioCfg, err := config.LoadConfig[minio.PlatformConfig]("platform-minio")
+	if err != nil {
+		log.Fatalf("Product: Failed to load MinIO config: %v", err)
+	}
+
+	log.Printf("[DEBUG] Product: Creating MinIO storage client")
+	// Choose MinIO endpoint based on environment
+	minioEndpoint := minioCfg.EndpointLocal
+	if os.Getenv("KUBERNETES_SERVICE_HOST") != "" {
+		minioEndpoint = minioCfg.EndpointKubernetes
+		log.Printf("[DEBUG] Product: Using Kubernetes MinIO endpoint for connections: %s", minioEndpoint)
+	} else {
+		log.Printf("[DEBUG] Product: Using local MinIO endpoint: %s", minioEndpoint)
+	}
+
+	log.Printf("[DEBUG] Product: EndpointLocal config value: '%s'", minioCfg.EndpointLocal)
+	log.Printf("[DEBUG] Product: EndpointKubernetes config value: '%s'", minioCfg.EndpointKubernetes)
+	minioStorage, err := minio.NewClient(&minio.Config{
+		Endpoint:         minioEndpoint,
+		ExternalEndpoint: minioCfg.EndpointLocal, // External clients use local endpoint for presigned URLs
+		AccessKey:        minioCfg.AccessKey,
+		SecretKey:        minioCfg.SecretKey,
+		Secure:           minioCfg.TLSVerify,
+	})
+	if err != nil {
+		log.Fatalf("Product: Failed to create MinIO storage: %v", err)
+	}
+	log.Printf("[DEBUG] Product: MinIO storage initialized")
+
+	log.Printf("[DEBUG] Product: Creating URL generator for presigned URLs")
+	urlGenerator := product.NewImageURLGenerator(minioStorage, cfg.MinIOBucket)
+	log.Printf("[DEBUG] Product: URL generator created successfully")
+
 	log.Printf("[DEBUG] Product: Creating catalog handler")
-	catalogHandler := product.NewCatalogHandler(catalogService)
+	catalogHandler := product.NewCatalogHandler(catalogService, urlGenerator)
 	log.Printf("[DEBUG] Product: Handler created successfully")
 
 	log.Printf("[DEBUG] Product: Setting up HTTP router")
@@ -94,6 +130,13 @@ func main() {
 	productRouter.Get("/products/category/{category}", catalogHandler.GetProductsByCategory)
 	productRouter.Get("/products/brand/{brand}", catalogHandler.GetProductsByBrand)
 	productRouter.Get("/products/in-stock", catalogHandler.GetProductsInStock)
+	// ADDED: New image endpoints for Phase 6
+	productRouter.Get("/products/{id}/images", catalogHandler.GetProductImages)
+	productRouter.Get("/products/{id}/main-image", catalogHandler.GetProductMainImage)
+	// Direct image access: /api/v1/products/{id}/images/{imageName:.+}
+	// Example: /api/v1/products/40121298/images/image_0.jpg
+	productRouter.Get("/products/{id}/images/{imageName:.+}", catalogHandler.GetDirectImage)
+	log.Printf("[DEBUG] Product: Registered /products/{id}/images/{imageName:.+} route for direct image access")
 
 	router.Mount("/api/v1", productRouter)
 

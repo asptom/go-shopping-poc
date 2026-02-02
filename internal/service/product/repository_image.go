@@ -23,21 +23,23 @@ func (r *productRepository) AddProductImage(ctx context.Context, image *ProductI
 		return fmt.Errorf("cannot add image to non-existent product: %w", err)
 	}
 
+	// UPDATED: Removed image_url from query
 	query := `
 		INSERT INTO products.product_images (
-			product_id, image_url, minio_object_name, is_main, image_order,
+			product_id, minio_object_name, is_main, image_order,
 			file_size, content_type, created_at
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8
+			$1, $2, $3, $4, $5, $6, $7
 		)`
 
+	// UPDATED: Removed image.ImageURL from parameters
 	_, err = r.db.ExecContext(ctx, query,
-		image.ProductID, image.ImageURL, image.MinioObjectName, image.IsMain,
+		image.ProductID, image.MinioObjectName, image.IsMain,
 		image.ImageOrder, image.FileSize, image.ContentType, image.CreatedAt,
 	)
 	if err != nil {
 		if isDuplicateError(err) {
-			return fmt.Errorf("%w: image URL already exists for product", ErrDuplicateImage)
+			return fmt.Errorf("%w: minio object name already exists for product", ErrDuplicateImage)
 		}
 		return fmt.Errorf("%w: failed to add product image: %v", ErrDatabaseOperation, err)
 	}
@@ -57,14 +59,16 @@ func (r *productRepository) UpdateProductImage(ctx context.Context, image *Produ
 		return fmt.Errorf("image validation failed: %w", err)
 	}
 
+	// UPDATED: Removed image_url from query
 	query := `
 		UPDATE products.product_images SET
-			image_url = $2, minio_object_name = $3, is_main = $4, image_order = $5,
-			file_size = $6, content_type = $7
+			minio_object_name = $2, is_main = $3, image_order = $4,
+			file_size = $5, content_type = $6
 		WHERE id = $1`
 
+	// UPDATED: Removed image.ImageURL from parameters
 	result, err := r.db.ExecContext(ctx, query,
-		image.ID, image.ImageURL, image.MinioObjectName, image.IsMain,
+		image.ID, image.MinioObjectName, image.IsMain,
 		image.ImageOrder, image.FileSize, image.ContentType,
 	)
 	if err != nil {
@@ -115,8 +119,9 @@ func (r *productRepository) GetProductImages(ctx context.Context, productID int6
 		return nil, fmt.Errorf("%w: product ID must be positive", ErrInvalidProductID)
 	}
 
+	// UPDATED: Removed image_url from query
 	query := `
-		SELECT id, product_id, image_url, minio_object_name, is_main, image_order,
+		SELECT id, product_id, minio_object_name, is_main, image_order,
 			   file_size, content_type, created_at
 		FROM products.product_images
 		WHERE product_id = $1
@@ -131,8 +136,9 @@ func (r *productRepository) GetProductImages(ctx context.Context, productID int6
 	var images []ProductImage
 	for rows.Next() {
 		var image ProductImage
+		// UPDATED: Removed &image.ImageURL from Scan
 		err := rows.Scan(
-			&image.ID, &image.ProductID, &image.ImageURL, &image.MinioObjectName,
+			&image.ID, &image.ProductID, &image.MinioObjectName,
 			&image.IsMain, &image.ImageOrder, &image.FileSize, &image.ContentType, &image.CreatedAt,
 		)
 		if err != nil {
@@ -148,9 +154,10 @@ func (r *productRepository) GetProductImages(ctx context.Context, productID int6
 	return images, nil
 }
 
-// SetMainImage sets the main image for a product
-func (r *productRepository) SetMainImage(ctx context.Context, productID int64, imageID int64) error {
-	log.Printf("[DEBUG] Repository: Setting main image %d for product %d", imageID, productID)
+// SetMainImageFlag sets the is_main flag for an image without updating products.main_image
+// UPDATED: Renamed from SetMainImage - no longer updates products table (main_image column removed)
+func (r *productRepository) SetMainImageFlag(ctx context.Context, productID int64, imageID int64) error {
+	log.Printf("[DEBUG] Repository: Setting main image flag %d for product %d", imageID, productID)
 
 	if productID <= 0 || imageID <= 0 {
 		return fmt.Errorf("%w: product ID and image ID must be positive", ErrInvalidProductID)
@@ -167,16 +174,18 @@ func (r *productRepository) SetMainImage(ctx context.Context, productID int64, i
 		}
 	}()
 
+	// Unset all main images for this product
 	unsetQuery := `UPDATE products.product_images SET is_main = false WHERE product_id = $1`
 	_, err = tx.ExecContext(ctx, unsetQuery, productID)
 	if err != nil {
 		return fmt.Errorf("%w: failed to unset main images: %v", ErrDatabaseOperation, err)
 	}
 
+	// Set the specified image as main
 	setQuery := `UPDATE products.product_images SET is_main = true WHERE id = $1 AND product_id = $2`
 	result, err := tx.ExecContext(ctx, setQuery, imageID, productID)
 	if err != nil {
-		return fmt.Errorf("%w: failed to set main image: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to set main image flag: %v", ErrDatabaseOperation, err)
 	}
 
 	rowsAffected, err := result.RowsAffected()
@@ -187,14 +196,7 @@ func (r *productRepository) SetMainImage(ctx context.Context, productID int64, i
 		return fmt.Errorf("%w: image %d not found for product %d", ErrProductImageNotFound, imageID, productID)
 	}
 
-	updateProductQuery := `
-		UPDATE products SET main_image = (
-			SELECT image_url FROM products.product_images WHERE id = $1
-		) WHERE id = $2`
-	_, err = tx.ExecContext(ctx, updateProductQuery, imageID, productID)
-	if err != nil {
-		return fmt.Errorf("%w: failed to update product main image: %v", ErrDatabaseOperation, err)
-	}
+	// REMOVED: No longer updating products.main_image column (column removed in schema)
 
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("%w: failed to commit transaction: %v", ErrTransactionFailed, err)
@@ -202,4 +204,34 @@ func (r *productRepository) SetMainImage(ctx context.Context, productID int64, i
 	committed = true
 
 	return nil
+}
+
+// GetProductImageByID retrieves a single image by its ID
+// ADDED: New method needed for admin operations
+func (r *productRepository) GetProductImageByID(ctx context.Context, imageID int64) (*ProductImage, error) {
+	log.Printf("[DEBUG] Repository: Fetching image %d", imageID)
+
+	if imageID <= 0 {
+		return nil, fmt.Errorf("%w: image ID must be positive", ErrInvalidProductID)
+	}
+
+	query := `
+		SELECT id, product_id, minio_object_name, is_main, image_order,
+			   file_size, content_type, created_at
+		FROM products.product_images
+		WHERE id = $1`
+
+	var image ProductImage
+	err := r.db.QueryRowContext(ctx, query, imageID).Scan(
+		&image.ID, &image.ProductID, &image.MinioObjectName,
+		&image.IsMain, &image.ImageOrder, &image.FileSize, &image.ContentType, &image.CreatedAt,
+	)
+	if err != nil {
+		if err.Error() == "sql: no rows in result set" {
+			return nil, fmt.Errorf("%w: image %d not found", ErrProductImageNotFound, imageID)
+		}
+		return nil, fmt.Errorf("%w: failed to query product image: %v", ErrDatabaseOperation, err)
+	}
+
+	return &image, nil
 }

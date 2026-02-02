@@ -197,9 +197,26 @@ func (s *AdminService) UpdateProductImage(ctx context.Context, image *ProductIma
 func (s *AdminService) DeleteProductImage(ctx context.Context, imageID int64) error {
 	log.Printf("[INFO] AdminService: Deleting image %d", imageID)
 
+	// Get image details first (for Minio deletion)
+	// ADDED: Need to fetch image before deleting to get MinioObjectName
+	image, err := s.repo.GetProductImageByID(ctx, imageID)
+	if err != nil {
+		log.Printf("[ERROR] AdminService: Failed to get image %d for deletion: %v", imageID, err)
+		return fmt.Errorf("failed to get image for deletion: %w", err)
+	}
+
+	// Delete from database first
 	if err := s.repo.DeleteProductImage(ctx, imageID); err != nil {
 		log.Printf("[ERROR] AdminService: Failed to delete image: %v", err)
 		return fmt.Errorf("failed to delete image: %w", err)
+	}
+
+	// ADDED: Delete from Minio
+	if s.infrastructure.ObjectStorage != nil && image.MinioObjectName != "" {
+		if err := s.infrastructure.ObjectStorage.RemoveObject(ctx, s.config.MinIOBucket, image.MinioObjectName); err != nil {
+			log.Printf("[WARN] AdminService: Failed to delete image from Minio: %v", err)
+			// Don't fail the operation if Minio deletion fails
+		}
 	}
 
 	if err := s.publishProductImageDeletedEvent(ctx, imageID); err != nil {
@@ -209,11 +226,107 @@ func (s *AdminService) DeleteProductImage(ctx context.Context, imageID int64) er
 	return nil
 }
 
+// AddSingleImage adds a single image to a product by downloading from URL and uploading to Minio
+// ADDED: New method for admin API to add individual images
+func (s *AdminService) AddSingleImage(ctx context.Context, productID int64, imageURL string, isMain bool) (*ProductImage, error) {
+	log.Printf("[INFO] AdminService: Adding single image for product %d from URL", productID)
+
+	if productID <= 0 {
+		return nil, fmt.Errorf("product ID must be positive")
+	}
+
+	if imageURL == "" {
+		return nil, fmt.Errorf("image URL is required")
+	}
+
+	// Download image
+	localPath, err := s.infrastructure.HTTPDownloader.Download(ctx, imageURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to download image: %w", err)
+	}
+
+	// Get existing image count for ordering
+	existingImages, err := s.repo.GetProductImages(ctx, productID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get existing images: %w", err)
+	}
+	imageOrder := len(existingImages)
+
+	// Upload to Minio
+	minioObjectName, err := s.uploadImageToMinIO(ctx, localPath, productID, imageOrder)
+	if err != nil {
+		return nil, fmt.Errorf("failed to upload image to MinIO: %w", err)
+	}
+
+	// Get file info
+	fileSize, contentType, err := s.getImageInfo(localPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get image info: %w", err)
+	}
+
+	// Handle is_main logic - if this is main, unset others
+	if isMain {
+		if err := s.unsetAllMainImages(ctx, productID); err != nil {
+			log.Printf("[WARN] AdminService: Failed to unset existing main images: %v", err)
+		}
+	}
+
+	// Create image record
+	productImage := &ProductImage{
+		ProductID:       productID,
+		ImageURL:        "", // Not stored
+		MinioObjectName: minioObjectName,
+		IsMain:          isMain,
+		ImageOrder:      imageOrder,
+		FileSize:        fileSize,
+		ContentType:     contentType,
+	}
+
+	if err := s.repo.AddProductImage(ctx, productImage); err != nil {
+		return nil, fmt.Errorf("failed to add product image: %w", err)
+	}
+
+	if err := s.publishProductImageAddedEvent(ctx, productID, productImage.ID, imageURL); err != nil {
+		log.Printf("[WARN] AdminService: Failed to publish image added event: %v", err)
+	}
+
+	log.Printf("[INFO] AdminService: Successfully added image %d to product %d", productImage.ID, productID)
+	return productImage, nil
+}
+
+// unsetAllMainImages unsets the is_main flag for all images of a product
+// ADDED: Helper method for AddSingleImage
+func (s *AdminService) unsetAllMainImages(ctx context.Context, productID int64) error {
+	query := `UPDATE products.product_images SET is_main = false WHERE product_id = $1`
+	// Use DB() to get underlying sqlx.DB for ExecContext
+	_, err := s.infrastructure.Database.DB().ExecContext(ctx, query, productID)
+	return err
+}
+
+// GetProductImageByID retrieves a single image by its ID
+// ADDED: New method needed for admin handler operations
+func (s *AdminService) GetProductImageByID(ctx context.Context, imageID int64) (*ProductImage, error) {
+	log.Printf("[DEBUG] AdminService: Fetching image %d", imageID)
+
+	if imageID <= 0 {
+		return nil, fmt.Errorf("image ID must be positive")
+	}
+
+	image, err := s.repo.GetProductImageByID(ctx, imageID)
+	if err != nil {
+		log.Printf("[ERROR] AdminService: Failed to get image %d: %v", imageID, err)
+		return nil, fmt.Errorf("failed to get image: %w", err)
+	}
+
+	return image, nil
+}
+
 // SetMainImage sets the main image for a product
 func (s *AdminService) SetMainImage(ctx context.Context, productID int64, imageID int64) error {
 	log.Printf("[INFO] AdminService: Setting main image %d for product %d", imageID, productID)
 
-	if err := s.repo.SetMainImage(ctx, productID, imageID); err != nil {
+	// CHANGED: Use SetMainImageFlag instead of SetMainImage (repository method renamed)
+	if err := s.repo.SetMainImageFlag(ctx, productID, imageID); err != nil {
 		log.Printf("[ERROR] AdminService: Failed to set main image: %v", err)
 		return fmt.Errorf("failed to set main image: %w", err)
 	}
@@ -360,7 +473,7 @@ func (s *AdminService) processProductImages(ctx context.Context, product *Produc
 	log.Printf("[DEBUG] AdminService: Processing %d images for product %d", len(imageURLs), product.ID)
 
 	for i, imageURL := range imageURLs {
-		if err := s.processSingleImage(ctx, product, imageURL, i, useCache, result); err != nil {
+		if err := s.processSingleImage(ctx, product, imageURL, i, useCache); err != nil {
 			log.Printf("[WARN] AdminService: Failed to process image %d for product %d: %v", i, product.ID, err)
 			result.FailedImages++
 			continue
@@ -371,7 +484,7 @@ func (s *AdminService) processProductImages(ctx context.Context, product *Produc
 	return nil
 }
 
-func (s *AdminService) processSingleImage(ctx context.Context, product *Product, imageURL string, imageIndex int, useCache bool, result *ProductIngestionResult) error {
+func (s *AdminService) processSingleImage(ctx context.Context, product *Product, imageURL string, imageIndex int, useCache bool) error {
 	var localPath string
 	var err error
 
@@ -400,11 +513,13 @@ func (s *AdminService) processSingleImage(ctx context.Context, product *Product,
 		return fmt.Errorf("failed to get image info: %w", err)
 	}
 
+	// CHANGED: ImageURL is now empty string (not stored in DB)
+	// IsMain is determined by matching against MainImageURL from CSV
 	productImage := &ProductImage{
 		ProductID:       product.ID,
-		ImageURL:        imageURL,
+		ImageURL:        "", // CHANGED: Empty string - not stored in DB
 		MinioObjectName: minioObjectName,
-		IsMain:          imageURL == product.MainImage,
+		IsMain:          imageURL == product.MainImageURL, // Match against CSV main_image column
 		ImageOrder:      imageIndex,
 		FileSize:        fileSize,
 		ContentType:     contentType,
@@ -426,14 +541,14 @@ func (s *AdminService) processSingleImage(ctx context.Context, product *Product,
 
 func (s *AdminService) convertCSVRecordToProduct(record ProductCSVRecord) (*Product, error) {
 	product := &Product{
-		Name:              record.Name,
-		Description:       record.Description,
-		InitialPrice:      record.InitialPrice,
-		FinalPrice:        record.FinalPrice,
-		Currency:          record.Currency,
-		Color:             record.Color,
-		Size:              record.Size,
-		MainImage:         record.MainImage,
+		Name:         record.Name,
+		Description:  record.Description,
+		InitialPrice: record.InitialPrice,
+		FinalPrice:   record.FinalPrice,
+		Currency:     record.Currency,
+		Color:        record.Color,
+		Size:         record.Size,
+		// REMOVED: MainImage field - now stored in MainImageURL (temporary field)
 		CountryCode:       record.CountryCode,
 		ModelNumber:       record.ModelNumber,
 		RootCategory:      record.RootCategory,
@@ -441,6 +556,7 @@ func (s *AdminService) convertCSVRecordToProduct(record ProductCSVRecord) (*Prod
 		Brand:             record.Brand,
 		AllAvailableSizes: record.AllAvailableSizes,
 		ImageURLs:         record.ImageURLs,
+		MainImageURL:      record.MainImage, // ADDED: Store main_image from CSV for IsMain determination
 	}
 
 	if record.ID != "" {

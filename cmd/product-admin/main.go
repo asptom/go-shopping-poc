@@ -112,8 +112,12 @@ func main() {
 	adminService := product.NewAdminService(repo, cfg, adminInfra)
 	log.Printf("[DEBUG] Product-Admin: Service created successfully")
 
+	log.Printf("[DEBUG] Product-Admin: Creating URL generator for presigned URLs")
+	urlGenerator := product.NewImageURLGenerator(minioStorage, cfg.MinIOBucket)
+	log.Printf("[DEBUG] Product-Admin: URL generator created successfully")
+
 	log.Printf("[DEBUG] Product-Admin: Creating admin handler")
-	adminHandler := product.NewAdminHandler(adminService)
+	adminHandler := product.NewAdminHandler(adminService, urlGenerator)
 	log.Printf("[DEBUG] Product-Admin: Handler created successfully")
 
 	log.Printf("[DEBUG] Product-Admin: Setting up HTTP router")

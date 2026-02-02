@@ -25,9 +25,10 @@ func (r *productRepository) GetProductsByCategory(ctx context.Context, category 
 		offset = 0
 	}
 
+	// UPDATED: Removed main_image from query
 	query := `
 		SELECT id, name, description, initial_price, final_price, currency, in_stock,
-			   color, size, main_image, country_code, image_count, model_number,
+			   color, size, country_code, image_count, model_number,
 			   root_category, category, brand, other_attributes, all_available_sizes,
 			   created_at, updated_at
 		FROM products.products
@@ -44,9 +45,10 @@ func (r *productRepository) GetProductsByCategory(ctx context.Context, category 
 	var products []*Product
 	for rows.Next() {
 		var product Product
+		// UPDATED: Removed &product.MainImage from Scan
 		err := rows.Scan(
 			&product.ID, &product.Name, &product.Description, &product.InitialPrice, &product.FinalPrice,
-			&product.Currency, &product.InStock, &product.Color, &product.Size, &product.MainImage,
+			&product.Currency, &product.InStock, &product.Color, &product.Size,
 			&product.CountryCode, &product.ImageCount, &product.ModelNumber, &product.RootCategory,
 			&product.Category, &product.Brand, &product.OtherAttributes, &product.AllAvailableSizes,
 			&product.CreatedAt, &product.UpdatedAt,
@@ -78,9 +80,10 @@ func (r *productRepository) GetProductsByBrand(ctx context.Context, brand string
 		offset = 0
 	}
 
+	// UPDATED: Removed main_image from query
 	query := `
 		SELECT id, name, description, initial_price, final_price, currency, in_stock,
-			   color, size, main_image, country_code, image_count, model_number,
+			   color, size, country_code, image_count, model_number,
 			   root_category, category, brand, other_attributes, all_available_sizes,
 			   created_at, updated_at
 		FROM products.products
@@ -97,9 +100,10 @@ func (r *productRepository) GetProductsByBrand(ctx context.Context, brand string
 	var products []*Product
 	for rows.Next() {
 		var product Product
+		// UPDATED: Removed &product.MainImage from Scan
 		err := rows.Scan(
 			&product.ID, &product.Name, &product.Description, &product.InitialPrice, &product.FinalPrice,
-			&product.Currency, &product.InStock, &product.Color, &product.Size, &product.MainImage,
+			&product.Currency, &product.InStock, &product.Color, &product.Size,
 			&product.CountryCode, &product.ImageCount, &product.ModelNumber, &product.RootCategory,
 			&product.Category, &product.Brand, &product.OtherAttributes, &product.AllAvailableSizes,
 			&product.CreatedAt, &product.UpdatedAt,
@@ -131,9 +135,10 @@ func (r *productRepository) SearchProducts(ctx context.Context, query string, li
 		offset = 0
 	}
 
+	// UPDATED: Removed main_image from query
 	searchQuery := `
 		SELECT id, name, description, initial_price, final_price, currency, in_stock,
-			   color, size, main_image, country_code, image_count, model_number,
+			   color, size, country_code, image_count, model_number,
 			   root_category, category, brand, other_attributes, all_available_sizes,
 			   created_at, updated_at
 		FROM products.products
@@ -151,9 +156,10 @@ func (r *productRepository) SearchProducts(ctx context.Context, query string, li
 	var products []*Product
 	for rows.Next() {
 		var product Product
+		// UPDATED: Removed &product.MainImage from Scan
 		err := rows.Scan(
 			&product.ID, &product.Name, &product.Description, &product.InitialPrice, &product.FinalPrice,
-			&product.Currency, &product.InStock, &product.Color, &product.Size, &product.MainImage,
+			&product.Currency, &product.InStock, &product.Color, &product.Size,
 			&product.CountryCode, &product.ImageCount, &product.ModelNumber, &product.RootCategory,
 			&product.Category, &product.Brand, &product.OtherAttributes, &product.AllAvailableSizes,
 			&product.CreatedAt, &product.UpdatedAt,
@@ -182,9 +188,10 @@ func (r *productRepository) GetProductsInStock(ctx context.Context, limit, offse
 		offset = 0
 	}
 
+	// UPDATED: Removed main_image from query
 	query := `
 		SELECT id, name, description, initial_price, final_price, currency, in_stock,
-			   color, size, main_image, country_code, image_count, model_number,
+			   color, size, country_code, image_count, model_number,
 			   root_category, category, brand, other_attributes, all_available_sizes,
 			   created_at, updated_at
 		FROM products.products
@@ -201,9 +208,10 @@ func (r *productRepository) GetProductsInStock(ctx context.Context, limit, offse
 	var products []*Product
 	for rows.Next() {
 		var product Product
+		// UPDATED: Removed &product.MainImage from Scan
 		err := rows.Scan(
 			&product.ID, &product.Name, &product.Description, &product.InitialPrice, &product.FinalPrice,
-			&product.Currency, &product.InStock, &product.Color, &product.Size, &product.MainImage,
+			&product.Currency, &product.InStock, &product.Color, &product.Size,
 			&product.CountryCode, &product.ImageCount, &product.ModelNumber, &product.RootCategory,
 			&product.Category, &product.Brand, &product.OtherAttributes, &product.AllAvailableSizes,
 			&product.CreatedAt, &product.UpdatedAt,
@@ -232,9 +240,10 @@ func (r *productRepository) GetAllProducts(ctx context.Context, limit, offset in
 		offset = 0
 	}
 
+	// UPDATED: Removed main_image from query
 	query := `
 		SELECT id, name, description, initial_price, final_price, currency, in_stock,
-			   color, size, main_image, country_code, image_count, model_number,
+			   color, size, country_code, image_count, model_number,
 			   root_category, category, brand, other_attributes, all_available_sizes,
 			   created_at, updated_at
 		FROM products.products
@@ -250,9 +259,10 @@ func (r *productRepository) GetAllProducts(ctx context.Context, limit, offset in
 	var products []*Product
 	for rows.Next() {
 		var product Product
+		// UPDATED: Removed &product.MainImage from Scan
 		err := rows.Scan(
 			&product.ID, &product.Name, &product.Description, &product.InitialPrice, &product.FinalPrice,
-			&product.Currency, &product.InStock, &product.Color, &product.Size, &product.MainImage,
+			&product.Currency, &product.InStock, &product.Color, &product.Size,
 			&product.CountryCode, &product.ImageCount, &product.ModelNumber, &product.RootCategory,
 			&product.Category, &product.Brand, &product.OtherAttributes, &product.AllAvailableSizes,
 			&product.CreatedAt, &product.UpdatedAt,

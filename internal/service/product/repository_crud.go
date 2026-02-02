@@ -41,17 +41,19 @@ func (r *productRepository) GetProductByID(ctx context.Context, productID int64)
 		return nil, fmt.Errorf("%w: product ID must be positive", ErrInvalidProductID)
 	}
 
+	// UPDATED: Removed main_image from SELECT
 	query := `
 		SELECT id, name, description, initial_price, final_price, currency, in_stock,
-			   color, size, main_image, country_code, image_count, model_number,
+			   color, size, country_code, image_count, model_number,
 			   root_category, category, brand, other_attributes, all_available_sizes,
 			   created_at, updated_at
 		FROM products.products WHERE id = $1`
 
 	var product Product
+	// UPDATED: Removed &product.MainImage from Scan
 	err := r.db.QueryRowContext(ctx, query, productID).Scan(
 		&product.ID, &product.Name, &product.Description, &product.InitialPrice, &product.FinalPrice,
-		&product.Currency, &product.InStock, &product.Color, &product.Size, &product.MainImage,
+		&product.Currency, &product.InStock, &product.Color, &product.Size,
 		&product.CountryCode, &product.ImageCount, &product.ModelNumber, &product.RootCategory,
 		&product.Category, &product.Brand, &product.OtherAttributes, &product.AllAvailableSizes,
 		&product.CreatedAt, &product.UpdatedAt,
@@ -87,18 +89,20 @@ func (r *productRepository) UpdateProduct(ctx context.Context, product *Product)
 
 	product.UpdatedAt = time.Now()
 
+	// UPDATED: Removed main_image from UPDATE
 	query := `
 		UPDATE products.products SET
 			name = $2, description = $3, initial_price = $4, final_price = $5,
-			currency = $6, in_stock = $7, color = $8, size = $9, main_image = $10,
-			country_code = $11, image_count = $12, model_number = $13,
-			root_category = $14, category = $15, brand = $16,
-			other_attributes = $17, all_available_sizes = $18, updated_at = $19
+			currency = $6, in_stock = $7, color = $8, size = $9,
+			country_code = $10, image_count = $11, model_number = $12,
+			root_category = $13, category = $14, brand = $15,
+			other_attributes = $16, all_available_sizes = $17, updated_at = $18
 		WHERE id = $1`
 
+	// UPDATED: Removed product.MainImage from parameters
 	result, err := r.db.ExecContext(ctx, query,
 		product.ID, product.Name, product.Description, product.InitialPrice, product.FinalPrice,
-		product.Currency, product.InStock, product.Color, product.Size, product.MainImage,
+		product.Currency, product.InStock, product.Color, product.Size,
 		product.CountryCode, product.ImageCount, product.ModelNumber, product.RootCategory,
 		product.Category, product.Brand, product.OtherAttributes, product.AllAvailableSizes,
 		product.UpdatedAt,

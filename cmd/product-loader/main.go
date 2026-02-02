@@ -138,10 +138,11 @@ func runProductLoader(ctx context.Context, cliConfig *CLIConfig) error {
 	}
 
 	minioStorage, err := minio.NewClient(&minio.Config{
-		Endpoint:  minioEndpoint,
-		AccessKey: minioCfg.AccessKey,
-		SecretKey: minioCfg.SecretKey,
-		Secure:    minioCfg.TLSVerify,
+		Endpoint:         minioEndpoint,
+		ExternalEndpoint: minioCfg.EndpointLocal, // External clients use local endpoint for presigned URLs
+		AccessKey:        minioCfg.AccessKey,
+		SecretKey:        minioCfg.SecretKey,
+		Secure:           minioCfg.TLSVerify,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create MinIO storage: %w", err)

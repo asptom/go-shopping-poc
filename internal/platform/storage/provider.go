@@ -60,12 +60,16 @@ func NewStorageProvider() (StorageProvider, error) {
 	}
 
 	// Create MinIO client configuration
+	// Endpoint: used for internal connections (Kubernetes or local)
+	// ExternalEndpoint: always EndpointLocal for presigned URLs (external clients)
 	minioCfg := &minio.Config{
-		Endpoint:  endpoint,
-		AccessKey: platformCfg.AccessKey,
-		SecretKey: platformCfg.SecretKey,
-		Secure:    platformCfg.TLSVerify,
+		Endpoint:         endpoint,
+		ExternalEndpoint: platformCfg.EndpointLocal, // External clients use local endpoint
+		AccessKey:        platformCfg.AccessKey,
+		SecretKey:        platformCfg.SecretKey,
+		Secure:           platformCfg.TLSVerify,
 	}
+	log.Printf("[DEBUG] StorageProvider: External endpoint for presigned URLs: %s", platformCfg.EndpointLocal)
 
 	// Create MinIO client
 	storageClient, err := minio.NewClient(minioCfg)

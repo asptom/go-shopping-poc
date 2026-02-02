@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"net/url"
 	"path/filepath"
 	"strings"
@@ -21,13 +22,14 @@ type Client struct {
 
 // Config holds MinIO client configuration
 type Config struct {
-	Endpoint     string
-	AccessKey    string
-	SecretKey    string
-	SessionToken string
-	Secure       bool
-	Region       string
-	MaxRetries   int
+	Endpoint         string // Internal endpoint for MinIO connections
+	ExternalEndpoint string // External endpoint for presigned URLs (optional, falls back to Endpoint if empty)
+	AccessKey        string
+	SecretKey        string
+	SessionToken     string
+	Secure           bool
+	Region           string
+	MaxRetries       int
 }
 
 // NewClient creates a new MinIO client
@@ -297,9 +299,6 @@ func (c *Client) PresignedGetObject(ctx context.Context, bucketName, objectName 
 	if objectName == "" {
 		return "", fmt.Errorf("object name cannot be empty")
 	}
-	if objectName == "" {
-		return "", fmt.Errorf("object name cannot be empty")
-	}
 	if expirySeconds <= 0 {
 		expirySeconds = 3600 // Default 1 hour
 	}
@@ -310,7 +309,13 @@ func (c *Client) PresignedGetObject(ctx context.Context, bucketName, objectName 
 		return "", fmt.Errorf("failed to generate presigned GET URL for %s/%s: %w", bucketName, objectName, err)
 	}
 
-	return presignedURL.String(), nil
+	originalURL := presignedURL.String()
+	log.Printf("[DEBUG] MinIO: Generated presigned URL (before endpoint replacement): %s", originalURL)
+
+	// Use external endpoint for presigned URLs if configured
+	result := c.replaceEndpointIfConfigured(originalURL)
+	log.Printf("[DEBUG] MinIO: Final presigned URL (after endpoint replacement): %s", result)
+	return result, nil
 }
 
 // PresignedPutObject generates a presigned PUT URL for an object
@@ -330,7 +335,45 @@ func (c *Client) PresignedPutObject(ctx context.Context, bucketName, objectName 
 		return "", fmt.Errorf("failed to generate presigned PUT URL for %s/%s: %w", bucketName, objectName, err)
 	}
 
-	return presignedURL.String(), nil
+	// Use external endpoint for presigned URLs if configured
+	return c.replaceEndpointIfConfigured(presignedURL.String()), nil
+}
+
+// replaceEndpointIfConfigured replaces the internal endpoint with external endpoint in URLs
+// This is used for presigned URLs so external clients can access them
+func (c *Client) replaceEndpointIfConfigured(urlStr string) string {
+	if c.config.ExternalEndpoint == "" {
+		log.Printf("[DEBUG] MinIO: ExternalEndpoint not configured, using original URL: %s", urlStr)
+		return urlStr
+	}
+
+	// Parse the generated URL
+	parsedURL, err := url.Parse(urlStr)
+	if err != nil {
+		log.Printf("[WARN] MinIO: Failed to parse generated URL '%s': %v", urlStr, err)
+		return urlStr
+	}
+
+	// Parse the external endpoint
+	externalEndpoint := c.config.ExternalEndpoint
+	// Ensure the external endpoint has a scheme for proper parsing
+	if !strings.HasPrefix(externalEndpoint, "http://") && !strings.HasPrefix(externalEndpoint, "https://") {
+		externalEndpoint = "http://" + externalEndpoint
+	}
+
+	externalURL, err := url.Parse(externalEndpoint)
+	if err != nil {
+		log.Printf("[WARN] MinIO: Failed to parse external endpoint '%s': %v", externalEndpoint, err)
+		return urlStr
+	}
+
+	// Replace scheme and host with external endpoint
+	parsedURL.Scheme = externalURL.Scheme
+	parsedURL.Host = externalURL.Host
+
+	result := parsedURL.String()
+	log.Printf("[DEBUG] MinIO: Replaced endpoint in URL. Original: %s, External: %s, Result: %s", urlStr, externalEndpoint, result)
+	return result
 }
 
 // convertPutOptions converts our PutObjectOptions to minio.PutObjectOptions
