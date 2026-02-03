@@ -119,19 +119,18 @@ func (c *PostgreSQLClient) Ping(ctx context.Context) error {
 }
 
 // Query executes a query that returns rows
+// NOTE: Uses parent context directly (no timeout wrapper) because returned rows
+// need the context to remain valid during iteration. The underlying pgx driver
+// has its own connection timeouts for the initial query execution.
 func (c *PostgreSQLClient) Query(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
 	if c.db == nil {
 		return nil, fmt.Errorf("database connection not established")
 	}
 
-	// Create context with timeout
-	queryCtx, cancel := context.WithTimeout(ctx, c.connConfig.QueryTimeout)
-	defer cancel()
-
 	//log.Printf("[DEBUG] Database: Executing query: %s", query)
 
 	start := time.Now()
-	rows, err := c.db.QueryContext(queryCtx, query, args...)
+	rows, err := c.db.QueryContext(ctx, query, args...)
 	latency := time.Since(start)
 
 	if err != nil {
