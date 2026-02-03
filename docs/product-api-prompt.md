@@ -45,7 +45,7 @@ All endpoints return product objects with the following structure:
     {
       "id": 1,
       "product_id": 1,
-      "image_url": "https://minio.example.com/productimages/products/1/image_0.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...",
+      "image_url": "",
       "minio_object_name": "products/1/image_0.jpg",
       "is_main": true,
       "image_order": 0,
@@ -80,14 +80,14 @@ All endpoints return product objects with the following structure:
 | `all_available_sizes` | string | JSON string array of available sizes |
 | `created_at` | datetime | Product creation timestamp |
 | `updated_at` | datetime | Last update timestamp |
-| `images` | array | Product images array with presigned URLs (1-hour expiry) |
+| `images` | array | Product images array. The `image_url` field is empty - use the direct image endpoint to fetch images |
 
 ### Frontend Integration Notes
 
 - **Price Display**: Show `final_price` as current price. If `final_price < initial_price`, display both prices to show discount
 - **Discount Calculation**: Use formula `((initial_price - final_price) / initial_price) * 100` to calculate discount percentage
 - **Availability**: Use `in_stock` flag to show/hide "Add to Cart" or "Out of Stock" status
-- **Images**: Use the `images` array. Find the image with `is_main: true` for the primary display. All image URLs are presigned Minio URLs with 1-hour expiry
+- **Images**: Use the `images` array. Find the image with `is_main: true` for the primary display. The `image_url` field is empty - construct direct image URLs using the endpoint pattern: `/api/v1/products/{productId}/images/{imageName}`
 - **Search**: Product search is case-insensitive full-text search across name, description, and other fields
 
 ---
@@ -141,7 +141,7 @@ GET /api/v1/products?limit=20&offset=0
         {
           "id": 1,
           "product_id": 1,
-          "image_url": "https://minio.example.com/productimages/products/1/image_0.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...",
+          "image_url": "",
           "minio_object_name": "products/1/image_0.jpg",
           "is_main": true,
           "image_order": 0,
@@ -175,7 +175,7 @@ GET /api/v1/products?limit=20&offset=0
         {
           "id": 2,
           "product_id": 2,
-          "image_url": "https://minio.example.com/productimages/products/2/image_0.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...",
+          "image_url": "",
           "minio_object_name": "products/2/image_0.jpg",
           "is_main": true,
           "image_order": 0,
@@ -240,7 +240,7 @@ GET /api/v1/products/1
     {
       "id": 1,
       "product_id": 1,
-      "image_url": "https://minio.example.com/productimages/products/1/image_0.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...",
+      "image_url": "",
       "minio_object_name": "products/1/image_0.jpg",
       "is_main": true,
       "image_order": 0,
@@ -313,7 +313,7 @@ GET /api/v1/products/search?q=Chevrolet&limit=10&offset=0
         {
           "id": 2,
           "product_id": 2,
-          "image_url": "https://minio.example.com/productimages/products/2/image_0.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...",
+          "image_url": "",
           "minio_object_name": "products/2/image_0.jpg",
           "is_main": true,
           "image_order": 0,
@@ -347,7 +347,7 @@ GET /api/v1/products/search?q=Chevrolet&limit=10&offset=0
         {
           "id": 3,
           "product_id": 3,
-          "image_url": "https://minio.example.com/productimages/products/3/image_0.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...",
+          "image_url": "",
           "minio_object_name": "products/3/image_0.jpg",
           "is_main": true,
           "image_order": 0,
@@ -431,7 +431,7 @@ GET /api/v1/products/category/Car%20Electronics?limit=10&offset=0
         {
           "id": 1,
           "product_id": 1,
-          "image_url": "https://minio.example.com/productimages/products/1/image_0.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...",
+          "image_url": "",
           "minio_object_name": "products/1/image_0.jpg",
           "is_main": true,
           "image_order": 0,
@@ -465,7 +465,7 @@ GET /api/v1/products/category/Car%20Electronics?limit=10&offset=0
         {
           "id": 4,
           "product_id": 4,
-          "image_url": "https://minio.example.com/productimages/products/4/image_0.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...",
+          "image_url": "",
           "minio_object_name": "products/4/image_0.jpg",
           "is_main": true,
           "image_order": 0,
@@ -549,7 +549,7 @@ GET /api/v1/products/brand/Junsun?limit=20&offset=0
         {
           "id": 1,
           "product_id": 1,
-          "image_url": "https://minio.example.com/productimages/products/1/image_0.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...",
+          "image_url": "",
           "minio_object_name": "products/1/image_0.jpg",
           "is_main": true,
           "image_order": 0,
@@ -583,7 +583,7 @@ GET /api/v1/products/brand/Junsun?limit=20&offset=0
         {
           "id": 5,
           "product_id": 5,
-          "image_url": "https://minio.example.com/productimages/products/5/image_0.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...",
+          "image_url": "",
           "minio_object_name": "products/5/image_0.jpg",
           "is_main": true,
           "image_order": 0,
@@ -661,7 +661,7 @@ GET /api/v1/products/in-stock?limit=15&offset=0
         {
           "id": 1,
           "product_id": 1,
-          "image_url": "https://minio.example.com/productimages/products/1/image_0.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...",
+          "image_url": "",
           "minio_object_name": "products/1/image_0.jpg",
           "is_main": true,
           "image_order": 0,
@@ -717,7 +717,7 @@ GET /api/v1/products/in-stock?limit=15&offset=0
         {
           "id": 4,
           "product_id": 4,
-          "image_url": "https://minio.example.com/productimages/products/4/image_0.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...",
+          "image_url": "",
           "minio_object_name": "products/4/image_0.jpg",
           "is_main": true,
           "image_order": 0,
@@ -742,7 +742,7 @@ GET /api/v1/products/in-stock?limit=15&offset=0
 
 **Endpoint:** `GET /api/v1/products/{id}/images`
 
-**Description:** Retrieve all images for a specific product with presigned URLs. Use this for product detail galleries or when you need to display all product images.
+**Description:** Retrieve all images for a specific product. The `image_url` field will be empty - use the direct image endpoint to fetch image data. Use this for product detail galleries or when you need to display all product images.
 
 **Path Parameters:**
 
@@ -764,7 +764,7 @@ GET /api/v1/products/1/images
     {
       "id": 1,
       "product_id": 1,
-      "image_url": "https://minio.example.com/productimages/products/1/image_0.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...",
+      "image_url": "",
       "minio_object_name": "products/1/image_0.jpg",
       "is_main": true,
       "image_order": 0,
@@ -775,7 +775,7 @@ GET /api/v1/products/1/images
     {
       "id": 2,
       "product_id": 1,
-      "image_url": "https://minio.example.com/productimages/products/1/image_1.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...",
+      "image_url": "",
       "minio_object_name": "products/1/image_1.jpg",
       "is_main": false,
       "image_order": 1,
@@ -805,7 +805,7 @@ GET /api/v1/products/1/images
 
 **Endpoint:** `GET /api/v1/products/{id}/main-image`
 
-**Description:** Retrieve only the main image (the one with `is_main: true`) for a specific product with a presigned URL. Use this for product thumbnails, cards, or when you only need the primary image.
+**Description:** Retrieve only the main image (the one with `is_main: true`) for a specific product. The `image_url` field will be empty - use the direct image endpoint to fetch image data. Use this for product thumbnails, cards, or when you only need the primary image metadata.
 
 **Path Parameters:**
 
@@ -824,7 +824,7 @@ GET /api/v1/products/1/main-image
 {
   "id": 1,
   "product_id": 1,
-  "image_url": "https://minio.example.com/productimages/products/1/image_0.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...",
+  "image_url": "",
   "minio_object_name": "products/1/image_0.jpg",
   "is_main": true,
   "image_order": 0,
@@ -955,51 +955,49 @@ The Product Catalog service is configured via the following environment variable
 
 ### Overview
 
-Product images are now stored in Minio object storage and served via **presigned URLs** with a **1-hour expiry**. This provides secure, temporary access to images without exposing the storage backend.
+Product images are stored in Minio object storage and accessed via a **direct streaming endpoint**. The `image_url` field in API responses is empty - you must construct image URLs using the direct endpoint pattern.
 
-### Key Changes from Previous Implementation
+### Key Points
 
-1. **Removed `main_image` field**: The `main_image` field has been removed from Product entities
-2. **New `images` array**: All products now include an `images` array containing `ProductImage` objects
-3. **Presigned URLs**: Image URLs in `image_url` field are presigned Minio URLs (1-hour expiry)
+1. **`image_url` field is empty**: The `image_url` field in `ProductImage` objects is no longer populated
+2. **Use direct endpoint**: Access images via `GET /api/v1/products/{id}/images/{imageName}`
+3. **`minio_object_name` provides the path**: Use this to construct the image name for the URL
 4. **Main image flag**: Use `is_main: true` to identify the primary product image
 
-### Image URL Types
+### Constructing Image URLs
 
-There are two ways to access product images:
+To display an image, construct the URL using the product ID and image name extracted from `minio_object_name`:
 
-#### 1. Presigned URLs (Recommended for most use cases)
-- **Source**: Returned in `image_url` field from all product endpoints
-- **Expiry**: 1 hour from generation
-- **Best for**: Product listings, detail pages, immediate display
-- **Pros**: Direct access, no additional requests needed
-- **Cons**: URLs expire after 1 hour (refresh by re-fetching product)
+```typescript
+// Extract image name from minio_object_name
+// Example: "products/40121298/image_0.jpg" -> "image_0.jpg"
+function getImageName(minioObjectName: string): string {
+  const parts = minioObjectName.split('/');
+  return parts[parts.length - 1];
+}
 
-#### 2. Direct Image Endpoint (Best for caching/CDN)
-- **Endpoint**: `GET /api/v1/images/{objectName}`
-- **Best for**: Heavy traffic pages, CDN integration, long-term caching
-- **Pros**: Better caching (1-hour browser cache), no URL expiry issues
-- **Cons**: Requires separate request per image
+// Construct the direct image URL
+function getImageUrl(productId: number, minioObjectName: string): string {
+  const imageName = getImageName(minioObjectName);
+  return `/api/v1/products/${productId}/images/${imageName}`;
+}
+
+// Example usage
+const imageUrl = getImageUrl(40121298, 'products/40121298/image_0.jpg');
+// Result: /api/v1/products/40121298/images/image_0.jpg
+```
 
 ### Finding the Main Image
 
 ```typescript
-// Option 1: From product.images array
+// Find main image from product.images array
 const mainImage = product.images.find(img => img.is_main);
 
-// Option 2: Using the dedicated endpoint
-const mainImage = await productService.getProductMainImage(productId);
+// Get the URL for the main image
+const mainImageUrl = mainImage 
+  ? getImageUrl(product.id, mainImage.minio_object_name)
+  : '/assets/placeholder.jpg';
 ```
-
-### Image URL Refresh Strategy
-
-Since presigned URLs expire after 1 hour, consider these strategies:
-
-1. **Short-lived pages**: For product detail pages where users spend < 1 hour, use presigned URLs directly
-2. **Long-lived pages**: For catalog pages displayed for extended periods:
-   - Use the direct image endpoint: `/api/v1/images/{objectName}`
-   - Or implement periodic refresh by re-fetching products
-3. **Image galleries**: Use presigned URLs and refresh when user navigates
 
 ### Example: Product Card Component
 
@@ -1019,7 +1017,11 @@ export class ProductCardComponent {
 
   get mainImageUrl(): string {
     const mainImage = this.product.images.find(img => img.is_main);
-    return mainImage?.image_url || '/assets/placeholder.jpg';
+    if (!mainImage) {
+      return '/assets/placeholder.jpg';
+    }
+    const imageName = mainImage.minio_object_name.split('/').pop();
+    return `/api/v1/products/${this.product.id}/images/${imageName}`;
   }
 }
 ```
@@ -1031,10 +1033,10 @@ export class ProductCardComponent {
   selector: 'app-product-gallery',
   template: `
     <div class="gallery">
-      <img [src]="selectedImage?.image_url" [alt]="product.name">
+      <img [src]="selectedImageUrl" [alt]="product.name">
       <div class="thumbnails">
         <img *ngFor="let img of product.images"
-             [src]="img.image_url"
+             [src]="getImageUrl(img)"
              [class.active]="img.id === selectedImage?.id"
              (click)="selectedImage = img"
              loading="lazy">
@@ -1049,6 +1051,30 @@ export class ProductGalleryComponent {
   ngOnInit() {
     this.selectedImage = this.product.images.find(img => img.is_main);
   }
+
+  getImageUrl(image: ProductImage): string {
+    const imageName = image.minio_object_name.split('/').pop();
+    return `/api/v1/products/${image.product_id}/images/${imageName}`;
+  }
+
+  get selectedImageUrl(): string {
+    if (!this.selectedImage) {
+      return '/assets/placeholder.jpg';
+    }
+    return this.getImageUrl(this.selectedImage);
+  }
+}
+```
+
+### Direct Image Endpoint
+
+For direct streaming of image bytes (useful for downloads or when you need the raw image data):
+
+```typescript
+getDirectImage(productId: number, imageName: string): Observable<Blob> {
+  return this.http.get(`${this.apiUrl}/products/${productId}/images/${imageName}`, {
+    responseType: 'blob'
+  });
 }
 ```
 
@@ -1056,7 +1082,7 @@ export class ProductGalleryComponent {
 
 ## Frontend Development Notes
 
-1. **Image Loading**: Product images are now served via Minio with presigned URLs (1-hour expiry). The `images` array contains all product images with `image_url` as presigned URLs. Use `is_main` flag to identify the primary image
+1. **Image Loading**: Product images are accessed via direct endpoint. The `images` array contains all product images. The `image_url` field is empty - construct URLs using the pattern `/api/v1/products/{productId}/images/{imageName}`. Use `is_main` flag to identify the primary image
 2. **Currency Formatting**: Products use `currency` field (default USD). Format prices appropriately
 3. **Discount Display**: Show discount badge/indicator when `final_price < initial_price`
 4. **Stock Indicators**: Use `in_stock` field to control "Add to Cart" button state
@@ -1120,12 +1146,6 @@ export class ProductService {
     return this.http.get<ProductImage>(`${this.apiUrl}/products/${productId}/main-image`);
   }
 
-  getDirectImage(productId: number, imageName: string): Observable<Blob> {
-    return this.http.get(`${this.apiUrl}/products/${productId}/images/${imageName}`, {
-      responseType: 'blob'
-    });
-  }
-
   // Helper method to find main image from product
   getMainImage(product: Product): ProductImage | undefined {
     return product.images.find(img => img.is_main);
@@ -1136,6 +1156,12 @@ export class ProductService {
   getImageName(minioObjectName: string): string {
     const parts = minioObjectName.split('/');
     return parts[parts.length - 1];
+  }
+
+  // Helper method to construct direct image URL
+  getImageUrl(productId: number, minioObjectName: string): string {
+    const imageName = this.getImageName(minioObjectName);
+    return `${this.apiUrl}/products/${productId}/images/${imageName}`;
   }
 }
 ```
@@ -1185,8 +1211,8 @@ export interface ProductImage {
 
 When developing the frontend, ensure you test:
 - All 9 endpoints with various parameter combinations
-- Image URL expiry handling (test that presigned URLs expire after 1 hour)
-- Image loading performance with presigned URLs vs direct endpoint
+- Image URL construction from `minio_object_name`
+- Direct image endpoint functionality
 - Pagination edge cases (empty results, single page, multiple pages)
 - Error conditions (invalid product ID, empty search query, missing images)
 - Performance with large result sets
