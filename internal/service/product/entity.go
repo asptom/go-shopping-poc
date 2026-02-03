@@ -191,7 +191,6 @@ func (p *Product) SetOtherAttributesJSON(data interface{}) error {
 type ProductImage struct {
 	ID              int64     `json:"id" db:"id"`
 	ProductID       int64     `json:"product_id" db:"product_id"`
-	ImageURL        string    `json:"image_url" db:"image_url"`
 	MinioObjectName string    `json:"minio_object_name" db:"minio_object_name"`
 	IsMain          bool      `json:"is_main" db:"is_main"`
 	ImageOrder      int       `json:"image_order" db:"image_order"`
@@ -206,18 +205,12 @@ func (pi *ProductImage) Validate() error {
 		return errors.New("product ID is required and must be positive")
 	}
 
-	// CHANGED: Require MinioObjectName instead of ImageURL
 	if strings.TrimSpace(pi.MinioObjectName) == "" {
 		return errors.New("minio object name is required")
 	}
 
 	if len(pi.MinioObjectName) > 500 {
 		return errors.New("MinIO object name must be 500 characters or less")
-	}
-
-	// ImageURL is now optional (transient field) - only validate length if provided
-	if pi.ImageURL != "" && len(pi.ImageURL) > 2000 {
-		return errors.New("image URL must be 2000 characters or less")
 	}
 
 	if pi.ImageOrder < 0 {

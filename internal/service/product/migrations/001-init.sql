@@ -39,14 +39,13 @@ CREATE TABLE products.Products (
 CREATE TABLE products.Product_images (
     id SERIAL PRIMARY KEY,
     product_id BIGINT REFERENCES products.Products(id) ON DELETE CASCADE,
-    image_url TEXT,  -- Now optional - presigned URLs generated at handler layer
     minio_object_name VARCHAR(500) NOT NULL,  -- Required for Minio-only storage
     is_main BOOLEAN DEFAULT false,
     image_order INTEGER DEFAULT 0,
     file_size BIGINT,
     content_type VARCHAR(100),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(product_id, minio_object_name)  -- Changed from image_url to minio_object_name
+    UNIQUE(product_id, minio_object_name)
 );
 
 -- Performance indexes

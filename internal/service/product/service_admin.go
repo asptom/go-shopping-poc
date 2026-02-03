@@ -166,7 +166,7 @@ func (s *AdminService) AddProductImage(ctx context.Context, image *ProductImage)
 		return fmt.Errorf("failed to add image: %w", err)
 	}
 
-	if err := s.publishProductImageAddedEvent(ctx, image.ProductID, image.ID, image.ImageURL); err != nil {
+	if err := s.publishProductImageAddedEvent(ctx, image.ProductID, image.ID); err != nil {
 		log.Printf("[WARN] AdminService: Failed to publish image added event: %v", err)
 	}
 
@@ -274,7 +274,6 @@ func (s *AdminService) AddSingleImage(ctx context.Context, productID int64, imag
 	// Create image record
 	productImage := &ProductImage{
 		ProductID:       productID,
-		ImageURL:        "", // Not stored
 		MinioObjectName: minioObjectName,
 		IsMain:          isMain,
 		ImageOrder:      imageOrder,
@@ -286,7 +285,7 @@ func (s *AdminService) AddSingleImage(ctx context.Context, productID int64, imag
 		return nil, fmt.Errorf("failed to add product image: %w", err)
 	}
 
-	if err := s.publishProductImageAddedEvent(ctx, productID, productImage.ID, imageURL); err != nil {
+	if err := s.publishProductImageAddedEvent(ctx, productID, productImage.ID); err != nil {
 		log.Printf("[WARN] AdminService: Failed to publish image added event: %v", err)
 	}
 
@@ -513,11 +512,9 @@ func (s *AdminService) processSingleImage(ctx context.Context, product *Product,
 		return fmt.Errorf("failed to get image info: %w", err)
 	}
 
-	// CHANGED: ImageURL is now empty string (not stored in DB)
 	// IsMain is determined by matching against MainImageURL from CSV
 	productImage := &ProductImage{
 		ProductID:       product.ID,
-		ImageURL:        "", // CHANGED: Empty string - not stored in DB
 		MinioObjectName: minioObjectName,
 		IsMain:          imageURL == product.MainImageURL, // Match against CSV main_image column
 		ImageOrder:      imageIndex,
@@ -531,7 +528,7 @@ func (s *AdminService) processSingleImage(ctx context.Context, product *Product,
 		}
 	}
 
-	if err := s.publishProductImageAddedEvent(ctx, product.ID, productImage.ID, imageURL); err != nil {
+	if err := s.publishProductImageAddedEvent(ctx, product.ID, productImage.ID); err != nil {
 		log.Printf("[WARN] AdminService: Failed to publish image added event: %v", err)
 	}
 
@@ -715,10 +712,8 @@ func (s *AdminService) publishProductDeletedEvent(ctx context.Context, product *
 	return s.publishEvent(ctx, event)
 }
 
-func (s *AdminService) publishProductImageAddedEvent(ctx context.Context, productID int64, imageID int64, imageURL string) error {
-	event := events.NewProductImageAddedEvent(fmt.Sprintf("%d", productID), fmt.Sprintf("%d", imageID), map[string]string{
-		"image_url": imageURL,
-	})
+func (s *AdminService) publishProductImageAddedEvent(ctx context.Context, productID int64, imageID int64) error {
+	event := events.NewProductImageAddedEvent(fmt.Sprintf("%d", productID), fmt.Sprintf("%d", imageID), map[string]string{})
 	return s.publishEvent(ctx, event)
 }
 
