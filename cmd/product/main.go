@@ -83,26 +83,19 @@ func main() {
 		log.Printf("[DEBUG] Product: Using local MinIO endpoint: %s", minioEndpoint)
 	}
 
-	log.Printf("[DEBUG] Product: EndpointLocal config value: '%s'", minioCfg.EndpointLocal)
-	log.Printf("[DEBUG] Product: EndpointKubernetes config value: '%s'", minioCfg.EndpointKubernetes)
 	minioStorage, err := minio.NewClient(&minio.Config{
-		Endpoint:         minioEndpoint,
-		ExternalEndpoint: minioCfg.EndpointLocal, // External clients use local endpoint for presigned URLs
-		AccessKey:        minioCfg.AccessKey,
-		SecretKey:        minioCfg.SecretKey,
-		Secure:           minioCfg.TLSVerify,
+		Endpoint:  minioEndpoint,
+		AccessKey: minioCfg.AccessKey,
+		SecretKey: minioCfg.SecretKey,
+		Secure:    minioCfg.TLSVerify,
 	})
 	if err != nil {
 		log.Fatalf("Product: Failed to create MinIO storage: %v", err)
 	}
 	log.Printf("[DEBUG] Product: MinIO storage initialized")
 
-	log.Printf("[DEBUG] Product: Creating URL generator for presigned URLs")
-	urlGenerator := product.NewImageURLGenerator(minioStorage, cfg.MinIOBucket)
-	log.Printf("[DEBUG] Product: URL generator created successfully")
-
 	log.Printf("[DEBUG] Product: Creating catalog handler")
-	catalogHandler := product.NewCatalogHandler(catalogService, urlGenerator)
+	catalogHandler := product.NewCatalogHandler(catalogService, minioStorage, cfg.MinIOBucket)
 	log.Printf("[DEBUG] Product: Handler created successfully")
 
 	log.Printf("[DEBUG] Product: Setting up HTTP router")
@@ -130,7 +123,6 @@ func main() {
 	productRouter.Get("/products/category/{category}", catalogHandler.GetProductsByCategory)
 	productRouter.Get("/products/brand/{brand}", catalogHandler.GetProductsByBrand)
 	productRouter.Get("/products/in-stock", catalogHandler.GetProductsInStock)
-	// ADDED: New image endpoints for Phase 6
 	productRouter.Get("/products/{id}/images", catalogHandler.GetProductImages)
 	productRouter.Get("/products/{id}/main-image", catalogHandler.GetProductMainImage)
 	// Direct image access: /api/v1/products/{id}/images/{imageName:.+}

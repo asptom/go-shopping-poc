@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"go-shopping-poc/internal/platform/errors"
+	"go-shopping-poc/internal/platform/storage/minio"
 )
 
 // CatalogHandler handles HTTP requests for product catalog (read-only) operations.
@@ -19,15 +20,17 @@ import (
 // CatalogHandler provides RESTful API endpoints for product browsing,
 // including list, search, and filter operations.
 type CatalogHandler struct {
-	service      *CatalogService
-	urlGenerator *ImageURLGenerator
+	service       *CatalogService
+	objectStorage minio.ObjectStorage
+	bucket        string
 }
 
 // NewCatalogHandler creates a new catalog handler instance.
-func NewCatalogHandler(service *CatalogService, urlGenerator *ImageURLGenerator) *CatalogHandler {
+func NewCatalogHandler(service *CatalogService, objectStorage minio.ObjectStorage, bucket string) *CatalogHandler {
 	return &CatalogHandler{
-		service:      service,
-		urlGenerator: urlGenerator,
+		service:       service,
+		objectStorage: objectStorage,
+		bucket:        bucket,
 	}
 }
 
@@ -40,9 +43,6 @@ func (h *CatalogHandler) GetAllProducts(w http.ResponseWriter, r *http.Request) 
 		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to retrieve products")
 		return
 	}
-
-	// ENRICH: Generate presigned URLs for all product images
-	h.urlGenerator.EnrichProductsWithImageURLs(r.Context(), products)
 
 	response := map[string]interface{}{
 		"products": products,
@@ -88,9 +88,6 @@ func (h *CatalogHandler) GetProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// ENRICH: Generate presigned URLs for product images
-	h.urlGenerator.EnrichProductWithImageURLs(r.Context(), product)
-
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(product); err != nil {
 		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to encode response")
@@ -113,9 +110,6 @@ func (h *CatalogHandler) GetProductsByCategory(w http.ResponseWriter, r *http.Re
 		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to retrieve products by category")
 		return
 	}
-
-	// ENRICH: Generate presigned URLs for all product images
-	h.urlGenerator.EnrichProductsWithImageURLs(r.Context(), products)
 
 	response := map[string]interface{}{
 		"products": products,
@@ -148,9 +142,6 @@ func (h *CatalogHandler) GetProductsByBrand(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// ENRICH: Generate presigned URLs for all product images
-	h.urlGenerator.EnrichProductsWithImageURLs(r.Context(), products)
-
 	response := map[string]interface{}{
 		"products": products,
 		"brand":    brand,
@@ -182,9 +173,6 @@ func (h *CatalogHandler) SearchProducts(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// ENRICH: Generate presigned URLs for all product images
-	h.urlGenerator.EnrichProductsWithImageURLs(r.Context(), products)
-
 	response := map[string]interface{}{
 		"products": products,
 		"query":    query,
@@ -210,9 +198,6 @@ func (h *CatalogHandler) GetProductsInStock(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// ENRICH: Generate presigned URLs for all product images
-	h.urlGenerator.EnrichProductsWithImageURLs(r.Context(), products)
-
 	response := map[string]interface{}{
 		"products": products,
 		"limit":    limit,
@@ -227,7 +212,7 @@ func (h *CatalogHandler) GetProductsInStock(w http.ResponseWriter, r *http.Reque
 	}
 }
 
-// GetProductImages handles GET /api/v1/products/{id}/images - lists all images with presigned URLs
+// GetProductImages handles GET /api/v1/products/{id}/images - lists all images
 func (h *CatalogHandler) GetProductImages(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
 	if idStr == "" {
@@ -263,16 +248,6 @@ func (h *CatalogHandler) GetProductImages(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// ENRICH: Generate presigned URLs
-	for i := range product.Images {
-		url, err := h.urlGenerator.GenerateImageURL(r.Context(), product.Images[i].MinioObjectName)
-		if err != nil {
-			log.Printf("[WARN] Failed to generate URL for image %d: %v", product.Images[i].ID, err)
-			continue
-		}
-		product.Images[i].ImageURL = url
-	}
-
 	response := map[string]interface{}{
 		"product_id": productID,
 		"images":     product.Images,
@@ -286,7 +261,7 @@ func (h *CatalogHandler) GetProductImages(w http.ResponseWriter, r *http.Request
 	}
 }
 
-// GetProductMainImage handles GET /api/v1/products/{id}/main-image - returns main image with presigned URL
+// GetProductMainImage handles GET /api/v1/products/{id}/main-image - returns main image
 func (h *CatalogHandler) GetProductMainImage(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
 	if idStr == "" {
@@ -331,15 +306,6 @@ func (h *CatalogHandler) GetProductMainImage(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// ENRICH: Generate presigned URL
-	url, err := h.urlGenerator.GenerateImageURL(r.Context(), mainImage.MinioObjectName)
-	if err != nil {
-		log.Printf("[ERROR] Failed to generate image URL for main image: %v", mainImage.MinioObjectName)
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to generate image URL")
-		return
-	}
-	mainImage.ImageURL = url
-
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(mainImage); err != nil {
 		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to encode response")
@@ -383,10 +349,10 @@ func (h *CatalogHandler) GetDirectImage(w http.ResponseWriter, r *http.Request) 
 	log.Printf("[DEBUG] GetDirectImage: Constructed objectName: '%s'", objectName)
 
 	// Log bucket and object details
-	log.Printf("[DEBUG] GetDirectImage: Attempting to get object from bucket '%s', objectName: '%s'", h.urlGenerator.bucket, objectName)
+	log.Printf("[DEBUG] GetDirectImage: Attempting to get object from bucket '%s', objectName: '%s'", h.bucket, objectName)
 
 	// Get object from Minio
-	object, err := h.urlGenerator.objectStorage.GetObject(r.Context(), h.urlGenerator.bucket, objectName)
+	object, err := h.objectStorage.GetObject(r.Context(), h.bucket, objectName)
 	if err != nil {
 		log.Printf("[ERROR] GetDirectImage: Failed to get object from Minio: %v", err)
 		errors.SendError(w, http.StatusNotFound, errors.ErrorTypeNotFound, "Image not found")
@@ -395,7 +361,7 @@ func (h *CatalogHandler) GetDirectImage(w http.ResponseWriter, r *http.Request) 
 	defer object.Close()
 
 	// Get object info for Content-Type
-	info, err := h.urlGenerator.objectStorage.StatObject(r.Context(), h.urlGenerator.bucket, objectName)
+	info, err := h.objectStorage.StatObject(r.Context(), h.bucket, objectName)
 	if err == nil && info.ContentType != "" {
 		w.Header().Set("Content-Type", info.ContentType)
 	} else {

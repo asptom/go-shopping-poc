@@ -16,15 +16,13 @@ import (
 // including create, update, delete, and image management.
 // Authentication will be added in Phase 6.
 type AdminHandler struct {
-	service      *AdminService
-	urlGenerator *ImageURLGenerator
+	service *AdminService
 }
 
 // NewAdminHandler creates a new admin handler instance.
-func NewAdminHandler(service *AdminService, urlGenerator *ImageURLGenerator) *AdminHandler {
+func NewAdminHandler(service *AdminService) *AdminHandler {
 	return &AdminHandler{
-		service:      service,
-		urlGenerator: urlGenerator,
+		service: service,
 	}
 }
 
@@ -50,9 +48,6 @@ func (h *AdminHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to create product")
 		return
 	}
-
-	// ENRICH: Generate presigned URLs (product may have no images yet)
-	h.urlGenerator.EnrichProductWithImageURLs(r.Context(), &product)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -103,9 +98,6 @@ func (h *AdminHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to update product")
 		return
 	}
-
-	// ENRICH: Generate presigned URLs for response
-	h.urlGenerator.EnrichProductWithImageURLs(r.Context(), &product)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -178,10 +170,6 @@ func (h *AdminHandler) AddProductImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// ENRICH: Generate presigned URL for response
-	url, _ := h.urlGenerator.GenerateImageURL(r.Context(), image.MinioObjectName)
-	image.ImageURL = url
-
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	if err := json.NewEncoder(w).Encode(image); err != nil {
@@ -236,10 +224,6 @@ func (h *AdminHandler) UpdateProductImage(w http.ResponseWriter, r *http.Request
 		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to update product image")
 		return
 	}
-
-	// ENRICH: Generate presigned URL for response
-	url, _ := h.urlGenerator.GenerateImageURL(r.Context(), image.MinioObjectName)
-	image.ImageURL = url
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -302,23 +286,7 @@ func (h *AdminHandler) SetMainImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get the updated image to return with presigned URL
-	image, err := h.service.GetProductImageByID(r.Context(), imageID)
-	if err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to retrieve updated image")
-		return
-	}
-
-	// ENRICH: Generate presigned URL for response
-	url, _ := h.urlGenerator.GenerateImageURL(r.Context(), image.MinioObjectName)
-	image.ImageURL = url
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(image); err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to encode response")
-		return
-	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // IngestProducts handles POST /api/v1/admin/products/ingest - ingests products from CSV
