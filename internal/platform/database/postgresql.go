@@ -143,18 +143,17 @@ func (c *PostgreSQLClient) Query(ctx context.Context, query string, args ...inte
 }
 
 // QueryRow executes a query that returns at most one row
+// NOTE: Uses parent context directly (no timeout wrapper) because the returned
+// *sql.Row needs the context to remain valid when .Scan() is called later.
+// The underlying pgx driver has its own connection timeouts.
 func (c *PostgreSQLClient) QueryRow(ctx context.Context, query string, args ...interface{}) *sql.Row {
 	if c.db == nil {
 		return nil
 	}
 
-	// Create context with timeout
-	queryCtx, cancel := context.WithTimeout(ctx, c.connConfig.QueryTimeout)
-	defer cancel()
-
 	//log.Printf("[DEBUG] Database: Executing query row: %s", query)
 
-	return c.db.QueryRowContext(queryCtx, query, args...)
+	return c.db.QueryRowContext(ctx, query, args...)
 }
 
 // Exec executes a query without returning rows

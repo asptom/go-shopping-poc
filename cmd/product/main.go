@@ -55,16 +55,12 @@ func main() {
 	log.Printf("[DEBUG] Product: Creating outbox writer provider")
 	writerProvider := providers.NewWriterProvider(platformDB)
 
-	log.Printf("[DEBUG] Product: Creating product repository")
-	repo := product.NewProductRepository(platformDB.DB())
-	log.Printf("[DEBUG] Product: Repository created successfully")
-
 	log.Printf("[DEBUG] Product: Creating catalog service")
 	catalogInfra := &product.CatalogInfrastructure{
 		Database:     platformDB,
 		OutboxWriter: writerProvider.GetWriter(),
 	}
-	catalogService := product.NewCatalogService(repo, catalogInfra, cfg)
+	catalogService := product.NewCatalogService(catalogInfra, cfg)
 	log.Printf("[DEBUG] Product: Service created successfully")
 
 	log.Printf("[DEBUG] Product: Loading MinIO configuration")

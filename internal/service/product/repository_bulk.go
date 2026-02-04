@@ -18,7 +18,7 @@ func (r *productRepository) BulkInsertProducts(ctx context.Context, products []*
 		return nil
 	}
 
-	tx, err := r.db.BeginTxx(ctx, nil)
+	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("%w: failed to begin transaction: %v", ErrTransactionFailed, err)
 	}
@@ -56,7 +56,7 @@ func (r *productRepository) BulkInsertProductImages(ctx context.Context, images 
 		return nil
 	}
 
-	tx, err := r.db.BeginTxx(ctx, nil)
+	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("%w: failed to begin transaction: %v", ErrTransactionFailed, err)
 	}

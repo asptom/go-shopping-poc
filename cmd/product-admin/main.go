@@ -98,9 +98,9 @@ func main() {
 	log.Printf("[DEBUG] Product-Admin: Creating Keycloak validator")
 	keycloakValidator := auth.NewKeycloakValidator(cfg.KeycloakIssuer, cfg.KeycloakJWKSURL)
 
-	log.Printf("[DEBUG] Product-Admin: Creating product repository")
-	repo := product.NewProductRepository(platformDB.DB())
-	log.Printf("[DEBUG] Product-Admin: Repository created successfully")
+	// log.Printf("[DEBUG] Product-Admin: Creating product repository")
+	// repo := product.NewProductRepository(platformDB.DB())
+	// log.Printf("[DEBUG] Product-Admin: Repository created successfully")
 
 	log.Printf("[DEBUG] Product-Admin: Creating admin service")
 	adminInfra := &product.AdminInfrastructure{
@@ -109,7 +109,7 @@ func main() {
 		OutboxWriter:   outboxWriter,
 		HTTPDownloader: httpDownloader,
 	}
-	adminService := product.NewAdminService(repo, cfg, adminInfra)
+	adminService := product.NewAdminService(cfg, adminInfra)
 	log.Printf("[DEBUG] Product-Admin: Service created successfully")
 
 	log.Printf("[DEBUG] Product-Admin: Creating admin handler")

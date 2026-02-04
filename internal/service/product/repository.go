@@ -17,7 +17,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/jmoiron/sqlx"
+	"go-shopping-poc/internal/platform/database"
+	"go-shopping-poc/internal/platform/outbox"
 )
 
 var (
@@ -27,6 +28,7 @@ var (
 	ErrDatabaseOperation    = errors.New("database operation failed")
 	ErrTransactionFailed    = errors.New("transaction failed")
 	ErrDuplicateImage       = errors.New("duplicate image URL for product")
+	ErrEventWriteFailed     = errors.New("failed to write event to outbox")
 )
 
 type ProductRepository interface {
@@ -35,6 +37,7 @@ type ProductRepository interface {
 	UpdateProduct(ctx context.Context, product *Product) error
 	DeleteProduct(ctx context.Context, productID int64) error
 
+	ProductExists(ctx context.Context, productID int64) (bool, error)
 	GetProductsByCategory(ctx context.Context, category string, limit, offset int) ([]*Product, error)
 	GetProductsByBrand(ctx context.Context, brand string, limit, offset int) ([]*Product, error)
 	SearchProducts(ctx context.Context, query string, limit, offset int) ([]*Product, error)
@@ -43,10 +46,9 @@ type ProductRepository interface {
 
 	AddProductImage(ctx context.Context, image *ProductImage) error
 	UpdateProductImage(ctx context.Context, image *ProductImage) error
-	DeleteProductImage(ctx context.Context, imageID int64) error
+	DeleteProductImage(ctx context.Context, image *ProductImage) error
 	GetProductImages(ctx context.Context, productID int64) ([]ProductImage, error)
 	GetProductImageByID(ctx context.Context, imageID int64) (*ProductImage, error)
-	// UPDATED: SetMainImage renamed to SetMainImageFlag - no longer updates products table
 	SetMainImageFlag(ctx context.Context, productID int64, imageID int64) error
 
 	BulkInsertProducts(ctx context.Context, products []*Product) error
@@ -54,9 +56,10 @@ type ProductRepository interface {
 }
 
 type productRepository struct {
-	db *sqlx.DB
+	db           database.Database
+	outboxWriter *outbox.Writer
 }
 
-func NewProductRepository(db *sqlx.DB) ProductRepository {
-	return &productRepository{db: db}
+func NewProductRepository(db database.Database, outboxWriter *outbox.Writer) ProductRepository {
+	return &productRepository{db: db, outboxWriter: outboxWriter}
 }

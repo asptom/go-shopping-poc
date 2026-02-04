@@ -21,12 +21,6 @@ import (
 // CatalogService is focused on product browsing and retrieval with
 // optional event publishing for analytics. All view events are
 // published using the outbox pattern for reliable delivery.
-type CatalogService struct {
-	*service.BaseService
-	repo           ProductRepository
-	infrastructure *CatalogInfrastructure
-	config         *Config
-}
 
 // CatalogInfrastructure defines infrastructure components for catalog service
 type CatalogInfrastructure struct {
@@ -34,8 +28,18 @@ type CatalogInfrastructure struct {
 	OutboxWriter *outbox.Writer
 }
 
+type CatalogService struct {
+	*service.BaseService
+	repo           ProductRepository
+	infrastructure *CatalogInfrastructure
+	config         *Config
+}
+
 // NewCatalogService creates a new catalog service instance.
-func NewCatalogService(repo ProductRepository, infrastructure *CatalogInfrastructure, config *Config) *CatalogService {
+func NewCatalogService(infrastructure *CatalogInfrastructure, config *Config) *CatalogService {
+
+	repo := NewProductRepository(infrastructure.Database, infrastructure.OutboxWriter)
+
 	return &CatalogService{
 		BaseService:    service.NewBaseService("product"),
 		repo:           repo,

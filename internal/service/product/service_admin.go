@@ -27,14 +27,8 @@ import (
 // AdminService is focused on product creation, updates, deletion,
 // image management, and CSV ingestion. All write operations
 // publish events using the outbox pattern for reliable delivery.
-type AdminService struct {
-	*service.BaseService
-	repo           ProductRepository
-	config         *Config
-	infrastructure *AdminInfrastructure
-}
-
 // AdminInfrastructure defines infrastructure components for admin service
+
 type AdminInfrastructure struct {
 	Database       database.Database
 	ObjectStorage  minio.ObjectStorage
@@ -42,8 +36,30 @@ type AdminInfrastructure struct {
 	HTTPDownloader downloader.HTTPDownloader
 }
 
+func NewAdminInfrastructure(
+	db database.Database,
+	storage minio.ObjectStorage,
+	writer *outbox.Writer,
+	downloader downloader.HTTPDownloader) *AdminInfrastructure {
+	return &AdminInfrastructure{
+		Database:       db,
+		ObjectStorage:  storage,
+		OutboxWriter:   writer,
+		HTTPDownloader: downloader,
+	}
+}
+
+type AdminService struct {
+	*service.BaseService
+	repo           ProductRepository
+	infrastructure *AdminInfrastructure
+	config         *Config
+}
+
 // NewAdminService creates a new admin service instance.
-func NewAdminService(repo ProductRepository, config interface{}, infrastructure *AdminInfrastructure) *AdminService {
+func NewAdminService(config interface{}, infrastructure *AdminInfrastructure) *AdminService {
+	repo := NewProductRepository(infrastructure.Database, infrastructure.OutboxWriter)
+
 	var cfg *Config
 	switch c := config.(type) {
 	case *AdminConfig:
@@ -91,10 +107,6 @@ func (s *AdminService) CreateProduct(ctx context.Context, product *Product) erro
 		return fmt.Errorf("failed to insert product: %w", err)
 	}
 
-	if err := s.publishProductCreatedEvent(ctx, product); err != nil {
-		log.Printf("[WARN] AdminService: Failed to publish product created event: %v", err)
-	}
-
 	log.Printf("[INFO] AdminService: Successfully created product %d", product.ID)
 	return nil
 }
@@ -118,10 +130,6 @@ func (s *AdminService) UpdateProduct(ctx context.Context, product *Product) erro
 		return fmt.Errorf("failed to update product: %w", err)
 	}
 
-	if err := s.publishProductUpdatedEvent(ctx, product); err != nil {
-		log.Printf("[WARN] AdminService: Failed to publish product updated event: %v", err)
-	}
-
 	log.Printf("[INFO] AdminService: Successfully updated product %d", product.ID)
 	return nil
 }
@@ -140,13 +148,9 @@ func (s *AdminService) DeleteProduct(ctx context.Context, productID int64) error
 		return fmt.Errorf("failed to get product for deletion: %w", err)
 	}
 
-	if err := s.repo.DeleteProduct(ctx, productID); err != nil {
+	if err := s.repo.DeleteProduct(ctx, product.ID); err != nil {
 		log.Printf("[ERROR] AdminService: Failed to delete product %d: %v", productID, err)
 		return fmt.Errorf("failed to delete product: %w", err)
-	}
-
-	if err := s.publishProductDeletedEvent(ctx, product); err != nil {
-		log.Printf("[WARN] AdminService: Failed to publish product deleted event: %v", err)
 	}
 
 	log.Printf("[INFO] AdminService: Successfully deleted product %d", productID)
@@ -166,10 +170,7 @@ func (s *AdminService) AddProductImage(ctx context.Context, image *ProductImage)
 		return fmt.Errorf("failed to add image: %w", err)
 	}
 
-	if err := s.publishProductImageAddedEvent(ctx, image.ProductID, image.ID); err != nil {
-		log.Printf("[WARN] AdminService: Failed to publish image added event: %v", err)
-	}
-
+	log.Printf("[INFO] AdminService: Successfully added image for product %d", image.ProductID)
 	return nil
 }
 
@@ -186,10 +187,7 @@ func (s *AdminService) UpdateProductImage(ctx context.Context, image *ProductIma
 		return fmt.Errorf("failed to update image: %w", err)
 	}
 
-	if err := s.publishProductImageUpdatedEvent(ctx, image.ProductID, image.ID); err != nil {
-		log.Printf("[WARN] AdminService: Failed to publish image updated event: %v", err)
-	}
-
+	log.Printf("[INFO] AdminService: Successfully updated image %d", image.ID)
 	return nil
 }
 
@@ -206,7 +204,7 @@ func (s *AdminService) DeleteProductImage(ctx context.Context, imageID int64) er
 	}
 
 	// Delete from database first
-	if err := s.repo.DeleteProductImage(ctx, imageID); err != nil {
+	if err := s.repo.DeleteProductImage(ctx, image); err != nil {
 		log.Printf("[ERROR] AdminService: Failed to delete image: %v", err)
 		return fmt.Errorf("failed to delete image: %w", err)
 	}
@@ -217,10 +215,6 @@ func (s *AdminService) DeleteProductImage(ctx context.Context, imageID int64) er
 			log.Printf("[WARN] AdminService: Failed to delete image from Minio: %v", err)
 			// Don't fail the operation if Minio deletion fails
 		}
-	}
-
-	if err := s.publishProductImageDeletedEvent(ctx, imageID); err != nil {
-		log.Printf("[WARN] AdminService: Failed to publish image deleted event: %v", err)
 	}
 
 	return nil
@@ -285,39 +279,8 @@ func (s *AdminService) AddSingleImage(ctx context.Context, productID int64, imag
 		return nil, fmt.Errorf("failed to add product image: %w", err)
 	}
 
-	if err := s.publishProductImageAddedEvent(ctx, productID, productImage.ID); err != nil {
-		log.Printf("[WARN] AdminService: Failed to publish image added event: %v", err)
-	}
-
 	log.Printf("[INFO] AdminService: Successfully added image %d to product %d", productImage.ID, productID)
 	return productImage, nil
-}
-
-// unsetAllMainImages unsets the is_main flag for all images of a product
-// ADDED: Helper method for AddSingleImage
-func (s *AdminService) unsetAllMainImages(ctx context.Context, productID int64) error {
-	query := `UPDATE products.product_images SET is_main = false WHERE product_id = $1`
-	// Use DB() to get underlying sqlx.DB for ExecContext
-	_, err := s.infrastructure.Database.DB().ExecContext(ctx, query, productID)
-	return err
-}
-
-// GetProductImageByID retrieves a single image by its ID
-// ADDED: New method needed for admin handler operations
-func (s *AdminService) GetProductImageByID(ctx context.Context, imageID int64) (*ProductImage, error) {
-	log.Printf("[DEBUG] AdminService: Fetching image %d", imageID)
-
-	if imageID <= 0 {
-		return nil, fmt.Errorf("image ID must be positive")
-	}
-
-	image, err := s.repo.GetProductImageByID(ctx, imageID)
-	if err != nil {
-		log.Printf("[ERROR] AdminService: Failed to get image %d: %v", imageID, err)
-		return nil, fmt.Errorf("failed to get image: %w", err)
-	}
-
-	return image, nil
 }
 
 // SetMainImage sets the main image for a product
@@ -452,8 +415,16 @@ func (s *AdminService) processProductBatch(ctx context.Context, records []Produc
 		result.ProcessedProducts += len(products)
 
 		for _, product := range products {
-			if err := s.processProductImages(ctx, product, useCache, result); err != nil {
+			if images, err := s.processProductImages(ctx, product, useCache, result); err != nil {
 				log.Printf("[WARN] AdminService: Failed to process images for product %d: %v", product.ID, err)
+			} else {
+				// If images were processed successfully, update the product with the image list
+				if s.repo != nil {
+					err := s.repo.BulkInsertProductImages(ctx, images)
+					if err != nil {
+						return fmt.Errorf("failed to bulk insert product images: %w", err)
+					}
+				}
 			}
 		}
 	}
@@ -461,29 +432,32 @@ func (s *AdminService) processProductBatch(ctx context.Context, records []Produc
 	return nil
 }
 
-func (s *AdminService) processProductImages(ctx context.Context, product *Product, useCache bool, result *ProductIngestionResult) error {
+func (s *AdminService) processProductImages(ctx context.Context, product *Product, useCache bool, result *ProductIngestionResult) ([]*ProductImage, error) {
 	if len(product.ImageURLs) == 0 {
-		return nil
+		return nil, nil
 	}
 
+	productImages := make([]*ProductImage, 0, len(product.ImageURLs))
 	imageURLs := s.filterImageURLs(product.ImageURLs)
 	result.TotalImages += len(imageURLs)
 
 	log.Printf("[DEBUG] AdminService: Processing %d images for product %d", len(imageURLs), product.ID)
 
 	for i, imageURL := range imageURLs {
-		if err := s.processSingleImage(ctx, product, imageURL, i, useCache); err != nil {
+		if productImage, err := s.processSingleImage(ctx, product, imageURL, i, useCache); err != nil {
 			log.Printf("[WARN] AdminService: Failed to process image %d for product %d: %v", i, product.ID, err)
 			result.FailedImages++
 			continue
+		} else {
+			result.SuccessfulImages++
+			productImages = append(productImages, productImage)
 		}
-		result.SuccessfulImages++
 	}
 
-	return nil
+	return productImages, nil
 }
 
-func (s *AdminService) processSingleImage(ctx context.Context, product *Product, imageURL string, imageIndex int, useCache bool) error {
+func (s *AdminService) processSingleImage(ctx context.Context, product *Product, imageURL string, imageIndex int, useCache bool) (*ProductImage, error) {
 	var localPath string
 	var err error
 
@@ -494,7 +468,7 @@ func (s *AdminService) processSingleImage(ctx context.Context, product *Product,
 		} else {
 			localPath, err = s.infrastructure.HTTPDownloader.Download(ctx, imageURL)
 			if err != nil {
-				return fmt.Errorf("failed to download image: %w", err)
+				return nil, fmt.Errorf("failed to download image: %w", err)
 			}
 			log.Printf("[DEBUG] AdminService: Downloaded image for product %d, index %d", product.ID, imageIndex)
 		}
@@ -504,12 +478,12 @@ func (s *AdminService) processSingleImage(ctx context.Context, product *Product,
 
 	minioObjectName, err := s.uploadImageToMinIO(ctx, localPath, product.ID, imageIndex)
 	if err != nil {
-		return fmt.Errorf("failed to upload image to MinIO: %w", err)
+		return nil, fmt.Errorf("failed to upload image to MinIO: %w", err)
 	}
 
 	fileSize, contentType, err := s.getImageInfo(localPath)
 	if err != nil {
-		return fmt.Errorf("failed to get image info: %w", err)
+		return nil, fmt.Errorf("failed to get image info: %w", err)
 	}
 
 	// IsMain is determined by matching against MainImageURL from CSV
@@ -522,18 +496,14 @@ func (s *AdminService) processSingleImage(ctx context.Context, product *Product,
 		ContentType:     contentType,
 	}
 
-	if s.repo != nil {
-		if err := s.repo.AddProductImage(ctx, productImage); err != nil {
-			return fmt.Errorf("failed to insert product image: %w", err)
-		}
-	}
+	//if s.repo != nil {
+	//	if err := s.repo.AddProductImage(ctx, productImage); err != nil {
+	//		return fmt.Errorf("failed to insert product image: %w", err)
+	//	}
+	//}
 
-	if err := s.publishProductImageAddedEvent(ctx, product.ID, productImage.ID); err != nil {
-		log.Printf("[WARN] AdminService: Failed to publish image added event: %v", err)
-	}
-
-	log.Printf("[DEBUG] AdminService: Successfully processed image %d for product %d", imageIndex, product.ID)
-	return nil
+	//log.Printf("[DEBUG] AdminService: Successfully processed image %d for product %d", imageIndex, product.ID)
+	return productImage, nil
 }
 
 func (s *AdminService) convertCSVRecordToProduct(record ProductCSVRecord) (*Product, error) {
@@ -685,47 +655,7 @@ func (s *AdminService) getContentTypeFromPath(path string) string {
 	}
 }
 
-// Event publishing methods
-
-func (s *AdminService) publishProductCreatedEvent(ctx context.Context, product *Product) error {
-	event := events.NewProductCreatedEvent(fmt.Sprintf("%d", product.ID), map[string]string{
-		"name":  product.Name,
-		"brand": product.Brand,
-		"price": product.FormattedPrice(),
-	})
-	return s.publishEvent(ctx, event)
-}
-
-func (s *AdminService) publishProductUpdatedEvent(ctx context.Context, product *Product) error {
-	event := events.NewProductUpdatedEvent(fmt.Sprintf("%d", product.ID), map[string]string{
-		"name":  product.Name,
-		"brand": product.Brand,
-	})
-	return s.publishEvent(ctx, event)
-}
-
-func (s *AdminService) publishProductDeletedEvent(ctx context.Context, product *Product) error {
-	event := events.NewProductDeletedEvent(fmt.Sprintf("%d", product.ID), map[string]string{
-		"name":  product.Name,
-		"brand": product.Brand,
-	})
-	return s.publishEvent(ctx, event)
-}
-
-func (s *AdminService) publishProductImageAddedEvent(ctx context.Context, productID int64, imageID int64) error {
-	event := events.NewProductImageAddedEvent(fmt.Sprintf("%d", productID), fmt.Sprintf("%d", imageID), map[string]string{})
-	return s.publishEvent(ctx, event)
-}
-
-func (s *AdminService) publishProductImageUpdatedEvent(ctx context.Context, productID int64, imageID int64) error {
-	event := events.NewProductImageUpdatedEvent(fmt.Sprintf("%d", productID), fmt.Sprintf("%d", imageID), map[string]string{})
-	return s.publishEvent(ctx, event)
-}
-
-func (s *AdminService) publishProductImageDeletedEvent(ctx context.Context, imageID int64) error {
-	event := events.NewProductImageDeletedEvent("", fmt.Sprintf("%d", imageID), map[string]string{})
-	return s.publishEvent(ctx, event)
-}
+// Non-transactional Oriduct Event publishing methods
 
 func (s *AdminService) publishIngestionStartedEvent(ctx context.Context, batchID string, req *ProductIngestionRequest) error {
 	event := events.NewProductIngestionStartedEvent(batchID, map[string]string{
@@ -779,4 +709,21 @@ func (s *AdminService) publishEvent(ctx context.Context, event events.Event) err
 	committed = true
 
 	return nil
+}
+
+// GetProductImageByID retrieves a single image by its ID
+func (s *AdminService) GetProductImageByID(ctx context.Context, imageID int64) (*ProductImage, error) {
+	log.Printf("[DEBUG] AdminService: Fetching image %d", imageID)
+
+	if imageID <= 0 {
+		return nil, fmt.Errorf("image ID must be positive")
+	}
+
+	image, err := s.repo.GetProductImageByID(ctx, imageID)
+	if err != nil {
+		log.Printf("[ERROR] AdminService: Failed to get image %d: %v", imageID, err)
+		return nil, fmt.Errorf("failed to get image: %w", err)
+	}
+
+	return image, nil
 }

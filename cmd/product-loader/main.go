@@ -154,10 +154,6 @@ func runProductLoader(ctx context.Context, cliConfig *CLIConfig) error {
 	outboxWriter := writerProvider.GetWriter()
 	log.Printf("[DEBUG] Product Loader: Outbox writer initialized")
 
-	// Create product repository
-	repo := product.NewProductRepository(platformDB.DB())
-	log.Printf("[DEBUG] Product Loader: Product repository created")
-
 	// Create admin infrastructure
 	infrastructure := &product.AdminInfrastructure{
 		Database:       platformDB,
@@ -167,7 +163,7 @@ func runProductLoader(ctx context.Context, cliConfig *CLIConfig) error {
 	}
 
 	// Create admin service
-	adminService := product.NewAdminService(repo, cfg, infrastructure)
+	adminService := product.NewAdminService(cfg, infrastructure)
 	log.Printf("[DEBUG] Product Loader: Admin service created")
 
 	// Create service wrapper for lifecycle management
