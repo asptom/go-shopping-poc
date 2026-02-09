@@ -211,6 +211,35 @@ spec:
             timeoutSeconds: 5
             failureThreshold: 3
 ---
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: product-ingress
+#   namespace: shopping
+#   labels:
+#     app.kubernetes.io/name: product-ingress
+#     app.kubernetes.io/token: v1.0
+#   annotations:
+#     traefik.ingress.kubernetes.io/router.entrypoints: websecure,web
+# spec:
+#   rules:
+#     - host: pocstore.local
+#       http:
+#         paths:
+#           - path: /api/v1/products
+#             pathType: Prefix
+#             backend:
+#               service:
+#                 name: product-svc
+#                 port:
+#                   number: 80
+#   tls:
+#     - hosts:
+#         - pocstore.local
+#       secretName: pocstorelocal-tls
+
+
+# ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -220,20 +249,29 @@ metadata:
     app.kubernetes.io/name: product-ingress
     app.kubernetes.io/token: v1.0
   annotations:
-    traefik.ingress.kubernetes.io/router.entrypoints: websecure,web
+    traefik.ingress.kubernetes.io/router.entrypoints: "websecure,web"
+    traefik.ingress.kubernetes.io/enable-rules: "true"
+    nginx.ingress.kubernetes.io/enable-cors: "true"
 spec:
   rules:
-    - host: pocstore.local
-      http:
-        paths:
-          - path: /api/v1/products
-            pathType: Prefix
-            backend:
-              service:
-                name: product-svc
-                port:
-                  number: 80
+  - host: pocstore.local
+    http:
+      paths:
+        - path: /api/v1
+          pathType: Prefix
+          backend:
+            service:
+              name: product-svc
+              port:
+                number: 80
+        - path: /api/v1/products
+          pathType: Prefix
+          backend:
+            service:
+              name: product-svc
+              port:
+                number: 80
   tls:
     - hosts:
-        - pocstore.local
+      - pocstore.local
       secretName: pocstorelocal-tls
