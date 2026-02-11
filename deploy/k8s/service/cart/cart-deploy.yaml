@@ -1,0 +1,221 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: cart-svc
+  namespace: shopping
+  labels:
+    app.kubernetes.io/name: cart-svc
+    app.kubernetes.io/version: v1.0
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: cart
+    app.kubernetes.io/version: v1.0
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8082
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: cart
+  namespace: shopping
+  labels:
+    app.kubernetes.io/name: cart
+    app.kubernetes.io/version: v1.0
+spec:
+  serviceName: cart-svc
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cart
+      app.kubernetes.io/version: v1.0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: cart
+        app.kubernetes.io/version: v1.0
+    spec:
+      containers:
+        - name: cart
+          image: localhost:5000/go-shopping-poc/cart:1.0
+          imagePullPolicy: Always
+          env:
+            # Platform config (selective)
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: platform-config
+                  key: LOG_LEVEL
+            
+            # Database Connection Pool Settings
+            - name: DATABASE_MAX_OPEN_CONNS
+              valueFrom:
+                configMapKeyRef:
+                  name: platform-config
+                  key: DATABASE_MAX_OPEN_CONNS
+            - name: DATABASE_MAX_IDLE_CONNS
+              valueFrom:
+                configMapKeyRef:
+                  name: platform-config
+                  key: DATABASE_MAX_IDLE_CONNS
+            - name: DATABASE_CONN_MAX_LIFETIME
+              valueFrom:
+                configMapKeyRef:
+                  name: platform-config
+                  key: DATABASE_CONN_MAX_LIFETIME
+            - name: DATABASE_CONN_MAX_IDLE_TIME
+              valueFrom:
+                configMapKeyRef:
+                  name: platform-config
+                  key: DATABASE_CONN_MAX_IDLE_TIME
+            - name: DATABASE_CONNECT_TIMEOUT
+              valueFrom:
+                configMapKeyRef:
+                  name: platform-config
+                  key: DATABASE_CONNECT_TIMEOUT
+            - name: DATABASE_QUERY_TIMEOUT
+              valueFrom:
+                configMapKeyRef:
+                  name: platform-config
+                  key: DATABASE_QUERY_TIMEOUT
+            - name: DATABASE_HEALTH_CHECK_INTERVAL
+              valueFrom:
+                configMapKeyRef:
+                  name: platform-config
+                  key: DATABASE_HEALTH_CHECK_INTERVAL
+            - name: DATABASE_HEALTH_CHECK_TIMEOUT
+              valueFrom:
+                configMapKeyRef:
+                  name: platform-config
+                  key: DATABASE_HEALTH_CHECK_TIMEOUT
+            
+            # Kafka Configuration
+            - name: KAFKA_BROKERS
+              valueFrom:
+                configMapKeyRef:
+                  name: platform-config
+                  key: KAFKA_BROKERS
+            
+            # Outbox Pattern Configuration
+            - name: OUTBOX_BATCH_SIZE
+              valueFrom:
+                configMapKeyRef:
+                  name: platform-config
+                  key: OUTBOX_BATCH_SIZE
+            - name: OUTBOX_PROCESS_INTERVAL
+              valueFrom:
+                configMapKeyRef:
+                  name: platform-config
+                  key: OUTBOX_PROCESS_INTERVAL
+            - name: OUTBOX_OPERATION_TIMEOUT
+              valueFrom:
+                configMapKeyRef:
+                  name: platform-config
+                  key: OUTBOX_OPERATION_TIMEOUT
+            - name: OUTBOX_MAX_RETRIES
+              valueFrom:
+                configMapKeyRef:
+                  name: platform-config
+                  key: OUTBOX_MAX_RETRIES
+            
+            # CORS Configuration
+            - name: CORS_ALLOWED_ORIGINS
+              valueFrom:
+                configMapKeyRef:
+                  name: platform-config
+                  key: CORS_ALLOWED_ORIGINS
+            - name: CORS_ALLOWED_METHODS
+              valueFrom:
+                configMapKeyRef:
+                  name: platform-config
+                  key: CORS_ALLOWED_METHODS
+            - name: CORS_ALLOWED_HEADERS
+              valueFrom:
+                configMapKeyRef:
+                  name: platform-config
+                  key: CORS_ALLOWED_HEADERS
+            - name: CORS_ALLOW_CREDENTIALS
+              valueFrom:
+                configMapKeyRef:
+                  name: platform-config
+                  key: CORS_ALLOW_CREDENTIALS
+            - name: CORS_MAX_AGE
+              valueFrom:
+                configMapKeyRef:
+                  name: platform-config
+                  key: CORS_MAX_AGE
+            
+            # Service config (selective)
+            - name: CART_SERVICE_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: cart-config
+                  key: CART_SERVICE_PORT
+            - name: CART_WRITE_TOPIC
+              valueFrom:
+                configMapKeyRef:
+                  name: cart-config
+                  key: CART_WRITE_TOPIC
+            - name: CART_READ_TOPICS
+              valueFrom:
+                configMapKeyRef:
+                  name: cart-config
+                  key: CART_READ_TOPICS
+            - name: CART_GROUP
+              valueFrom:
+                configMapKeyRef:
+                  name: cart-config
+                  key: CART_GROUP
+            - name: PRODUCT_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: cart-config
+                  key: PRODUCT_SERVICE_URL
+
+            # Database credentials from secret
+            - name: DB_URL
+              valueFrom:
+                secretKeyRef:
+                  name: cart-db-secret
+                  key: DB_URL
+          ports:
+            - containerPort: 8082
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8082
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cart-ingress
+  namespace: shopping
+  labels:
+    app.kubernetes.io/name: cart-ingress
+    app.kubernetes.io/version: v1.0
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: "websecure,web"
+    traefik.ingress.kubernetes.io/enable-rules: "true"
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+spec:
+  rules:
+  - host: pocstore.local
+    http:
+      paths:
+        - path: /api/v1/carts
+          pathType: Prefix
+          backend:
+            service:
+              name: cart-svc
+              port:
+                number: 80
+  tls:
+    - hosts:
+      - pocstore.local
+      secretName: pocstorelocal-tls

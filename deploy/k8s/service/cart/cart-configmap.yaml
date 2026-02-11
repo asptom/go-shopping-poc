@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cart-config
+  namespace: shopping
+  labels:
+    app: go-shopping-poc
+    component: cart
+data:
+  CART_SERVICE_PORT: ":8082"
+  CART_WRITE_TOPIC: "CartEvents"
+  CART_READ_TOPICS: "OrderEvents"
+  CART_GROUP: "CartGroup"
+  PRODUCT_SERVICE_URL: "http://product-svc.shopping.svc.cluster.local:80"

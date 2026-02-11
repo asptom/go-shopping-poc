@@ -252,6 +252,16 @@ func (t *PostgreSQLTx) NamedExecContext(ctx context.Context, query string, arg i
 	return t.tx.NamedExecContext(ctx, query, arg)
 }
 
+// GetContext executes a query that returns at most one row and scans it into dest
+func (t *PostgreSQLTx) GetContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error {
+	return t.tx.GetContext(ctx, dest, query, args...)
+}
+
+// SelectContext executes a query and scans the results into dest
+func (t *PostgreSQLTx) SelectContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error {
+	return t.tx.SelectContext(ctx, dest, query, args...)
+}
+
 // Commit commits the transaction
 func (t *PostgreSQLTx) Commit() error {
 	log.Printf("[DEBUG] Database: Committing transaction")
