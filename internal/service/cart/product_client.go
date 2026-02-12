@@ -12,12 +12,39 @@ type ProductClient interface {
 	GetProduct(ctx context.Context, productID string) (*ProductInfo, error)
 }
 
+// ProductID accepts either a JSON string or a number and always stores it as a string.
+type ProductID string
+
+func (p *ProductID) UnmarshalJSON(data []byte) error {
+	// allow null
+	if string(data) == "null" {
+		*p = ""
+		return nil
+	}
+
+	// try string first (e.g. "123")
+	var s string
+	if err := json.Unmarshal(data, &s); err == nil {
+		*p = ProductID(s)
+		return nil
+	}
+
+	// then try number (e.g. 123)
+	var n json.Number
+	if err := json.Unmarshal(data, &n); err == nil {
+		*p = ProductID(n.String())
+		return nil
+	}
+
+	return fmt.Errorf("invalid product id: %s", string(data))
+}
+
 type ProductInfo struct {
-	ID         string  `json:"id"`
-	Name       string  `json:"name"`
-	FinalPrice float64 `json:"final_price"`
-	Currency   string  `json:"currency"`
-	InStock    bool    `json:"in_stock"`
+	ID         ProductID `json:"id"`
+	Name       string    `json:"name"`
+	FinalPrice float64   `json:"final_price"`
+	Currency   string    `json:"currency"`
+	InStock    bool      `json:"in_stock"`
 }
 
 type HTTPProductClient struct {

@@ -5,11 +5,13 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
 
 	"github.com/google/uuid"
 )
 
 func (r *cartRepository) SetContact(ctx context.Context, cartID string, contact *Contact) error {
+	log.Printf("[DEBUG] CartRepository: Setting contact for cart %s: %+v", cartID, contact)
 	cartUUID, err := uuid.Parse(cartID)
 	if err != nil {
 		return fmt.Errorf("%w: invalid cart ID: %v", ErrInvalidUUID, err)
@@ -17,6 +19,7 @@ func (r *cartRepository) SetContact(ctx context.Context, cartID string, contact 
 
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
+		log.Printf("[DEBUG] CartRepository: failed to begin transaction for setting contact for cart %s: %v", cartID, err)
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 
@@ -30,20 +33,24 @@ func (r *cartRepository) SetContact(ctx context.Context, cartID string, contact 
 	_, _ = tx.Exec(ctx, `DELETE FROM carts.Contact WHERE cart_id = $1`, cartUUID)
 
 	contact.CartID = cartUUID
-	_, err = tx.Exec(ctx, `
+	err = tx.QueryRow(ctx, `
 		INSERT INTO carts.Contact (cart_id, email, first_name, last_name, phone)
 		VALUES ($1, $2, $3, $4, $5)
-	`, cartUUID, contact.Email, contact.FirstName, contact.LastName, contact.Phone)
+		RETURNING id
+	`, cartUUID, contact.Email, contact.FirstName, contact.LastName, contact.Phone).Scan(&contact.ID)
 	if err != nil {
+		log.Printf("[DEBUG] CartRepository: failed to insert contact into database for cart %s: %v", cartID, err)
 		return fmt.Errorf("%w: failed to insert contact: %v", ErrDatabaseOperation, err)
 	}
 
 	_, err = tx.Exec(ctx, `UPDATE carts.Cart SET contact_id = $1 WHERE cart_id = $2`, contact.ID, cartUUID)
 	if err != nil {
+		log.Printf("[DEBUG] CartRepository: failed to update cart with contact for cart %s: %v", cartID, err)
 		return fmt.Errorf("%w: failed to update cart contact: %v", ErrDatabaseOperation, err)
 	}
 
 	if err := tx.Commit(); err != nil {
+		log.Printf("[DEBUG] CartRepository: failed to commit transaction for setting contact for cart %s: %v", cartID, err)
 		return fmt.Errorf("%w: failed to commit transaction: %v", ErrTransactionFailed, err)
 	}
 	committed = true

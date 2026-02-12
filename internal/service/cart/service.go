@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 
 	"net/http"
 
@@ -125,6 +126,9 @@ func (s *CartService) DeleteCart(ctx context.Context, cartID string) error {
 }
 
 func (s *CartService) AddItem(ctx context.Context, cartID string, productID string, quantity int) (*CartItem, error) {
+
+	log.Printf("[DEBUG] CartService: Adding item to cart %s: product_id=%s, quantity=%d", cartID, productID, quantity)
+
 	if quantity <= 0 {
 		return nil, errors.New("quantity must be positive")
 	}
@@ -138,12 +142,15 @@ func (s *CartService) AddItem(ctx context.Context, cartID string, productID stri
 		return nil, errors.New("cannot add items to non-active cart")
 	}
 
+	log.Printf("[DEBUG] CartService: Validating product %s for cart %s", productID, cartID)
 	product, err := s.infrastructure.ProductClient.GetProduct(ctx, productID)
 	if err != nil {
+		log.Printf("[DEBUG] CartService: failed to validate product %s for cart %s: %v", productID, cartID, err)
 		return nil, fmt.Errorf("failed to validate product: %w", err)
 	}
 
 	if !product.InStock {
+		log.Printf("[DEBUG] CartService: product %s is out of stock for cart %s", productID, cartID)
 		return nil, errors.New("product is out of stock")
 	}
 
@@ -155,14 +162,18 @@ func (s *CartService) AddItem(ctx context.Context, cartID string, productID stri
 	}
 	item.CalculateLineTotal()
 
+	log.Printf("[DEBUG] CartService: Adding item to repository for cart %s: %+v", cartID, item)
 	if err := s.repo.AddItem(ctx, cartID, item); err != nil {
+		log.Printf("[DEBUG] CartService: failed to add item to repository for cart %s: %v", cartID, err)
 		return nil, fmt.Errorf("failed to add item: %w", err)
 	}
 
 	cart.Items = append(cart.Items, *item)
 	cart.CalculateTotals()
 
+	log.Printf("[DEBUG] CartService: Updating cart totals for cart %s after adding item", cartID)
 	if err := s.repo.UpdateCart(ctx, cart); err != nil {
+		log.Printf("[DEBUG] CartService: failed to update cart totals for cart %s after adding item: %v", cartID, err)
 		return nil, fmt.Errorf("failed to update cart totals: %w", err)
 	}
 
@@ -233,20 +244,25 @@ func (s *CartService) RemoveItem(ctx context.Context, cartID string, lineNumber 
 }
 
 func (s *CartService) SetContact(ctx context.Context, cartID string, contact *Contact) error {
+	log.Printf("[DEBUG] CartService: Setting contact for cart %s: %+v", cartID, contact)
 	if err := contact.Validate(); err != nil {
+		log.Printf("[DEBUG] CartService: invalid contact for cart %s: %v", cartID, err)
 		return fmt.Errorf("invalid contact: %w", err)
 	}
 
 	cart, err := s.repo.GetCartByID(ctx, cartID)
 	if err != nil {
+		log.Printf("[DEBUG] CartService: failed to get cart %s for setting contact: %v", cartID, err)
 		return fmt.Errorf("failed to get cart: %w", err)
 	}
 
 	if cart.CurrentStatus != "active" {
+		log.Printf("[DEBUG] CartService: cannot set contact for non-active cart %s", cartID)
 		return errors.New("cannot modify contact for non-active cart")
 	}
 
 	if err := s.repo.SetContact(ctx, cartID, contact); err != nil {
+		log.Printf("[DEBUG] CartService: failed to set contact for cart %s: %v", cartID, err)
 		return fmt.Errorf("failed to set contact: %w", err)
 	}
 
@@ -275,20 +291,24 @@ func (s *CartService) AddAddress(ctx context.Context, cartID string, address *Ad
 }
 
 func (s *CartService) SetCreditCard(ctx context.Context, cartID string, card *CreditCard) error {
+	log.Printf("[DEBUG] CartService: Setting credit card for cart %s: %+v", cartID, card)
 	if err := card.Validate(); err != nil {
 		return fmt.Errorf("invalid credit card: %w", err)
 	}
 
 	cart, err := s.repo.GetCartByID(ctx, cartID)
 	if err != nil {
+		log.Printf("[DEBUG] CartService: failed to get cart %s for setting credit card: %v", cartID, err)
 		return fmt.Errorf("failed to get cart: %w", err)
 	}
 
 	if cart.CurrentStatus != "active" {
+		log.Printf("[DEBUG] CartService: cannot set credit card for non-active cart %s", cartID)
 		return errors.New("cannot modify payment for non-active cart")
 	}
 
 	if err := s.repo.SetCreditCard(ctx, cartID, card); err != nil {
+
 		return fmt.Errorf("failed to set credit card: %w", err)
 	}
 

@@ -6,3 +6,5 @@
 # name:partitions:replication
 CustomerEvents:3:1
 ProductEvents:3:1
+CartEvents:3:1
+OrderEvents:3:1

@@ -5,11 +5,13 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
 
 	"github.com/google/uuid"
 )
 
 func (r *cartRepository) AddItem(ctx context.Context, cartID string, item *CartItem) error {
+	log.Printf("[DEBUG] CartRepository: Adding item to cart %s: product_id=%s, quantity=%d", cartID, item.ProductID, item.Quantity)
 	cartUUID, err := uuid.Parse(cartID)
 	if err != nil {
 		return fmt.Errorf("%w: invalid cart ID: %v", ErrInvalidUUID, err)
@@ -17,6 +19,7 @@ func (r *cartRepository) AddItem(ctx context.Context, cartID string, item *CartI
 
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
+		log.Printf("[DEBUG] CartRepository: failed to begin transaction for adding item to cart %s: %v", cartID, err)
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 
@@ -30,6 +33,7 @@ func (r *cartRepository) AddItem(ctx context.Context, cartID string, item *CartI
 	var nextLine int
 	err = r.db.QueryRow(ctx, `SELECT nextval('carts.cart_sequence')`).Scan(&nextLine)
 	if err != nil {
+		log.Printf("[DEBUG] CartRepository: failed to get next line number for cart %s: %v", cartID, err)
 		return fmt.Errorf("%w: failed to generate line number: %v", ErrDatabaseOperation, err)
 	}
 	item.LineNumber = fmt.Sprintf("%03d", nextLine)
@@ -47,10 +51,12 @@ func (r *cartRepository) AddItem(ctx context.Context, cartID string, item *CartI
 	_, err = tx.ExecContext(ctx, query,
 		item.CartID, item.LineNumber, item.ProductID, item.ProductName, item.UnitPrice, item.Quantity, item.TotalPrice)
 	if err != nil {
+		log.Printf("[DEBUG] CartRepository: failed to insert item into database for cart %s: %v", cartID, err)
 		return fmt.Errorf("%w: failed to insert item: %v", ErrDatabaseOperation, err)
 	}
 
 	if err := tx.Commit(); err != nil {
+		log.Printf("[DEBUG] CartRepository: failed to commit transaction for adding item to cart %s: %v", cartID, err)
 		return fmt.Errorf("%w: failed to commit transaction: %v", ErrTransactionFailed, err)
 	}
 	committed = true
