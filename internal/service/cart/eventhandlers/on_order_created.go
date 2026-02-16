@@ -7,12 +7,19 @@ import (
 	events "go-shopping-poc/internal/contracts/events"
 	"go-shopping-poc/internal/platform/event/bus"
 	"go-shopping-poc/internal/platform/event/handler"
+	"go-shopping-poc/internal/platform/sse"
 )
 
-type OnOrderCreated struct{}
+// OnOrderCreated handles order.created events and publishes SSE notifications
+type OnOrderCreated struct {
+	sseHub *sse.Hub
+}
 
-func NewOnOrderCreated() *OnOrderCreated {
-	return &OnOrderCreated{}
+// NewOnOrderCreated creates a new order created handler
+func NewOnOrderCreated(sseHub *sse.Hub) *OnOrderCreated {
+	return &OnOrderCreated{
+		sseHub: sseHub,
+	}
 }
 
 func (h *OnOrderCreated) Handle(ctx context.Context, event events.Event) error {
@@ -32,7 +39,19 @@ func (h *OnOrderCreated) Handle(ctx context.Context, event events.Event) error {
 		orderEvent.Data.OrderID,
 		orderEvent.Data.CartID)
 
-	// Call function with business logic for handling order creation
+	// Push SSE event to subscribers
+	if h.sseHub != nil {
+		h.sseHub.Publish(
+			orderEvent.Data.CartID,
+			"order.created",
+			map[string]interface{}{
+				"orderId":     orderEvent.Data.OrderID,
+				"orderNumber": orderEvent.Data.OrderNumber,
+				"cartId":      orderEvent.Data.CartID,
+				"total":       orderEvent.Data.Total,
+			},
+		)
+	}
 
 	return h.updateCartStatus(ctx, orderEvent.Data.CartID)
 }

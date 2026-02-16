@@ -16,10 +16,11 @@ const (
 )
 
 type OrderEventPayload struct {
-	OrderID    string  `json:"order_id"`
-	CartID     string  `json:"cart_id"`
-	CustomerID *string `json:"customer_id,omitempty"`
-	Total      float64 `json:"total"`
+	OrderID     string  `json:"order_id"`
+	OrderNumber string  `json:"order_number"`
+	CartID      string  `json:"cart_id"`
+	CustomerID  *string `json:"customer_id,omitempty"`
+	Total       float64 `json:"total"`
 }
 
 type OrderEvent struct {
@@ -37,12 +38,13 @@ func (f OrderEventFactory) FromJSON(data []byte) (OrderEvent, error) {
 	return event, err
 }
 
-func NewOrderEvent(orderID string, t OrderEventType, cartID string, customerID *string, total float64) *OrderEvent {
+func NewOrderEvent(orderID string, orderNumber string, t OrderEventType, cartID string, customerID *string, total float64) *OrderEvent {
 	payload := OrderEventPayload{
-		OrderID:    orderID,
-		CartID:     cartID,
-		CustomerID: customerID,
-		Total:      total,
+		OrderID:     orderID,
+		OrderNumber: orderNumber,
+		CartID:      cartID,
+		CustomerID:  customerID,
+		Total:       total,
 	}
 
 	return &OrderEvent{
@@ -62,14 +64,14 @@ func (e OrderEvent) GetResourceID() string   { return e.ID }
 
 // Convenience constructor for OrderEvents
 
-func NewOrderCreatedEvent(orderID string, cartID string, customerID *string, total float64) *OrderEvent {
-	return NewOrderEvent(orderID, OrderCreated, cartID, customerID, total)
+func NewOrderCreatedEvent(orderID string, orderNumber string, cartID string, customerID *string, total float64) *OrderEvent {
+	return NewOrderEvent(orderID, orderNumber, OrderCreated, cartID, customerID, total)
 }
 
-func NewOrderUpdatedEvent(orderID string, cartID string, customerID *string, total float64) *OrderEvent {
-	return NewOrderEvent(orderID, OrderUpdated, cartID, customerID, total)
+func NewOrderUpdatedEvent(orderID string, orderNumber string, cartID string, customerID *string, total float64) *OrderEvent {
+	return NewOrderEvent(orderID, orderNumber, OrderUpdated, cartID, customerID, total)
 }
 
-func NewOrderDeletedEvent(orderID string, cartID string, customerID *string, total float64) *OrderEvent {
-	return NewOrderEvent(orderID, OrderDeleted, cartID, customerID, total)
+func NewOrderDeletedEvent(orderID string, orderNumber string, cartID string, customerID *string, total float64) *OrderEvent {
+	return NewOrderEvent(orderID, orderNumber, OrderDeleted, cartID, customerID, total)
 }

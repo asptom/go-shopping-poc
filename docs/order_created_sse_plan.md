@@ -102,7 +102,7 @@ This document provides a detailed implementation plan for adding Server-Sent Eve
 
 **File:** `internal/platform/sse/`
 
-Create a new package for SSE connection management.
+Create a new package for SSE connection management following the provider pattern used throughout the codebase.
 
 #### 1.1 SSE Hub (hub.go)
 
@@ -111,77 +111,72 @@ Create a new package for SSE connection management.
 package sse
 
 import (
-    "log"
-    "sync"
+	"log"
+	"sync"
 )
 
+// Hub manages SSE client subscriptions for a given cart ID
 type Hub struct {
-    // Map of cartID -> set of clients subscribed to that cart
-    subscribers map[string]map[*Client]bool
-    
-    // Register channel for new clients
-    register chan *Client
-    
-    // Unregister channel for disconnected clients
-    unregister chan *Client
-    
-    // Mutex for thread-safe operations
-    mu sync.RWMutex
+	// Map of cartID -> set of clients subscribed to that cart
+	subscribers map[string]map[*Client]bool
+	mu          sync.RWMutex
 }
 
+// NewHub creates a new SSE hub
 func NewHub() *Hub {
-    return &Hub{
-        subscribers: make(map[string]map[*Client]bool),
-        register:    make(chan *Client),
-        unregister:  make(chan *Client),
-    }
+	return &Hub{
+		subscribers: make(map[string]map[*Client]bool),
+	}
 }
 
+// Subscribe adds a client to the subscription list for a cart
 func (h *Hub) Subscribe(cartID string, client *Client) {
-    h.mu.Lock()
-    defer h.mu.Unlock()
-    
-    if h.subscribers[cartID] == nil {
-        h.subscribers[cartID] = make(map[*Client]bool)
-    }
-    h.subscribers[cartID][client] = true
-    log.Printf("[INFO] SSE: Client subscribed to cart %s", cartID)
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	
+	if h.subscribers[cartID] == nil {
+		h.subscribers[cartID] = make(map[*Client]bool)
+	}
+	h.subscribers[cartID][client] = true
+	log.Printf("[INFO] Cart: SSE client subscribed to cart %s", cartID)
 }
 
+// Unsubscribe removes a client from the subscription list
 func (h *Hub) Unsubscribe(cartID string, client *Client) {
-    h.mu.Lock()
-    defer h.mu.Unlock()
-    
-    if clients, ok := h.subscribers[cartID]; ok {
-        if _, exists := clients[client]; exists {
-            delete(clients, client)
-            log.Printf("[INFO] SSE: Client unsubscribed from cart %s", cartID)
-        }
-        if len(clients) == 0 {
-            delete(h.subscribers, cartID)
-        }
-    }
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	
+	if clients, ok := h.subscribers[cartID]; ok {
+		if _, exists := clients[client]; exists {
+			delete(clients, client)
+			log.Printf("[INFO] Cart: SSE client unsubscribed from cart %s", cartID)
+		}
+		if len(clients) == 0 {
+			delete(h.subscribers, cartID)
+		}
+	}
 }
 
+// Publish sends an event to all subscribers of a cart
 func (h *Hub) Publish(cartID string, event string, data interface{}) {
-    h.mu.RLock()
-    defer h.mu.RUnlock()
-    
-    clients, ok := h.subscribers[cartID]
-    if !ok {
-        log.Printf("[DEBUG] SSE: No subscribers for cart %s", cartID)
-        return
-    }
-    
-    for client := range clients {
-        select {
-        case client.send <- Message{Event: event, Data: data}:
-            log.Printf("[DEBUG] SSE: Published event %s to cart %s", event, cartID)
-        default:
-            log.Printf("[WARN] SSE: Failed to send to client, removing")
-            delete(clients, client)
-        }
-    }
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	
+	clients, ok := h.subscribers[cartID]
+	if !ok {
+		log.Printf("[DEBUG] Cart: No SSE subscribers for cart %s", cartID)
+		return
+	}
+	
+	for client := range clients {
+		select {
+		case client.send <- Message{Event: event, Data: data}:
+			log.Printf("[DEBUG] Cart: Published SSE event %s to cart %s", event, cartID)
+		default:
+			log.Printf("[WARN] Cart: SSE client buffer full, removing")
+			delete(clients, client)
+		}
+	}
 }
 ```
 
@@ -191,305 +186,404 @@ func (h *Hub) Publish(cartID string, event string, data interface{}) {
 // internal/platform/sse/client.go
 package sse
 
-import (
-    "encoding/json"
-    "time"
-    
-    "github.com/gorilla/websocket"
-)
-
+// Client represents a single SSE client connection
 type Client struct {
-    hub     *Hub
-    cartID  string
-    send    chan Message
-    done    chan struct{}
+	hub    *Hub
+	cartID string
+	send   chan Message
+	done   chan struct{}
 }
 
+// Message represents an SSE message to be sent
 type Message struct {
-    Event string      `json:"event"`
-    Data  interface{} `json:"data"`
+	Event string      `json:"event"`
+	Data  interface{} `json:"data"`
 }
 
+// NewClient creates a new SSE client
 func NewClient(hub *Hub, cartID string) *Client {
-    return &Client{
-        hub:    hub,
-        cartID: cartID,
-        send:   make(chan Message, 256),
-        done:   make(chan struct{}),
-    }
-}
-
-// SendEvent formats and sends an SSE event
-func (c *Client) SendEvent(event string, data interface{}) error {
-    jsonData, err := json.Marshal(data)
-    if err != nil {
-        return err
-    }
-    
-    // SSE format: event: <event>\ndata: <json>\n\n
-    select {
-    case c.send <- Message{Event: event, Data: jsonData}:
-        return nil
-    case <-c.done:
-        return nil // Client disconnected
-    case <-time.After(5 * time.Second):
-        return nil // Timeout
-    }
+	return &Client{
+		hub:    hub,
+		cartID: cartID,
+		send:   make(chan Message, 256),
+		done:   make(chan struct{}),
+	}
 }
 
 // Close signals the client to stop
 func (c *Client) Close() {
-    close(c.done)
+	close(c.done)
 }
 ```
 
-#### 1.3 SSE Handler (handler.go)
+#### 1.3 SSE Provider (provider.go)
+
+**Aligned with codebase provider pattern**
+
+```go
+// internal/platform/sse/provider.go
+package sse
+
+// Provider provides SSE hub and handler instances
+type Provider struct {
+	hub     *Hub
+	handler *Handler
+}
+
+// NewProvider creates a new SSE provider
+func NewProvider() *Provider {
+	hub := NewHub()
+	handler := NewHandler(hub)
+	
+	return &Provider{
+		hub:     hub,
+		handler: handler,
+	}
+}
+
+// GetHub returns the SSE hub for event handlers
+func (p *Provider) GetHub() *Hub {
+	return p.hub
+}
+
+// GetHandler returns the SSE HTTP handler
+func (p *Provider) GetHandler() *Handler {
+	return p.handler
+}
+```
+
+#### 1.4 SSE Handler (handler.go)
+
+**Aligned with codebase patterns**
 
 ```go
 // internal/platform/sse/handler.go
 package sse
 
 import (
-    "encoding/json"
-    "fmt"
-    "log"
-    "net/http"
-    "time"
-    
-    "github.com/go-chi/chi/v5"
+	"encoding/json"
+	"fmt"
+	"log"
+	"net/http"
+	"time"
+	
+	"github.com/go-chi/chi/v5"
+	"github.com/go-shopping-poc/internal/platform/errors"
 )
 
-type SSEHandler struct {
-    hub *Hub
+// Handler handles SSE HTTP connections
+type Handler struct {
+	hub *Hub
 }
 
-func NewSSEHandler() *SSEHandler {
-    return &SSEHandler{
-        hub: NewHub(),
-    }
+// Verify interface compliance
+var _ http.Handler = (*Handler)(nil)
+
+// NewHandler creates a new SSE handler
+func NewHandler(hub *Hub) *Handler {
+	return &Handler{
+		hub: hub,
+	}
 }
 
-// GetHub returns the SSE hub for external use (e.g., from event handlers)
-func (h *SSEHandler) GetHub() *Hub {
-    return h.hub
-}
-
-// Stream handles SSE connections
-func (h *SSEHandler) Stream(w http.ResponseWriter, r *http.Request) {
-    cartID := chi.URLParam(r, "id")
-    if cartID == "" {
-        http.Error(w, "Missing cart ID", http.StatusBadRequest)
-        return
-    }
-    
-    // Set SSE headers
-    w.Header().Set("Content-Type", "text/event-stream")
-    w.Header().Set("Cache-Control", "no-cache")
-    w.Header().Set("Connection", "keep-alive")
-    w.Header().Set("X-Accel-Buffering", "no") // Disable nginx buffering
-    
-    // Create client and subscribe
-    client := NewClient(h.hub, cartID)
-    h.hub.Subscribe(cartID, client)
-    
-    // Ensure cleanup on disconnect
-    defer func() {
-        h.hub.Unsubscribe(cartID, client)
-        client.Close()
-    }()
-    
-    // Handle client close
-    notify := r.Context().Done()
-    
-    flusher, ok := w.(http.Flusher)
-    if !ok {
-        log.Printf("[ERROR] SSE: Streaming not supported")
-        return
-    }
-    
-    // Send initial connection message
-    fmt.Fprintf(w, "event: connected\ndata: {\"cartId\":\"%s\"}\n\n", cartID)
-    flusher.Flush()
-    
-    // Keep connection alive and send events
-    ticker := time.NewTicker(30 * time.Second)
-    defer ticker.Stop()
-    
-    for {
-        select {
-        case <-notify:
-            // Client disconnected
-            log.Printf("[INFO] SSE: Client disconnected for cart %s", cartID)
-            return
-            
-        case <-ticker.C:
-            // Send heartbeat to keep connection alive
-            fmt.Fprintf(w, ": heartbeat\n\n")
-            flusher.Flush()
-            
-        case msg, ok := <-client.send:
-            if !ok {
-                // Channel closed
-                return
-            }
-            
-            dataBytes, _ := json.Marshal(msg.Data)
-            
-            if msg.Event != "" {
-                fmt.Fprintf(w, "event: %s\n", msg.Event)
-            }
-            fmt.Fprintf(w, "data: %s\n\n", dataBytes)
-            flusher.Flush()
-        }
-    }
+// ServeHTTP implements http.Handler interface
+func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Extract cart ID from URL using chi router
+	cartID := chi.URLParam(r, "id")
+	if cartID == "" {
+		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Missing cart ID")
+		return
+	}
+	
+	// Set SSE headers
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no") // Disable nginx buffering
+	
+	// Create client and subscribe
+	client := NewClient(h.hub, cartID)
+	h.hub.Subscribe(cartID, client)
+	
+	// Ensure cleanup on disconnect
+	defer func() {
+		h.hub.Unsubscribe(cartID, client)
+		client.Close()
+	}()
+	
+	// Handle client close
+	notify := r.Context().Done()
+	
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		log.Printf("[ERROR] Cart: Streaming not supported")
+		return
+	}
+	
+	// Send initial connection message
+	fmt.Fprintf(w, "event: connected\ndata: {\"cartId\":\"%s\"}\n\n", cartID)
+	flusher.Flush()
+	
+	// Keep connection alive and send events
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+	
+	for {
+		select {
+		case <-notify:
+			// Client disconnected
+			log.Printf("[INFO] Cart: SSE client disconnected for cart %s", cartID)
+			return
+			
+		case <-ticker.C:
+			// Send heartbeat to keep connection alive
+			fmt.Fprintf(w, ": heartbeat\n\n")
+			flusher.Flush()
+			
+		case msg, ok := <-client.send:
+			if !ok {
+				// Channel closed
+				return
+			}
+			
+			dataBytes, _ := json.Marshal(msg.Data)
+			
+			if msg.Event != "" {
+				fmt.Fprintf(w, "event: %s\n", msg.Event)
+			}
+			fmt.Fprintf(w, "data: %s\n\n", dataBytes)
+			flusher.Flush()
+		}
+	}
 }
 ```
 
 ---
 
-### Step 2: Integrate SSE Handler into Cart Service
+### Step 2: Modify Order Created Event Handler
 
-#### 2.1 Add SSE Handler to Cart Service
-
-**File:** `internal/service/cart/handlers.go`
-
-Add the SSE handler as a dependency:
-
-```go
-type CartHandler struct {
-    service     *CartService
-    sseHandler  *sse.SSEHandler  // Add this
-}
-```
-
-#### 2.2 Update Handler Constructor
-
-**File:** `internal/service/cart/handlers.go`
-
-```go
-func NewCartHandler(service *CartService, sseHandler *sse.SSEHandler) *CartHandler {
-    return &CartHandler{
-        service:    service,
-        sseHandler: sseHandler,
-    }
-}
-```
-
-#### 2.3 Register SSE Route
-
-**File:** `cmd/cart/main.go`
-
-```go
-cartRouter.Get("/carts/{id}/stream", handler.StreamCartEvents)
-```
-
----
-
-### Step 3: Modify Order Created Event Handler
-
-#### 3.1 Update on_order_created.go to Push SSE Event
+#### 2.1 Update on_order_created.go
 
 **File:** `internal/service/cart/eventhandlers/on_order_created.go`
 
-Add the SSE hub as a dependency and publish the order created event:
+Update the event handler to implement the existing factory pattern and include SSE hub dependency:
 
 ```go
+// internal/service/cart/eventhandlers/on_order_created.go
+package eventhandlers
+
+import (
+	"context"
+	"log"
+	
+	"github.com/go-shopping-poc/internal/contracts/events"
+	"github.com/go-shopping-poc/internal/platform/event/handler"
+	"github.com/go-shopping-poc/internal/platform/sse"
+)
+
+// OnOrderCreated handles order.created events and publishes SSE notifications
 type OnOrderCreated struct {
-    sseHub *sse.Hub  // Add this dependency
+	sseHub *sse.Hub
 }
 
+// Verify interface compliance
+var _ handler.EventHandler = (*OnOrderCreated)(nil)
+var _ handler.HandlerFactory[events.OrderEvent] = (*OnOrderCreated)(nil)
+
+// NewOnOrderCreated creates a new order created handler
 func NewOnOrderCreated(sseHub *sse.Hub) *OnOrderCreated {
-    return &OnOrderCreated{
-        sseHub: sseHub,
-    }
+	return &OnOrderCreated{
+		sseHub: sseHub,
+	}
 }
 
+// Handle processes the order.created event
 func (h *OnOrderCreated) Handle(ctx context.Context, event events.Event) error {
-    orderEvent, ok := event.(events.OrderEvent)
-    if !ok {
-        log.Printf("[ERROR] Cart: Expected OrderEvent, got %T", event)
-        return nil
-    }
-    
-    if orderEvent.EventType != events.OrderCreated {
-        log.Printf("[DEBUG] Cart: Ignoring event type: %s", orderEvent.EventType)
-        return nil
-    }
-    
-    utils := handler.NewEventUtils()
-    utils.LogEventProcessing(ctx, string(orderEvent.EventType),
-        orderEvent.Data.OrderID,
-        orderEvent.Data.CartID)
-    
-    // Push SSE event to subscribers
-    if h.sseHub != nil {
-        h.sseHub.Publish(
-            orderEvent.Data.CartID,
-            "order.created",
-            map[string]interface{}{
-                "orderId":    orderEvent.Data.OrderID,
-                "orderNumber": orderEvent.Data.OrderNumber,  // Add to event payload
-                "cartId":     orderEvent.Data.CartID,
-                "total":      orderEvent.Data.Total,
-            },
-        )
-    }
-    
-    return h.updateCartStatus(ctx, orderEvent.Data.CartID)
+	orderEvent, ok := event.(events.OrderEvent)
+	if !ok {
+		log.Printf("[ERROR] Cart: Expected OrderEvent, got %T", event)
+		return nil
+	}
+	
+	if orderEvent.EventType != events.OrderCreated {
+		log.Printf("[DEBUG] Cart: Ignoring event type: %s", orderEvent.EventType)
+		return nil
+	}
+	
+	utils := handler.NewEventUtils()
+	utils.LogEventProcessing(ctx, string(orderEvent.EventType),
+		orderEvent.Data.OrderID,
+		orderEvent.Data.CartID)
+	
+	// Push SSE event to subscribers
+	if h.sseHub != nil {
+		h.sseHub.Publish(
+			orderEvent.Data.CartID,
+			"order.created",
+			map[string]interface{}{
+				"orderId":     orderEvent.Data.OrderID,
+				"orderNumber": orderEvent.Data.OrderNumber,
+				"cartId":      orderEvent.Data.CartID,
+				"total":       orderEvent.Data.Total,
+			},
+		)
+	}
+	
+	return h.updateCartStatus(ctx, orderEvent.Data.CartID)
+}
+
+// EventType returns the event type this handler processes
+func (h *OnOrderCreated) EventType() string {
+	return string(events.OrderCreated)
+}
+
+// CreateFactory returns the event factory for this handler
+func (h *OnOrderCreated) CreateFactory() events.EventFactory[events.OrderEvent] {
+	return events.OrderEventFactory{}
+}
+
+// CreateHandler returns the handler function for this handler
+func (h *OnOrderCreated) CreateHandler() handler.EventHandler {
+	return h
+}
+
+func (h *OnOrderCreated) updateCartStatus(ctx context.Context, cartID string) error {
+	// Existing implementation
+	return nil
 }
 ```
 
-#### 3.2 Add OrderNumber to Event Payload
+#### 2.2 Add OrderNumber to Event Payload
 
 **File:** `internal/contracts/events/order.go`
 
 Update `OrderEventPayload` to include `OrderNumber`:
 
 ```go
+// internal/contracts/events/order.go
 type OrderEventPayload struct {
-    OrderID      string  `json:"order_id"`
-    OrderNumber  string  `json:"order_number"`  // Add this field
-    CartID       string  `json:"cart_id"`
-    CustomerID   *string `json:"customer_id,omitempty"`
-    Total        float64 `json:"total"`
+	OrderID     string  `json:"order_id"`
+	OrderNumber string  `json:"order_number"` // Add this field
+	CartID      string  `json:"cart_id"`
+	CustomerID  *string `json:"customer_id,omitempty"`
+	Total       float64 `json:"total"`
 }
 ```
 
 ---
 
-### Step 4: Wire Everything Together
+### Step 3: Wire Everything Together
 
-#### 4.1 Update Main.go
+#### 3.1 Update Cart Infrastructure
 
-**File:** `cmd/cart/main.go`
+**File:** `internal/service/cart/config.go`
+
+Add SSE provider to the cart infrastructure:
 
 ```go
-// Initialize SSE handler
-sseHandler := sse.NewSSEHandler()
+// internal/service/cart/config.go
 
-// Create event handler with SSE hub
-orderCreatedHandler := eventhandlers.NewOnOrderCreated(sseHandler.GetHub())
-
-// Register handlers
-if err := registerEventHandlers(service, orderCreatedHandler); err != nil {
-    log.Fatalf("Cart: Failed to register event handlers: %v", err)
+// CartInfrastructure holds all infrastructure dependencies
+type CartInfrastructure struct {
+	db              database.Database
+	eventBus        bus.Bus
+	outboxWriter    *outbox.OutboxWriter
+	outboxPublisher *outbox.OutboxPublisher
+	productClient   *ProductClient
+	corsHandler     http.Handler
+	sseProvider     *sse.Provider // Add SSE provider
 }
 
-// Create cart handler with SSE
-cartHandler := cart.NewCartHandler(service, sseHandler)
+// NewCartInfrastructure creates infrastructure dependencies
+func NewCartInfrastructure(
+	db database.Database,
+	eventBus bus.Bus,
+	outboxWriter *outbox.OutboxWriter,
+	outboxPublisher *outbox.OutboxPublisher,
+	productClient *ProductClient,
+	corsHandler http.Handler,
+	sseProvider *sse.Provider, // Add parameter
+) *CartInfrastructure {
+	return &CartInfrastructure{
+		db:              db,
+		eventBus:        eventBus,
+		outboxWriter:    outboxWriter,
+		outboxPublisher: outboxPublisher,
+		productClient:   productClient,
+		corsHandler:     corsHandler,
+		sseProvider:     sseProvider,
+	}
+}
 
-// Register routes (add SSE route)
-cartRouter.Get("/carts/{id}/stream", cartHandler.StreamCartEvents)
+// GetSSEHub returns the SSE hub for event handlers
+func (i *CartInfrastructure) GetSSEHub() *sse.Hub {
+	return i.sseProvider.GetHub()
+}
 ```
 
-#### 4.2 Update registerEventHandlers Function
+#### 3.2 Update Main.go
 
 **File:** `cmd/cart/main.go`
 
 ```go
-func registerEventHandlers(service *cart.CartService, orderHandler *eventhandlers.OnOrderCreated) error {
-    // Subscribe to OrderEvents topic and register the handler
-    // ... existing code ...
+// cmd/cart/main.go
+
+func main() {
+	// ... existing initialization code ...
+	
+	// Initialize SSE provider
+	sseProvider := sse.NewProvider()
+	
+	// Create cart infrastructure with SSE provider
+	infrastructure := cart.NewCartInfrastructure(
+		db,
+		eventBus,
+		outboxWriter,
+		outboxPublisher,
+		productClient,
+		corsHandler,
+		sseProvider,
+	)
+	
+	// Create cart service
+	service := cart.NewCartService(infrastructure, cfg)
+	
+	// Register event handlers with SSE hub
+	if err := registerEventHandlers(service, infrastructure.GetSSEHub()); err != nil {
+		log.Fatalf("Cart: Failed to register event handlers: %v", err)
+	}
+	
+	// Create cart HTTP handler
+	cartHandler := cart.NewCartHandler(service)
+	
+	// Setup router
+	cartRouter := chi.NewRouter()
+	cartRouter.Use(corsHandler.Handler)
+	
+	// Register existing cart routes
+	cartRouter.Get("/carts/{id}", cartHandler.GetCart)
+	cartRouter.Post("/carts", cartHandler.CreateCart)
+	cartRouter.Post("/carts/{id}/items", cartHandler.AddItem)
+	cartRouter.Post("/carts/{id}/checkout", cartHandler.Checkout)
+	// ... other routes ...
+	
+	// Register SSE route separately (doesn't go through CartHandler)
+	cartRouter.Get("/carts/{id}/stream", sseProvider.GetHandler().ServeHTTP)
+	
+	// ... rest of main function ...
+}
+
+// registerEventHandlers registers all event handlers for the cart service
+func registerEventHandlers(service *cart.CartService, sseHub *sse.Hub) error {
+	// Create event handler with SSE hub dependency
+	orderCreatedHandler := eventhandlers.NewOnOrderCreated(sseHub)
+	
+	// Register using the generic handler registration pattern
+	return cart.RegisterHandler(
+		service,
+		orderCreatedHandler.CreateFactory(),
+		orderCreatedHandler.CreateHandler(),
+	)
 }
 ```
 
@@ -524,7 +618,6 @@ data: {"orderId":"uuid","orderNumber":"ORD-123","cartId":"uuid","total":99.99}
 | `connected` | Sent on initial connection |
 | `order.created` | Order has been created from cart |
 | `order.failed` | Order creation failed (optional) |
-| `error` | Connection error |
 
 ### Frontend Usage
 
@@ -556,13 +649,42 @@ eventSource.addEventListener('error', (e) => {
 
 ---
 
+## Key Alignment Improvements Made
+
+### 1. Package Naming
+- Changed `NewSSEHandler()` to `NewHandler()` following codebase convention
+
+### 2. Error Handling
+- Uses `platform/errors` package with `errors.SendError()` instead of `http.Error()`
+
+### 3. Handler Design
+- CartHandler remains clean, only holding service reference
+- SSE route registered directly with SSE handler (not through CartHandler)
+
+### 4. Event Handler Pattern
+- Implements `handler.EventHandler` and `handler.HandlerFactory[events.OrderEvent]` interfaces
+- Includes explicit interface verification: `var _ handler.EventHandler = (*OnOrderCreated)(nil)`
+
+### 5. Provider Pattern
+- Created `sse.Provider` matching other platform providers (database, event, etc.)
+- Added SSE provider to `CartInfrastructure` struct
+
+### 6. Logging Format
+- Aligned with codebase: `[INFO] Cart: message` instead of `[INFO] SSE: message`
+
+### 7. Route Registration
+- SSE endpoint registered directly: `cartRouter.Get("/carts/{id}/stream", sseProvider.GetHandler().ServeHTTP)`
+
+---
+
 ## Testing Checklist
 
 ### Unit Tests
 - [ ] Test SSE Hub subscribe/unsubscribe
 - [ ] Test SSE Hub publish to multiple clients
-- [ ] Test SSE Handler missing cart ID
-- [ ] Test event handler integration
+- [ ] Test SSE Handler missing cart ID (uses errors package)
+- [ ] Test event handler factory pattern implementation
+- [ ] Test event handler interface compliance
 
 ### Integration Tests
 - [ ] Test checkout triggers SSE event
@@ -584,7 +706,7 @@ eventSource.addEventListener('error', (e) => {
 - If SSE connection fails, frontend should fall back to polling `GET /api/v1/carts/{id}` until successful connection
 
 ### Timeout Handling
-- SSE connections should have a 30-second heartbeat to prevent timeout
+- SSE connections have a 30-second heartbeat to prevent timeout
 - Frontend should implement reconnection logic
 
 ### Race Conditions
@@ -610,25 +732,26 @@ eventSource.addEventListener('error', (e) => {
 |------|-------------|
 | `internal/platform/sse/hub.go` | Manages SSE client subscriptions |
 | `internal/platform/sse/client.go` | Represents a single SSE client connection |
-| `internal/platform/sse/handler.go` | HTTP handler for SSE streams |
+| `internal/platform/sse/handler.go` | HTTP handler for SSE streams (implements http.Handler) |
+| `internal/platform/sse/provider.go` | Provider for SSE hub and handler instances |
 
 ### Modified Files
 
 | File | Changes |
 |------|---------|
 | `internal/contracts/events/order.go` | Add OrderNumber to payload |
-| `internal/service/cart/eventhandlers/on_order_created.go` | Add SSE hub dependency, publish events |
-| `internal/service/cart/handlers.go` | Add SSE handler, new StreamCartEvents method |
-| `cmd/cart/main.go` | Initialize SSE, register route, wire dependencies |
+| `internal/service/cart/eventhandlers/on_order_created.go` | Add SSE hub dependency, implement factory pattern |
+| `internal/service/cart/config.go` | Add sseProvider to CartInfrastructure |
+| `cmd/cart/main.go` | Initialize SSE provider, register route, wire dependencies |
 
 ---
 
 ## Implementation Order
 
-1. Create `internal/platform/sse/` package (hub, client, handler)
+1. Create `internal/platform/sse/` package (hub, client, handler, provider)
 2. Update `internal/contracts/events/order.go` to add OrderNumber
 3. Update `internal/service/cart/eventhandlers/on_order_created.go` to use SSE hub
-4. Update `internal/service/cart/handlers.go` to add SSE handler and StreamCartEvents
+4. Update `internal/service/cart/config.go` to include SSE provider
 5. Update `cmd/cart/main.go` to wire everything together
 6. Write tests
 7. Manual testing

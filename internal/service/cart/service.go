@@ -15,6 +15,7 @@ import (
 	"go-shopping-poc/internal/platform/event/bus"
 	"go-shopping-poc/internal/platform/outbox"
 	"go-shopping-poc/internal/platform/service"
+	"go-shopping-poc/internal/platform/sse"
 )
 
 type CartInfrastructure struct {
@@ -24,6 +25,7 @@ type CartInfrastructure struct {
 	OutboxPublisher *outbox.Publisher
 	ProductClient   ProductClient
 	CORSHandler     func(http.Handler) http.Handler
+	SSEProvider     *sse.Provider
 }
 
 func NewCartInfrastructure(
@@ -33,6 +35,7 @@ func NewCartInfrastructure(
 	outboxPublisher *outbox.Publisher,
 	productClient ProductClient,
 	corsHandler func(http.Handler) http.Handler,
+	sseProvider *sse.Provider,
 ) *CartInfrastructure {
 	return &CartInfrastructure{
 		Database:        db,
@@ -41,6 +44,7 @@ func NewCartInfrastructure(
 		OutboxPublisher: outboxPublisher,
 		ProductClient:   productClient,
 		CORSHandler:     corsHandler,
+		SSEProvider:     sseProvider,
 	}
 }
 

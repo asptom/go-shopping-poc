@@ -1,5 +1,6 @@
 [Go Shopping POC - Development Best Practices]|root: ./.go-docs
 |IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning for all Go tasks in this project
+|IMPORTANT: Follow LLM rules: {00-LLMrules.md}
 |Quick Reference:{00-index.md}
 |General Style:{01-general-style.md}
 |Architecture:{02-clean-architecture.md}

@@ -15,6 +15,7 @@ import (
 	"go-shopping-poc/internal/platform/database"
 	"go-shopping-poc/internal/platform/event"
 	"go-shopping-poc/internal/platform/outbox/providers"
+	"go-shopping-poc/internal/platform/sse"
 	"go-shopping-poc/internal/service/cart"
 	"go-shopping-poc/internal/service/cart/eventhandlers"
 
@@ -94,10 +95,14 @@ func main() {
 	log.Printf("[DEBUG] Cart: Product service URL: %s", productServiceURL)
 	productClient := cart.NewProductClient(productServiceURL)
 
+	// SSE provider setup
+	log.Printf("[DEBUG] Cart: Creating SSE provider")
+	sseProvider := sse.NewProvider()
+
 	// Infrastructure and service setup
 	log.Printf("[DEBUG] Cart: Creating cart infrastructure")
 	infrastructure := cart.NewCartInfrastructure(
-		db, eventBus, outboxWriter, outboxPublisher, productClient, corsHandler,
+		db, eventBus, outboxWriter, outboxPublisher, productClient, corsHandler, sseProvider,
 	)
 
 	// Service setup
@@ -107,7 +112,7 @@ func main() {
 	// Register event handlers with validation
 
 	log.Printf("[DEBUG] Cart: Registering event handlers")
-	if err := registerEventHandlers(service); err != nil {
+	if err := registerEventHandlers(service, sseProvider.GetHub()); err != nil {
 		log.Fatalf("Cart: Failed to register event handlers: %v", err)
 		os.Exit(1)
 	}
@@ -141,6 +146,9 @@ func main() {
 	cartRouter.Put("/carts/{id}/payment", handler.SetPayment)
 
 	cartRouter.Post("/carts/{id}/checkout", handler.Checkout)
+
+	// SSE route for real-time order updates
+	cartRouter.Get("/carts/{id}/stream", sseProvider.GetHandler().ServeHTTP)
 
 	router.Mount("/api/v1", cartRouter)
 
@@ -179,11 +187,11 @@ func main() {
 }
 
 // registerEventHandlers registers all event handlers with the service and validates registration
-func registerEventHandlers(service *cart.CartService) error {
+func registerEventHandlers(service *cart.CartService, sseHub *sse.Hub) error {
 	log.Printf("[INFO] Cart: Registering event handlers...")
 
 	// Register OrderCreated handler using the clean generic method
-	orderCreatedHandler := eventhandlers.NewOnOrderCreated()
+	orderCreatedHandler := eventhandlers.NewOnOrderCreated(sseHub)
 
 	// Log handler registration details
 	log.Printf("[INFO] Cart: Registering handler for event type: %s", orderCreatedHandler.EventType())
