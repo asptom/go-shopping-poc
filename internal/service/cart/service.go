@@ -23,7 +23,6 @@ type CartInfrastructure struct {
 	EventBus        bus.Bus
 	OutboxWriter    *outbox.Writer
 	OutboxPublisher *outbox.Publisher
-	ProductClient   ProductClient
 	CORSHandler     func(http.Handler) http.Handler
 	SSEProvider     *sse.Provider
 }
@@ -33,7 +32,6 @@ func NewCartInfrastructure(
 	eventBus bus.Bus,
 	outboxWriter *outbox.Writer,
 	outboxPublisher *outbox.Publisher,
-	productClient ProductClient,
 	corsHandler func(http.Handler) http.Handler,
 	sseProvider *sse.Provider,
 ) *CartInfrastructure {
@@ -42,7 +40,6 @@ func NewCartInfrastructure(
 		EventBus:        eventBus,
 		OutboxWriter:    outboxWriter,
 		OutboxPublisher: outboxPublisher,
-		ProductClient:   productClient,
 		CORSHandler:     corsHandler,
 		SSEProvider:     sseProvider,
 	}
@@ -130,7 +127,6 @@ func (s *CartService) DeleteCart(ctx context.Context, cartID string) error {
 }
 
 func (s *CartService) AddItem(ctx context.Context, cartID string, productID string, quantity int) (*CartItem, error) {
-
 	log.Printf("[DEBUG] CartService: Adding item to cart %s: product_id=%s, quantity=%d", cartID, productID, quantity)
 
 	if quantity <= 0 {
@@ -146,41 +142,71 @@ func (s *CartService) AddItem(ctx context.Context, cartID string, productID stri
 		return nil, errors.New("cannot add items to non-active cart")
 	}
 
-	log.Printf("[DEBUG] CartService: Validating product %s for cart %s", productID, cartID)
-	product, err := s.infrastructure.ProductClient.GetProduct(ctx, productID)
-	if err != nil {
-		log.Printf("[DEBUG] CartService: failed to validate product %s for cart %s: %v", productID, cartID, err)
-		return nil, fmt.Errorf("failed to validate product: %w", err)
+	// Check if product already exists in cart (prevent duplicates during validation)
+	existingItem, err := s.repo.GetItemByProductID(ctx, cartID, productID)
+	if err == nil && existingItem != nil {
+		if existingItem.IsPendingValidation() {
+			return nil, errors.New("product is already being added to cart, please wait for validation")
+		}
+		if existingItem.IsConfirmed() {
+			return nil, errors.New("product already exists in cart, use update quantity instead")
+		}
+		// If backorder, allow adding again (will create new validation attempt)
 	}
 
-	if !product.InStock {
-		log.Printf("[DEBUG] CartService: product %s is out of stock for cart %s", productID, cartID)
-		return nil, errors.New("product is out of stock")
-	}
+	// Generate correlation ID for this validation
+	correlationID := uuid.New().String()
 
+	// Create item with pending status
 	item := &CartItem{
-		ProductID:   productID,
-		ProductName: product.Name,
-		UnitPrice:   product.FinalPrice,
-		Quantity:    quantity,
+		ProductID:    productID,
+		Quantity:     quantity,
+		Status:       "pending_validation",
+		ValidationID: &correlationID,
+		// ProductName and UnitPrice will be updated after validation
 	}
-	item.CalculateLineTotal()
 
-	log.Printf("[DEBUG] CartService: Adding item to repository for cart %s: %+v", cartID, item)
-	if err := s.repo.AddItem(ctx, cartID, item); err != nil {
-		log.Printf("[DEBUG] CartService: failed to add item to repository for cart %s: %v", cartID, err)
+	// Begin transaction to add item and write validation event
+	tx, err := s.infrastructure.Database.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
+	// Add item to cart within transaction
+	if err := s.repo.AddItemTx(ctx, tx, cartID, item); err != nil {
 		return nil, fmt.Errorf("failed to add item: %w", err)
 	}
 
+	// Write validation event to outbox (transactional)
+	validationEvent := events.NewCartItemValidationRequestedEvent(cartID, productID, quantity, correlationID)
+	if err := s.infrastructure.OutboxWriter.WriteEvent(ctx, tx, validationEvent); err != nil {
+		return nil, fmt.Errorf("failed to write validation event: %w", err)
+	}
+
+	// Commit transaction
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+	committed = true
+
+	// Update cart totals with pending item (best effort, not transactional)
 	cart.Items = append(cart.Items, *item)
 	cart.CalculateTotals()
 
-	log.Printf("[DEBUG] CartService: Updating cart totals for cart %s after adding item", cartID)
+	log.Printf("[DEBUG] CartService: Updating cart totals for cart %s after adding pending item", cartID)
 	if err := s.repo.UpdateCart(ctx, cart); err != nil {
-		log.Printf("[DEBUG] CartService: failed to update cart totals for cart %s after adding item: %v", cartID, err)
-		return nil, fmt.Errorf("failed to update cart totals: %w", err)
+		log.Printf("[WARN] CartService: failed to update cart totals for cart %s: %v", cartID, err)
+		// Don't fail the request, cart totals will be updated on validation
 	}
 
+	log.Printf("[INFO] CartService: Added pending item to cart %s with validation ID %s", cartID, correlationID)
 	return item, nil
 }
 
@@ -325,6 +351,13 @@ func (s *CartService) Checkout(ctx context.Context, cartID string) (*Cart, error
 		return nil, fmt.Errorf("failed to get cart: %w", err)
 	}
 
+	// Check for pending validation items - cannot checkout until all items are validated
+	for _, item := range cart.Items {
+		if item.IsPendingValidation() {
+			return nil, errors.New("cannot checkout: some items are still being validated, please wait")
+		}
+	}
+
 	cart.CalculateTotals()
 
 	if err := s.repo.UpdateCart(ctx, cart); err != nil {
@@ -345,4 +378,14 @@ func (s *CartService) CalculateTax(ctx context.Context, netPrice float64) (float
 
 func (s *CartService) CalculateShipping(ctx context.Context, cart *Cart) (float64, error) {
 	return 0.0, nil
+}
+
+// GetRepository returns the cart repository for use by event handlers
+func (s *CartService) GetRepository() CartRepository {
+	return s.repo
+}
+
+// GetInfrastructure returns the cart infrastructure for use by event handlers
+func (s *CartService) GetInfrastructure() *CartInfrastructure {
+	return s.infrastructure
 }

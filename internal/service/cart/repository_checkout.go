@@ -74,7 +74,9 @@ func (r *cartRepository) CheckoutCart(ctx context.Context, cartID string) (*Cart
 		id := cart.CustomerID.String()
 		customerIDStr = &id
 	}
-	evt := events.NewCartCheckedOutEvent(cartID, customerIDStr, cart.TotalPrice, len(cart.Items))
+
+	snapshot := createCartSnapshot(cart)
+	evt := events.NewCartCheckedOutEventWithSnapshot(cartID, customerIDStr, snapshot)
 	if err := r.outboxWriter.WriteEvent(ctx, tx, evt); err != nil {
 		return nil, fmt.Errorf("failed to write checkout event: %w", err)
 	}
@@ -195,5 +197,72 @@ func (r *cartRepository) loadCartRelationsTx(ctx context.Context, tx database.Tx
 		}
 	}
 
+	query = `
+		SELECT id, cart_id, address_type, first_name, last_name, address_1, address_2, city, state, zip
+		FROM carts.Address
+		WHERE cart_id = $1
+	`
+	err = tx.SelectContext(ctx, &cart.Addresses, query, cart.CartID)
+	if err != nil {
+		return fmt.Errorf("failed to load addresses: %w", err)
+	}
+
 	return nil
+}
+
+func createCartSnapshot(cart *Cart) *events.CartSnapshot {
+	snapshot := &events.CartSnapshot{
+		Currency:   cart.Currency,
+		NetPrice:   cart.NetPrice,
+		Tax:        cart.Tax,
+		Shipping:   cart.Shipping,
+		TotalPrice: cart.TotalPrice,
+		Items:      make([]events.SnapshotItem, len(cart.Items)),
+		Addresses:  make([]events.SnapshotAddress, 0),
+	}
+
+	if cart.Contact != nil {
+		snapshot.Contact = &events.SnapshotContact{
+			Email:     cart.Contact.Email,
+			FirstName: cart.Contact.FirstName,
+			LastName:  cart.Contact.LastName,
+			Phone:     cart.Contact.Phone,
+		}
+	}
+
+	if cart.CreditCard != nil {
+		snapshot.CreditCard = &events.SnapshotPayment{
+			CardType:       cart.CreditCard.CardType,
+			CardNumber:     cart.CreditCard.CardNumber,
+			CardHolderName: cart.CreditCard.CardHolderName,
+			CardExpires:    cart.CreditCard.CardExpires,
+			CardCVV:        cart.CreditCard.CardCVV,
+		}
+	}
+
+	for i, item := range cart.Items {
+		snapshot.Items[i] = events.SnapshotItem{
+			LineNumber:  item.LineNumber,
+			ProductID:   item.ProductID,
+			ProductName: item.ProductName,
+			UnitPrice:   item.UnitPrice,
+			Quantity:    item.Quantity,
+			TotalPrice:  item.TotalPrice,
+		}
+	}
+
+	for _, addr := range cart.Addresses {
+		snapshot.Addresses = append(snapshot.Addresses, events.SnapshotAddress{
+			AddressType: addr.AddressType,
+			FirstName:   addr.FirstName,
+			LastName:    addr.LastName,
+			Address1:    addr.Address1,
+			Address2:    addr.Address2,
+			City:        addr.City,
+			State:       addr.State,
+			Zip:         addr.Zip,
+		})
+	}
+
+	return snapshot
 }

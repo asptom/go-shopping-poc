@@ -12,9 +12,11 @@ import (
 	"go-shopping-poc/internal/platform/config"
 	"go-shopping-poc/internal/platform/cors"
 	"go-shopping-poc/internal/platform/database"
+	"go-shopping-poc/internal/platform/event"
 	"go-shopping-poc/internal/platform/outbox/providers"
 	"go-shopping-poc/internal/platform/storage/minio"
 	"go-shopping-poc/internal/service/product"
+	"go-shopping-poc/internal/service/product/eventhandlers"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -55,13 +57,48 @@ func main() {
 	log.Printf("[DEBUG] Product: Creating outbox writer provider")
 	writerProvider := providers.NewWriterProvider(platformDB)
 
+	// Event bus setup for consuming cart validation requests
+	log.Printf("[DEBUG] Product: Creating event bus provider")
+	eventBusConfig := event.EventBusConfig{
+		WriteTopic: cfg.WriteTopic,
+		GroupID:    cfg.Group,
+	}
+	eventBusProvider, err := event.NewEventBusProvider(eventBusConfig)
+	if err != nil {
+		log.Fatalf("Product: Failed to create event bus provider: %v", err)
+	}
+	eventBus := eventBusProvider.GetEventBus()
+
 	log.Printf("[DEBUG] Product: Creating catalog service")
 	catalogInfra := &product.CatalogInfrastructure{
 		Database:     platformDB,
 		OutboxWriter: writerProvider.GetWriter(),
+		EventBus:     eventBus,
 	}
 	catalogService := product.NewCatalogService(catalogInfra, cfg)
 	log.Printf("[DEBUG] Product: Service created successfully")
+
+	// Register event handlers
+	log.Printf("[DEBUG] Product: Registering event handlers")
+	validationHandler := eventhandlers.NewOnCartItemValidationRequested(catalogService)
+	if err := product.RegisterHandler(
+		catalogService,
+		validationHandler.CreateFactory(),
+		validationHandler.CreateHandler(),
+	); err != nil {
+		log.Fatalf("Product: Failed to register CartItemValidationRequested handler: %v", err)
+	}
+	log.Printf("[DEBUG] Product: Event handlers registered successfully")
+
+	// Start event consumer in background
+	consumerCtx, consumerCancel := context.WithCancel(context.Background())
+	defer consumerCancel()
+
+	go func() {
+		if err := catalogService.Start(consumerCtx); err != nil {
+			log.Printf("[ERROR] Product: Event consumer stopped: %v", err)
+		}
+	}()
 
 	log.Printf("[DEBUG] Product: Loading MinIO configuration")
 	minioCfg, err := config.LoadConfig[minio.PlatformConfig]("platform-minio")

@@ -14,6 +14,7 @@ import (
 	"go-shopping-poc/internal/platform/cors"
 	"go-shopping-poc/internal/platform/database"
 	"go-shopping-poc/internal/platform/event"
+	"go-shopping-poc/internal/platform/outbox"
 	"go-shopping-poc/internal/platform/outbox/providers"
 	"go-shopping-poc/internal/platform/sse"
 	"go-shopping-poc/internal/service/cart"
@@ -67,17 +68,26 @@ func main() {
 	}
 	eventBus := eventBusProvider.GetEventBus()
 
-	// Outbox setup
-	log.Printf("[DEBUG] Cart: Creating outbox providers")
+	// Outbox setup with cart-specific configuration for fast validation (200ms interval)
+	log.Printf("[DEBUG] Cart: Creating outbox components")
 	writerProvider := providers.NewWriterProvider(db)
-	publisherProvider := providers.NewPublisherProvider(db, eventBus)
-	if publisherProvider == nil {
-		log.Fatalf("Cart: Failed to create publisher provider")
+	outboxWriter := writerProvider.GetWriter()
+
+	// Create publisher with cart-specific config (fast 200ms interval for validation events)
+	// Validate config to ensure defaults are set
+	if err := cfg.Validate(); err != nil {
+		log.Fatalf("Cart: Config validation failed: %v", err)
 	}
-	outboxPublisher := publisherProvider.GetPublisher()
+
+	outboxConfig := outbox.Config{
+		BatchSize:       cfg.OutboxBatchSize,
+		ProcessInterval: cfg.OutboxProcessInterval,
+	}
+	log.Printf("[INFO] Cart: Outbox publisher configured with interval: %v (batch size: %d)",
+		outboxConfig.ProcessInterval, outboxConfig.BatchSize)
+	outboxPublisher := outbox.NewPublisher(db, eventBus, outboxConfig)
 	outboxPublisher.Start()
 	defer outboxPublisher.Stop()
-	outboxWriter := writerProvider.GetWriter()
 
 	// CORS setup
 	log.Printf("[DEBUG] Cart: Creating CORS provider")
@@ -87,14 +97,6 @@ func main() {
 	}
 	corsHandler := corsProvider.GetCORSHandler()
 
-	// Product service client setup
-	productServiceURL := cfg.ProductServiceURL
-	if productServiceURL == "" {
-		productServiceURL = "http://product-svc.shopping.svc.cluster.local:80"
-	}
-	log.Printf("[DEBUG] Cart: Product service URL: %s", productServiceURL)
-	productClient := cart.NewProductClient(productServiceURL)
-
 	// SSE provider setup
 	log.Printf("[DEBUG] Cart: Creating SSE provider")
 	sseProvider := sse.NewProvider()
@@ -102,7 +104,7 @@ func main() {
 	// Infrastructure and service setup
 	log.Printf("[DEBUG] Cart: Creating cart infrastructure")
 	infrastructure := cart.NewCartInfrastructure(
-		db, eventBus, outboxWriter, outboxPublisher, productClient, corsHandler, sseProvider,
+		db, eventBus, outboxWriter, outboxPublisher, corsHandler, sseProvider,
 	)
 
 	// Service setup
@@ -207,15 +209,19 @@ func registerEventHandlers(service *cart.CartService, sseHub *sse.Hub) error {
 
 	log.Printf("[INFO] Cart: Successfully registered OrderCreated handler")
 
-	// Future handlers can be registered here using the same generic method:
-	// customerUpdatedHandler := eventhandlers.NewOnCustomerUpdated()
-	// if err := eventreader.RegisterHandler(
-	//     service,
-	//     customerUpdatedHandler.CreateFactory(),
-	//     customerUpdatedHandler.CreateHandler(),
-	// ); err != nil {
-	//     return fmt.Errorf("failed to register CustomerUpdated handler: %w", err)
-	// }
+	// Register CartItemValidationCompleted handler
+	validationHandler := eventhandlers.NewOnCartItemValidationCompleted(service.GetRepository(), sseHub)
+	log.Printf("[INFO] Cart: Registering handler for event type: %s", validationHandler.EventType())
+
+	if err := cart.RegisterHandler(
+		service,
+		validationHandler.CreateFactory(),
+		validationHandler.CreateHandler(),
+	); err != nil {
+		return fmt.Errorf("failed to register CartItemValidationCompleted handler: %w", err)
+	}
+
+	log.Printf("[INFO] Cart: Successfully registered CartItemValidationCompleted handler")
 
 	log.Printf("[INFO] Cart: Event handler registration completed")
 	return nil

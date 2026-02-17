@@ -82,8 +82,8 @@ func (p *Publisher) Stop() {
 func (p *Publisher) processOutbox() error {
 	ctx := p.shutdownCtx
 
-	log.Printf("[DEBUG] Outbox Publisher: ---------------------------")
-	log.Printf("[DEBUG] Outbox Publisher: Processing outbox events...")
+	//log.Printf("[DEBUG] Outbox Publisher: ---------------------------")
+	//log.Printf("[DEBUG] Outbox Publisher: Processing outbox events...")
 
 	query := `SELECT id, event_type, topic, event_payload, created_at, times_attempted, published_at FROM outbox.outbox WHERE published_at IS NULL LIMIT $1`
 
@@ -152,7 +152,7 @@ func (p *Publisher) processOutbox() error {
 			continue
 		}
 	}
-	log.Printf("[DEBUG] Outbox Publisher: Processed %d outbox events", len(outboxEvents))
+	//log.Printf("[DEBUG] Outbox Publisher: Processed %d outbox events", len(outboxEvents))
 	return nil
 }
 

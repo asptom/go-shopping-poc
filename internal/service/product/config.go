@@ -25,6 +25,11 @@ type Config struct {
 
 	// MinIO bucket configuration
 	MinIOBucket string `mapstructure:"minio_bucket" validate:"required"`
+
+	// Event bus configuration for consuming cart validation requests
+	ReadTopics []string `mapstructure:"product_read_topics"` // Topics to consume from (e.g., "CartEvents")
+	WriteTopic string   `mapstructure:"product_write_topic"` // Topic to write to (e.g., "ProductEvents")
+	Group      string   `mapstructure:"product_group"`       // Consumer group ID
 }
 
 // LoadConfig loads product service configuration

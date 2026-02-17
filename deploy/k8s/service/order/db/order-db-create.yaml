@@ -1,0 +1,27 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: order-db-create
+  namespace: shopping
+spec:
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: init
+          image: docker.io/postgres:18.0
+          envFrom:
+            - secretRef:
+                name: postgres-admin-bootstrap-secret
+            - secretRef:
+                name: order-db-secret
+          volumeMounts:
+            - name: sql
+              mountPath: /sql
+          command: ["/bin/bash", "/sql/run.sh"]
+      volumes:
+        - name: sql
+          configMap:
+            name: order-db-init-sql

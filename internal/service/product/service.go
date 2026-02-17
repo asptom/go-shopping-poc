@@ -10,8 +10,9 @@ import (
 	"fmt"
 	"log"
 
-	"go-shopping-poc/internal/contracts/events"
+	events "go-shopping-poc/internal/contracts/events"
 	"go-shopping-poc/internal/platform/database"
+	"go-shopping-poc/internal/platform/event/bus"
 	"go-shopping-poc/internal/platform/outbox"
 	"go-shopping-poc/internal/platform/service"
 )
@@ -26,10 +27,21 @@ import (
 type CatalogInfrastructure struct {
 	Database     database.Database
 	OutboxWriter *outbox.Writer
+	EventBus     bus.Bus // Event bus for consuming cart validation requests
+}
+
+// Service interface for event handler registration
+type Service interface {
+	service.Service
+}
+
+// RegisterHandler adds a new event handler for any event type to the service
+func RegisterHandler[T events.Event](s Service, factory events.EventFactory[T], handler bus.HandlerFunc[T]) error {
+	return service.RegisterHandler(s, factory, handler)
 }
 
 type CatalogService struct {
-	*service.BaseService
+	*service.EventServiceBase
 	repo           ProductRepository
 	infrastructure *CatalogInfrastructure
 	config         *Config
@@ -37,15 +49,19 @@ type CatalogService struct {
 
 // NewCatalogService creates a new catalog service instance.
 func NewCatalogService(infrastructure *CatalogInfrastructure, config *Config) *CatalogService {
-
 	repo := NewProductRepository(infrastructure.Database, infrastructure.OutboxWriter)
 
 	return &CatalogService{
-		BaseService:    service.NewBaseService("product"),
-		repo:           repo,
-		infrastructure: infrastructure,
-		config:         config,
+		EventServiceBase: service.NewEventServiceBase("product", infrastructure.EventBus),
+		repo:             repo,
+		infrastructure:   infrastructure,
+		config:           config,
 	}
+}
+
+// GetInfrastructure returns the infrastructure for use by event handlers
+func (s *CatalogService) GetInfrastructure() *CatalogInfrastructure {
+	return s.infrastructure
 }
 
 // GetProductByID retrieves a product by ID and publishes a view event

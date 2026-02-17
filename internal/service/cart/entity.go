@@ -118,6 +118,11 @@ type CartItem struct {
 	UnitPrice   float64   `json:"unit_price" db:"unit_price"`
 	Quantity    int       `json:"quantity" db:"quantity"`
 	TotalPrice  float64   `json:"total_price" db:"total_price"`
+
+	// Validation state tracking for event-driven decoupling
+	Status          string  `json:"status" db:"status"`                               // "confirmed", "pending_validation", "backorder"
+	ValidationID    *string `json:"validation_id,omitempty" db:"validation_id"`       // correlation ID linking request to response
+	BackorderReason string  `json:"backorder_reason,omitempty" db:"backorder_reason"` // reason for backorder status
 }
 
 func (ci *CartItem) CalculateLineTotal() {
@@ -134,6 +139,46 @@ func (ci *CartItem) Validate() error {
 	if ci.UnitPrice < 0 {
 		return errors.New("unit_price cannot be negative")
 	}
+	return nil
+}
+
+// IsPendingValidation returns true if item is waiting for product validation
+func (ci *CartItem) IsPendingValidation() bool {
+	return ci.Status == "pending_validation"
+}
+
+// IsBackorder returns true if item is on backorder (validation failed)
+func (ci *CartItem) IsBackorder() bool {
+	return ci.Status == "backorder"
+}
+
+// IsConfirmed returns true if item is confirmed and available
+func (ci *CartItem) IsConfirmed() bool {
+	return ci.Status == "confirmed"
+}
+
+// ConfirmItem updates item with validated product details and marks as confirmed
+// Can only be called on items with status "pending_validation"
+func (ci *CartItem) ConfirmItem(productName string, unitPrice float64) error {
+	if ci.Status != "pending_validation" {
+		return fmt.Errorf("cannot confirm item: expected status 'pending_validation', got '%s'", ci.Status)
+	}
+	ci.Status = "confirmed"
+	ci.ProductName = productName
+	ci.UnitPrice = unitPrice
+	ci.CalculateLineTotal()
+	ci.BackorderReason = ""
+	return nil
+}
+
+// MarkAsBackorder marks item as backorder with the given reason
+// Can only be called on items with status "pending_validation"
+func (ci *CartItem) MarkAsBackorder(reason string) error {
+	if ci.Status != "pending_validation" {
+		return fmt.Errorf("cannot mark as backorder: expected status 'pending_validation', got '%s'", ci.Status)
+	}
+	ci.Status = "backorder"
+	ci.BackorderReason = reason
 	return nil
 }
 

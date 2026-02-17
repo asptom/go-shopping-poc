@@ -21,6 +21,55 @@ type CartEventPayload struct {
 	TotalPrice float64           `json:"total_price,omitempty"`
 	ItemCount  int               `json:"item_count,omitempty"`
 	Details    map[string]string `json:"details,omitempty"`
+
+	CartSnapshot *CartSnapshot `json:"cart_snapshot,omitempty"`
+}
+
+type CartSnapshot struct {
+	Currency   string            `json:"currency"`
+	NetPrice   float64           `json:"net_price"`
+	Tax        float64           `json:"tax"`
+	Shipping   float64           `json:"shipping"`
+	TotalPrice float64           `json:"total_price"`
+	Contact    *SnapshotContact  `json:"contact,omitempty"`
+	CreditCard *SnapshotPayment  `json:"credit_card,omitempty"`
+	Addresses  []SnapshotAddress `json:"addresses,omitempty"`
+	Items      []SnapshotItem    `json:"items,omitempty"`
+}
+
+type SnapshotContact struct {
+	Email     string `json:"email"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	Phone     string `json:"phone"`
+}
+
+type SnapshotPayment struct {
+	CardType       string `json:"card_type"`
+	CardNumber     string `json:"card_number"`
+	CardHolderName string `json:"card_holder_name"`
+	CardExpires    string `json:"card_expires"`
+	CardCVV        string `json:"card_cvv"`
+}
+
+type SnapshotAddress struct {
+	AddressType string `json:"address_type"`
+	FirstName   string `json:"first_name"`
+	LastName    string `json:"last_name"`
+	Address1    string `json:"address_1"`
+	Address2    string `json:"address_2"`
+	City        string `json:"city"`
+	State       string `json:"state"`
+	Zip         string `json:"zip"`
+}
+
+type SnapshotItem struct {
+	LineNumber  string  `json:"line_number"`
+	ProductID   string  `json:"product_id"`
+	ProductName string  `json:"product_name"`
+	UnitPrice   float64 `json:"unit_price"`
+	Quantity    int     `json:"quantity"`
+	TotalPrice  float64 `json:"total_price"`
 }
 
 type CartEvent struct {
@@ -72,4 +121,21 @@ func NewCartDeletedEvent(cartID string, customerID *string) *CartEvent {
 
 func NewCartCheckedOutEvent(cartID string, customerID *string, totalPrice float64, itemCount int) *CartEvent {
 	return NewCartEvent(cartID, CartCheckedOut, customerID, totalPrice, itemCount, nil)
+}
+
+func NewCartCheckedOutEventWithSnapshot(cartID string, customerID *string, snapshot *CartSnapshot) *CartEvent {
+	payload := CartEventPayload{
+		CartID:       cartID,
+		CustomerID:   customerID,
+		TotalPrice:   snapshot.TotalPrice,
+		ItemCount:    len(snapshot.Items),
+		CartSnapshot: snapshot,
+	}
+
+	return &CartEvent{
+		ID:           uuid.New().String(),
+		EventType:    CartCheckedOut,
+		Timestamp:    time.Now(),
+		EventPayload: payload,
+	}
 }

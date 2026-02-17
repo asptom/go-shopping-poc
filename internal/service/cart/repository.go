@@ -28,9 +28,15 @@ type CartRepository interface {
 	GetActiveCartByCustomerID(ctx context.Context, customerID string) (*Cart, error)
 
 	AddItem(ctx context.Context, cartID string, item *CartItem) error
+	AddItemTx(ctx context.Context, tx database.Tx, cartID string, item *CartItem) error
 	UpdateItemQuantity(ctx context.Context, cartID string, lineNumber string, quantity int) error
 	RemoveItem(ctx context.Context, cartID string, lineNumber string) error
 	GetCartItems(ctx context.Context, cartID string) ([]CartItem, error)
+
+	// Validation support methods
+	GetItemByValidationID(ctx context.Context, validationID string) (*CartItem, error)
+	GetItemByProductID(ctx context.Context, cartID, productID string) (*CartItem, error)
+	UpdateItemStatus(ctx context.Context, item *CartItem) error
 
 	SetContact(ctx context.Context, cartID string, contact *Contact) error
 	GetContact(ctx context.Context, cartID string) (*Contact, error)

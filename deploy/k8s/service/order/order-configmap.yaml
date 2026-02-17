@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: order-config
+  namespace: shopping
+  labels:
+    app: go-shopping-poc
+    component: order
+data:
+  # Order Service Port
+  ORDER_SERVICE_PORT: ":8083"
+
+  # Order Kafka Settings
+  ORDER_WRITE_TOPIC: "OrderEvents"
+  ORDER_READ_TOPICS: "CartEvents"
+  ORDER_GROUP: "OrderGroup"

@@ -11,4 +11,5 @@ data:
   CART_WRITE_TOPIC: "CartEvents"
   CART_READ_TOPICS: "OrderEvents"
   CART_GROUP: "CartGroup"
-  PRODUCT_SERVICE_URL: "http://product-svc.shopping.svc.cluster.local:80"
+  CART_OUTBOX_BATCH_SIZE: "10"
+  CART_OUTBOX_PROCESS_INTERVAL: "200ms"

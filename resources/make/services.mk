@@ -3,19 +3,21 @@
 #   include $(PROJECT_HOME)/resources/make/services.mk
 
 #Service settings
- SERVICES := customer eventreader product product-admin cart
+ SERVICES := customer eventreader product product-admin cart order
 
 SERVICE_BUILDS_DB_customer := true
 SERVICE_BUILDS_DB_eventreader := false
 SERVICE_BUILDS_DB_product := true
 SERVICE_BUILDS_DB_product-admin := false
 SERVICE_BUILDS_DB_cart := true
+SERVICE_BUILDS_DB_order := true
 
 SERVICE_INTERNAL_DIR_customer := customer
 SERVICE_INTERNAL_DIR_eventreader := eventreader
 SERVICE_INTERNAL_DIR_product := product
 SERVICE_INTERNAL_DIR_product-admin := product
 SERVICE_INTERNAL_DIR_cart := cart
+SERVICE_INTERNAL_DIR_order := order
 
 #Kubernetes settings
 SERVICES_NAMESPACE ?= shopping
