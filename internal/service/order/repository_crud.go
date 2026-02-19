@@ -35,7 +35,7 @@ func (r *orderRepository) CreateOrder(ctx context.Context, order *Order) error {
 	order.UpdatedAt = time.Now()
 
 	var orderNumber string
-	err = tx.QueryRow(ctx, "SELECT generate_order_number()").Scan(&orderNumber)
+	err = tx.QueryRow(ctx, "SELECT orders.generate_order_number()").Scan(&orderNumber)
 	if err != nil {
 		return fmt.Errorf("%w: failed to generate order number: %v", ErrDatabaseOperation, err)
 	}
@@ -96,7 +96,7 @@ func (r *orderRepository) CreateOrder(ctx context.Context, order *Order) error {
 		id := order.CustomerID.String()
 		customerIDStr = &id
 	}
-	evt := events.NewOrderCreatedEvent(order.OrderID.String(), order.OrderNumber, order.OrderID.String(), customerIDStr, order.TotalPrice)
+	evt := events.NewOrderCreatedEvent(order.OrderID.String(), order.OrderNumber, order.CartID.String(), customerIDStr, order.TotalPrice)
 	if err := r.outboxWriter.WriteEvent(ctx, tx, evt); err != nil {
 		return fmt.Errorf("failed to write order created event: %w", err)
 	}

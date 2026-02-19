@@ -101,6 +101,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Start consuming events from Kafka (in a goroutine so it doesn't block)
+	log.Printf("[INFO] Order: Starting event consumer...")
+	log.Printf("[INFO] Order: Subscribed to topics: %v", service.EventBus().ReadTopics())
+	go func() {
+		ctx := context.Background()
+		if err := service.Start(ctx); err != nil {
+			log.Printf("[ERROR] Order: Event consumer error: %v", err)
+		}
+	}()
+
 	log.Printf("[DEBUG] Order: Creating order handler")
 	handler := order.NewOrderHandler(service)
 

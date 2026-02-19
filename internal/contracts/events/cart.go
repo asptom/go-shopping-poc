@@ -15,6 +15,96 @@ const (
 	CartCheckedOut CartEventType = "cart.checked_out"
 )
 
+// CartItemEventType defines cart item-specific event types
+type CartItemEventType string
+
+const (
+	CartItemAdded     CartItemEventType = "cart.item.added"
+	CartItemConfirmed CartItemEventType = "cart.item.confirmed"
+	CartItemRejected  CartItemEventType = "cart.item.rejected"
+)
+
+// CartItemPayload contains cart item event data
+type CartItemPayload struct {
+	CartID      string  `json:"cart_id"`
+	LineNumber  string  `json:"line_number"`
+	ProductID   string  `json:"product_id"`
+	Quantity    int     `json:"quantity"`
+	ProductName string  `json:"product_name,omitempty"`
+	UnitPrice   float64 `json:"unit_price,omitempty"`
+}
+
+// CartItemEvent represents cart item lifecycle events
+type CartItemEvent struct {
+	ID        string            `json:"id"`
+	EventType CartItemEventType `json:"type"`
+	Timestamp time.Time         `json:"timestamp"`
+	Data      CartItemPayload   `json:"payload"`
+}
+
+// CartItemEventFactory implements EventFactory
+type CartItemEventFactory struct{}
+
+func (f CartItemEventFactory) FromJSON(data []byte) (CartItemEvent, error) {
+	var event CartItemEvent
+	err := json.Unmarshal(data, &event)
+	return event, err
+}
+
+// Event interface implementations
+func (e CartItemEvent) Type() string            { return string(e.EventType) }
+func (e CartItemEvent) Topic() string           { return "CartEvents" }
+func (e CartItemEvent) Payload() any            { return e.Data }
+func (e CartItemEvent) ToJSON() ([]byte, error) { return json.Marshal(e) }
+func (e CartItemEvent) GetEntityID() string     { return e.Data.CartID }
+func (e CartItemEvent) GetResourceID() string   { return e.ID }
+
+// Constructor for CartItemAdded
+func NewCartItemAddedEvent(cartID, lineNumber, productID string, quantity int) *CartItemEvent {
+	return &CartItemEvent{
+		ID:        uuid.New().String(),
+		EventType: CartItemAdded,
+		Timestamp: time.Now(),
+		Data: CartItemPayload{
+			CartID:     cartID,
+			LineNumber: lineNumber,
+			ProductID:  productID,
+			Quantity:   quantity,
+		},
+	}
+}
+
+// Constructor for CartItemConfirmed
+func NewCartItemConfirmedEvent(cartID, lineNumber, productID, productName string, unitPrice float64, quantity int) *CartItemEvent {
+	return &CartItemEvent{
+		ID:        uuid.New().String(),
+		EventType: CartItemConfirmed,
+		Timestamp: time.Now(),
+		Data: CartItemPayload{
+			CartID:      cartID,
+			LineNumber:  lineNumber,
+			ProductID:   productID,
+			ProductName: productName,
+			UnitPrice:   unitPrice,
+			Quantity:    quantity,
+		},
+	}
+}
+
+// Constructor for CartItemRejected
+func NewCartItemRejectedEvent(cartID, lineNumber, productID, reason string) *CartItemEvent {
+	return &CartItemEvent{
+		ID:        uuid.New().String(),
+		EventType: CartItemRejected,
+		Timestamp: time.Now(),
+		Data: CartItemPayload{
+			CartID:     cartID,
+			LineNumber: lineNumber,
+			ProductID:  productID,
+		},
+	}
+}
+
 type CartEventPayload struct {
 	CartID     string            `json:"cart_id"`
 	CustomerID *string           `json:"customer_id,omitempty"`

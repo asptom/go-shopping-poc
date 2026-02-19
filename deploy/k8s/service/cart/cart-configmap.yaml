@@ -9,7 +9,5 @@ metadata:
 data:
   CART_SERVICE_PORT: ":8082"
   CART_WRITE_TOPIC: "CartEvents"
-  CART_READ_TOPICS: "OrderEvents"
+  CART_READ_TOPICS: "OrderEvents,ProductEvents"
   CART_GROUP: "CartGroup"
-  CART_OUTBOX_BATCH_SIZE: "10"
-  CART_OUTBOX_PROCESS_INTERVAL: "200ms"

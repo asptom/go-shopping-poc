@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"sync/atomic"
 	"time"
 
 	"go-shopping-poc/internal/platform/database"
@@ -15,12 +16,15 @@ import (
 
 // Publisher is responsible for publishing events from the outbox to an external system (e.g., message broker).
 type Publisher struct {
-	db              database.Database
-	publisher       bus.Bus
-	batchSize       int           // Number of events to process in a single batch
-	processInterval time.Duration // Time between outbox scans
-	shutdownCtx     context.Context
-	shutdownCancel  context.CancelFunc
+	db                database.Database
+	publisher         bus.Bus
+	batchSize         int           // Number of events to process in a single batch
+	processInterval   time.Duration // Time between outbox scans
+	shutdownCtx       context.Context
+	shutdownCancel    context.CancelFunc
+	immediateQueue    chan struct{} // Buffered channel for immediate processing requests
+	maxConcurrent     int           // Maximum concurrent immediate processing goroutines
+	currentProcessing int32         // Atomic counter for current processing goroutines
 }
 
 var (
@@ -54,11 +58,14 @@ func NewPublisher(db database.Database, publisher bus.Bus, cfg Config) *Publishe
 		processInterval: cfg.ProcessInterval,
 		shutdownCtx:     ctx,
 		shutdownCancel:  cancel,
+		immediateQueue:  make(chan struct{}, 100), // Buffer up to 100 immediate requests
+		maxConcurrent:   10,                       // Max 10 concurrent processing goroutines
 	}
 }
 
 // Start begins the publishing process.
 func (p *Publisher) Start() {
+	// Start background ticker for polling
 	go func() {
 		ticker := time.NewTicker(p.processInterval)
 		defer ticker.Stop()
@@ -72,6 +79,9 @@ func (p *Publisher) Start() {
 			}
 		}
 	}()
+
+	// Start immediate processing worker
+	go p.processImmediateQueue()
 }
 
 func (p *Publisher) Stop() {
@@ -170,4 +180,50 @@ func (p *Publisher) publishEvent(ctx context.Context, event OutboxEvent) error {
 
 	log.Printf("[INFO] Outbox Publisher: Published event ID: %v to topic %s", event.ID, event.Topic)
 	return nil
+}
+
+// processImmediateQueue processes the immediate processing requests
+func (p *Publisher) processImmediateQueue() {
+	for {
+		select {
+		case <-p.shutdownCtx.Done():
+			return
+		case <-p.immediateQueue:
+			// Check if we're at max concurrent
+			current := atomic.LoadInt32(&p.currentProcessing)
+			if current >= int32(p.maxConcurrent) {
+				// Too many concurrent, skip this one (will be picked up by polling)
+				log.Printf("[DEBUG] Outbox Publisher: Max concurrent processing reached, skipping immediate")
+				continue
+			}
+
+			// Increment counter and process
+			atomic.AddInt32(&p.currentProcessing, 1)
+			if err := p.processOutbox(); err != nil {
+				log.Printf("[ERROR] Outbox Publisher: Immediate processing error: %v", err)
+			}
+			atomic.AddInt32(&p.currentProcessing, -1)
+		}
+	}
+}
+
+// ProcessNow triggers immediate outbox processing
+func (p *Publisher) ProcessNow() error {
+	select {
+	case <-p.shutdownCtx.Done():
+		return nil
+	case p.immediateQueue <- struct{}{}:
+		// Queued for immediate processing
+		return nil
+	default:
+		// Queue full, will be picked up by polling
+		log.Printf("[DEBUG] Outbox Publisher: Immediate queue full, event will be processed by polling")
+		return nil
+	}
+}
+
+// ProcessNowBlocking immediately processes pending outbox events and waits for completion
+// Use sparingly - only when you need to ensure events are published before continuing
+func (p *Publisher) ProcessNowBlocking(ctx context.Context) error {
+	return p.processOutbox()
 }

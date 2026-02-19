@@ -3,19 +3,19 @@
 #   include $(PROJECT_HOME)/resources/make/services.mk
 
 #Service settings
- SERVICES := customer eventreader product product-admin cart order
+ SERVICES := customer eventreader product cart order
 
 SERVICE_BUILDS_DB_customer := true
 SERVICE_BUILDS_DB_eventreader := false
 SERVICE_BUILDS_DB_product := true
-SERVICE_BUILDS_DB_product-admin := false
+#SERVICE_BUILDS_DB_product-admin := false
 SERVICE_BUILDS_DB_cart := true
 SERVICE_BUILDS_DB_order := true
 
 SERVICE_INTERNAL_DIR_customer := customer
 SERVICE_INTERNAL_DIR_eventreader := eventreader
 SERVICE_INTERNAL_DIR_product := product
-SERVICE_INTERNAL_DIR_product-admin := product
+#SERVICE_INTERNAL_DIR_product-admin := product
 SERVICE_INTERNAL_DIR_cart := cart
 SERVICE_INTERNAL_DIR_order := order
 
@@ -91,6 +91,11 @@ $(call help_entry,$(1)-uninstall,Service,Uninstall $(1) from Kubernetes)
 .PHONY: $(1)-uninstall
 $(1)-uninstall:
 	$$(call run,Uninstall $(1) from k8s,$$@,kubectl delete -f deploy/k8s/service/$(1)/ --ignore-not-found)
+
+$(call help_entry,$(1)-logs,Service,View logs for $(1))
+.PHONY: $(1)-logs
+$(1)-logs:
+	$$(call run,View logs for $(1),$$@,kubectl logs -l app.kubernetes.io/name=$(1) -n $(SERVICES_NAMESPACE))
 
 endef
 

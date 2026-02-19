@@ -160,6 +160,15 @@ func (s *OrderService) CreateOrderFromSnapshot(ctx context.Context, cartID strin
 		return nil, fmt.Errorf("failed to create order: %w", err)
 	}
 
+	// Trigger immediate outbox processing for low latency
+	if s.infrastructure.OutboxPublisher != nil {
+		go func() {
+			if err := s.infrastructure.OutboxPublisher.ProcessNow(); err != nil {
+				log.Printf("[WARN] Order: Failed to trigger immediate outbox processing: %v", err)
+			}
+		}()
+	}
+
 	return order, nil
 }
 

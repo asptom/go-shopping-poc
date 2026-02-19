@@ -30,11 +30,6 @@ type Config struct {
 	ReadTopics []string `mapstructure:"product_read_topics"` // Topics to consume from (e.g., "CartEvents")
 	WriteTopic string   `mapstructure:"product_write_topic"` // Topic to write to (e.g., "ProductEvents")
 	Group      string   `mapstructure:"product_group"`       // Consumer group ID
-
-	// Outbox configuration for fast validation events (target: 200ms interval)
-	// Using product-specific env vars to avoid conflict with platform-outbox defaults
-	OutboxBatchSize       int           `mapstructure:"product_outbox_batch_size"`
-	OutboxProcessInterval time.Duration `mapstructure:"product_outbox_process_interval"`
 }
 
 // LoadConfig loads product service configuration
@@ -63,13 +58,7 @@ func (c *Config) Validate() error {
 	if c.MinIOBucket == "" {
 		return errors.New("MinIO bucket is required")
 	}
-	// Set defaults for outbox if not configured
-	if c.OutboxBatchSize <= 0 {
-		c.OutboxBatchSize = 10
-	}
-	if c.OutboxProcessInterval <= 0 {
-		c.OutboxProcessInterval = 200 * time.Millisecond
-	}
+	// Removed outbox configuration validation
 	return nil
 }
 

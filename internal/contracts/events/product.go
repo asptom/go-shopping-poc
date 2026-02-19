@@ -25,6 +25,7 @@ package events
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -49,6 +50,9 @@ const (
 	ProductViewed         ProductEventType = "product.viewed"
 	ProductSearchExecuted ProductEventType = "product.search.executed"
 	ProductCategoryViewed ProductEventType = "product.category.viewed"
+
+	ProductValidated   ProductEventType = "product.validated"
+	ProductUnavailable ProductEventType = "product.unavailable"
 )
 
 // ProductEventPayload represents the data structure for product events
@@ -166,4 +170,59 @@ func NewProductSearchExecutedEvent(query string, details map[string]string) *Pro
 
 func NewProductCategoryViewedEvent(category string, details map[string]string) *ProductEvent {
 	return NewProductEvent("", ProductCategoryViewed, category, details)
+}
+
+// ProductValidationPayload contains product validation results
+type ProductValidationPayload struct {
+	ProductID   string  `json:"product_id"`
+	ProductName string  `json:"product_name,omitempty"`
+	UnitPrice   float64 `json:"unit_price,omitempty"`
+	IsAvailable bool    `json:"is_available"`
+	Reason      string  `json:"reason,omitempty"`
+
+	// Context information (optional, for correlation)
+	CartID     string `json:"cart_id,omitempty"`
+	LineNumber string `json:"line_number,omitempty"`
+}
+
+// NewProductValidatedEvent creates a product validation success event
+func NewProductValidatedEvent(productID, productName string, unitPrice float64, cartID, lineNumber string) *ProductEvent {
+	details := map[string]string{
+		"cart_id":     cartID,
+		"line_number": lineNumber,
+		"unit_price":  fmt.Sprintf("%.2f", unitPrice),
+	}
+
+	return &ProductEvent{
+		ID:        uuid.New().String(),
+		EventType: ProductValidated,
+		Timestamp: time.Now(),
+		EventPayload: ProductEventPayload{
+			ProductID:  productID,
+			EventType:  ProductValidated,
+			ResourceID: productID,
+			Details:    details,
+		},
+	}
+}
+
+// NewProductUnavailableEvent creates a product validation failure event
+func NewProductUnavailableEvent(productID, reason string, cartID, lineNumber string) *ProductEvent {
+	details := map[string]string{
+		"cart_id":     cartID,
+		"line_number": lineNumber,
+		"reason":      reason,
+	}
+
+	return &ProductEvent{
+		ID:        uuid.New().String(),
+		EventType: ProductUnavailable,
+		Timestamp: time.Now(),
+		EventPayload: ProductEventPayload{
+			ProductID:  productID,
+			EventType:  ProductUnavailable,
+			ResourceID: productID,
+			Details:    details,
+		},
+	}
 }

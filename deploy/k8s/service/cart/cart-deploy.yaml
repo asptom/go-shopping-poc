@@ -168,17 +168,7 @@ spec:
                 configMapKeyRef:
                   name: cart-config
                   key: CART_GROUP
-            - name: CART_OUTBOX_BATCH_SIZE
-              valueFrom:
-                configMapKeyRef:
-                  name: cart-config
-                  key: CART_OUTBOX_BATCH_SIZE
-            - name: CART_OUTBOX_PROCESS_INTERVAL
-              valueFrom:
-                configMapKeyRef:
-                  name: cart-config
-                  key: CART_OUTBOX_PROCESS_INTERVAL
-
+            
             # Database credentials from secret
             - name: DB_URL
               valueFrom:

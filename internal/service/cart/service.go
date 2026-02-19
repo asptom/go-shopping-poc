@@ -154,19 +154,16 @@ func (s *CartService) AddItem(ctx context.Context, cartID string, productID stri
 		// If backorder, allow adding again (will create new validation attempt)
 	}
 
-	// Generate correlation ID for this validation
-	correlationID := uuid.New().String()
-
 	// Create item with pending status
 	item := &CartItem{
-		ProductID:    productID,
-		Quantity:     quantity,
-		Status:       "pending_validation",
-		ValidationID: &correlationID,
+		ProductID: productID,
+		Quantity:  quantity,
+		Status:    "pending_validation",
+		// LineNumber will be assigned by repository
 		// ProductName and UnitPrice will be updated after validation
 	}
 
-	// Begin transaction to add item and write validation event
+	// Begin transaction to add item and write event
 	tx, err := s.infrastructure.Database.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin transaction: %w", err)
@@ -184,10 +181,11 @@ func (s *CartService) AddItem(ctx context.Context, cartID string, productID stri
 		return nil, fmt.Errorf("failed to add item: %w", err)
 	}
 
-	// Write validation event to outbox (transactional)
-	validationEvent := events.NewCartItemValidationRequestedEvent(cartID, productID, quantity, correlationID)
-	if err := s.infrastructure.OutboxWriter.WriteEvent(ctx, tx, validationEvent); err != nil {
-		return nil, fmt.Errorf("failed to write validation event: %w", err)
+	// Emit CartItemAdded event to outbox (transactional)
+	// This notifies other services (like product) that an item was added
+	cartItemEvent := events.NewCartItemAddedEvent(cartID, item.LineNumber, productID, quantity)
+	if err := s.infrastructure.OutboxWriter.WriteEvent(ctx, tx, cartItemEvent); err != nil {
+		return nil, fmt.Errorf("failed to write cart item event: %w", err)
 	}
 
 	// Commit transaction
@@ -195,6 +193,15 @@ func (s *CartService) AddItem(ctx context.Context, cartID string, productID stri
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 	committed = true
+
+	// Trigger immediate outbox processing for low latency
+	if s.infrastructure.OutboxPublisher != nil {
+		go func() {
+			if err := s.infrastructure.OutboxPublisher.ProcessNow(); err != nil {
+				log.Printf("[WARN] Cart: Failed to trigger immediate outbox processing: %v", err)
+			}
+		}()
+	}
 
 	// Update cart totals with pending item (best effort, not transactional)
 	cart.Items = append(cart.Items, *item)
@@ -206,7 +213,7 @@ func (s *CartService) AddItem(ctx context.Context, cartID string, productID stri
 		// Don't fail the request, cart totals will be updated on validation
 	}
 
-	log.Printf("[INFO] CartService: Added pending item to cart %s with validation ID %s", cartID, correlationID)
+	log.Printf("[INFO] CartService: Added pending item %s to cart %s", item.LineNumber, cartID)
 	return item, nil
 }
 

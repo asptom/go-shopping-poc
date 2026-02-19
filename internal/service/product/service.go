@@ -25,9 +25,10 @@ import (
 
 // CatalogInfrastructure defines infrastructure components for catalog service
 type CatalogInfrastructure struct {
-	Database     database.Database
-	OutboxWriter *outbox.Writer
-	EventBus     bus.Bus // Event bus for consuming cart validation requests
+	Database        database.Database
+	OutboxWriter    *outbox.Writer
+	OutboxPublisher *outbox.Publisher
+	EventBus        bus.Bus // Event bus for consuming cart validation requests
 }
 
 // Service interface for event handler registration

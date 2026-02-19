@@ -69,24 +69,32 @@ func main() {
 	}
 	eventBus := eventBusProvider.GetEventBus()
 
+	// Create outbox publisher for immediate event processing
+	log.Printf("[DEBUG] Product: Creating outbox publisher")
+	publisherProvider := providers.NewPublisherProvider(platformDB, eventBus)
+	outboxPublisher := publisherProvider.GetPublisher()
+	outboxPublisher.Start()
+	defer outboxPublisher.Stop()
+
 	log.Printf("[DEBUG] Product: Creating catalog service")
 	catalogInfra := &product.CatalogInfrastructure{
-		Database:     platformDB,
-		OutboxWriter: writerProvider.GetWriter(),
-		EventBus:     eventBus,
+		Database:        platformDB,
+		OutboxWriter:    writerProvider.GetWriter(),
+		OutboxPublisher: outboxPublisher,
+		EventBus:        eventBus,
 	}
 	catalogService := product.NewCatalogService(catalogInfra, cfg)
 	log.Printf("[DEBUG] Product: Service created successfully")
 
 	// Register event handlers
 	log.Printf("[DEBUG] Product: Registering event handlers")
-	validationHandler := eventhandlers.NewOnCartItemValidationRequested(catalogService)
+	cartItemAddedHandler := eventhandlers.NewOnCartItemAdded(catalogService)
 	if err := product.RegisterHandler(
 		catalogService,
-		validationHandler.CreateFactory(),
-		validationHandler.CreateHandler(),
+		cartItemAddedHandler.CreateFactory(),
+		cartItemAddedHandler.CreateHandler(),
 	); err != nil {
-		log.Fatalf("Product: Failed to register CartItemValidationRequested handler: %v", err)
+		log.Fatalf("Product: Failed to register CartItemAdded handler: %v", err)
 	}
 	log.Printf("[DEBUG] Product: Event handlers registered successfully")
 

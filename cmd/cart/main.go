@@ -68,20 +68,15 @@ func main() {
 	}
 	eventBus := eventBusProvider.GetEventBus()
 
-	// Outbox setup with cart-specific configuration for fast validation (200ms interval)
+	// Outbox setup
 	log.Printf("[DEBUG] Cart: Creating outbox components")
 	writerProvider := providers.NewWriterProvider(db)
 	outboxWriter := writerProvider.GetWriter()
 
-	// Create publisher with cart-specific config (fast 200ms interval for validation events)
-	// Validate config to ensure defaults are set
-	if err := cfg.Validate(); err != nil {
-		log.Fatalf("Cart: Config validation failed: %v", err)
-	}
-
+	// Use platform default outbox configuration
 	outboxConfig := outbox.Config{
-		BatchSize:       cfg.OutboxBatchSize,
-		ProcessInterval: cfg.OutboxProcessInterval,
+		BatchSize:       10,              // Use platform default
+		ProcessInterval: 5 * time.Second, // Use platform default (polling fallback only)
 	}
 	log.Printf("[INFO] Cart: Outbox publisher configured with interval: %v (batch size: %d)",
 		outboxConfig.ProcessInterval, outboxConfig.BatchSize)
@@ -220,19 +215,19 @@ func registerEventHandlers(service *cart.CartService, sseHub *sse.Hub) error {
 
 	log.Printf("[INFO] Cart: Successfully registered OrderCreated handler")
 
-	// Register CartItemValidationCompleted handler
-	validationHandler := eventhandlers.NewOnCartItemValidationCompleted(service.GetRepository(), sseHub)
-	log.Printf("[INFO] Cart: Registering handler for event type: %s", validationHandler.EventType())
+	// Register ProductValidated handler
+	productValidatedHandler := eventhandlers.NewOnProductValidated(service.GetRepository(), sseHub)
+	log.Printf("[INFO] Cart: Registering handler for event type: %s", productValidatedHandler.EventType())
 
 	if err := cart.RegisterHandler(
 		service,
-		validationHandler.CreateFactory(),
-		validationHandler.CreateHandler(),
+		productValidatedHandler.CreateFactory(),
+		productValidatedHandler.CreateHandler(),
 	); err != nil {
-		return fmt.Errorf("failed to register CartItemValidationCompleted handler: %w", err)
+		return fmt.Errorf("failed to register ProductValidated handler: %w", err)
 	}
 
-	log.Printf("[INFO] Cart: Successfully registered CartItemValidationCompleted handler")
+	log.Printf("[INFO] Cart: Successfully registered ProductValidated handler")
 
 	log.Printf("[INFO] Cart: Event handler registration completed")
 	return nil

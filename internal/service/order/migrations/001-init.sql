@@ -138,7 +138,7 @@ DECLARE
     seq_num bigint;
 BEGIN
     year := to_char(CURRENT_DATE, 'YYYY');
-    seq_num := nextval('order_number_seq');
+    seq_num := nextval('orders.order_number_seq');
     RETURN 'ORD-' || year || '-' || lpad(seq_num::text, 8, '0');
 END;
 $$ LANGUAGE plpgsql;
