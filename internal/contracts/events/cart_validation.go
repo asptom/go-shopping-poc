@@ -51,9 +51,44 @@ type CartValidationEventFactory struct{}
 
 // FromJSON reconstructs a CartValidationEvent from JSON
 func (f CartValidationEventFactory) FromJSON(data []byte) (CartValidationEvent, error) {
-	var event CartValidationEvent
-	err := json.Unmarshal(data, &event)
-	return event, err
+	// First unmarshal to get the event type
+	var rawEvent struct {
+		ID        string          `json:"id"`
+		EventType string          `json:"type"`
+		Timestamp time.Time       `json:"timestamp"`
+		Payload   json.RawMessage `json:"payload"`
+	}
+
+	if err := json.Unmarshal(data, &rawEvent); err != nil {
+		return CartValidationEvent{}, err
+	}
+
+	event := CartValidationEvent{
+		ID:        rawEvent.ID,
+		EventType: CartValidationEventType(rawEvent.EventType),
+		Timestamp: rawEvent.Timestamp,
+	}
+
+	// Unmarshal payload based on event type
+	switch event.EventType {
+	case CartItemValidationRequested:
+		var payload CartValidationPayload
+		if err := json.Unmarshal(rawEvent.Payload, &payload); err != nil {
+			return CartValidationEvent{}, err
+		}
+		event.EventPayload = payload
+	case CartItemValidationCompleted:
+		var payload CartValidationResultPayload
+		if err := json.Unmarshal(rawEvent.Payload, &payload); err != nil {
+			return CartValidationEvent{}, err
+		}
+		event.EventPayload = payload
+	default:
+		// Unknown type - leave as raw message for debugging
+		event.EventPayload = rawEvent.Payload
+	}
+
+	return event, nil
 }
 
 // Event interface implementations

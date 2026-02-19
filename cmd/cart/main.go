@@ -119,6 +119,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Start consuming events from Kafka (in a goroutine so it doesn't block)
+	log.Printf("[INFO] Cart: Starting event consumer...")
+	log.Printf("[INFO] Cart: Subscribed to topics: %v", service.EventBus().ReadTopics())
+	go func() {
+		ctx := context.Background()
+		if err := service.Start(ctx); err != nil {
+			log.Printf("[ERROR] Cart: Event consumer error: %v", err)
+		}
+	}()
+
 	log.Printf("[DEBUG] Cart: Creating cart handler")
 	handler := cart.NewCartHandler(service)
 
@@ -156,11 +166,12 @@ func main() {
 
 	serverAddr := "0.0.0.0" + cfg.ServicePort
 	server := &http.Server{
-		Addr:         serverAddr,
-		Handler:      router,
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 30 * time.Second,
-		IdleTimeout:  120 * time.Second,
+		Addr:        serverAddr,
+		Handler:     router,
+		ReadTimeout: 30 * time.Second,
+		// WriteTimeout: 0 disables timeout for SSE (infinite streams)
+		// SSE handles its own connection lifecycle via heartbeats
+		IdleTimeout: 120 * time.Second,
 	}
 
 	done := make(chan bool, 1)

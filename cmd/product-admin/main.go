@@ -14,6 +14,7 @@ import (
 	"go-shopping-poc/internal/platform/database"
 	"go-shopping-poc/internal/platform/downloader"
 	"go-shopping-poc/internal/platform/event"
+	"go-shopping-poc/internal/platform/outbox"
 	"go-shopping-poc/internal/platform/outbox/providers"
 	"go-shopping-poc/internal/platform/storage"
 	"go-shopping-poc/internal/service/product"
@@ -72,15 +73,25 @@ func main() {
 	}
 	minioStorage := storageProvider.GetObjectStorage()
 
+	// Validate config to set defaults
+	if err := cfg.Validate(); err != nil {
+		log.Fatalf("Product-Admin: Config validation failed: %v", err)
+	}
+
 	log.Printf("[DEBUG] Product-Admin: Creating outbox providers")
 	writerProvider := providers.NewWriterProvider(platformDB)
-	publisherProvider := providers.NewPublisherProvider(platformDB, eventBus)
-	if publisherProvider == nil {
-		log.Fatalf("Product-Admin: Failed to create publisher provider")
+
+	// Create outbox publisher with service-specific fast interval for validation events
+	outboxConfig := outbox.Config{
+		BatchSize:       cfg.OutboxBatchSize,
+		ProcessInterval: cfg.OutboxProcessInterval,
 	}
-	outboxPublisher := publisherProvider.GetPublisher()
+	log.Printf("[INFO] Product-Admin: Outbox publisher configured with interval: %v (batch size: %d)",
+		outboxConfig.ProcessInterval, outboxConfig.BatchSize)
+	outboxPublisher := outbox.NewPublisher(platformDB, eventBus, outboxConfig)
 	outboxPublisher.Start()
 	defer outboxPublisher.Stop()
+
 	outboxWriter := writerProvider.GetWriter()
 
 	log.Printf("[DEBUG] Product-Admin: Creating downloader provider")

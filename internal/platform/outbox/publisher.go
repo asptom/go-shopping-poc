@@ -123,7 +123,7 @@ func (p *Publisher) processOutbox() error {
 	}
 
 	if len(outboxEvents) == 0 {
-		log.Printf("[DEBUG] Outbox Publisher: No new outbox events to process")
+		//log.Printf("[DEBUG] Outbox Publisher: No new outbox events to process")
 		return nil
 	}
 

@@ -74,11 +74,11 @@ func (s *CatalogService) GetProductByID(ctx context.Context, productID int64) (*
 		return nil, fmt.Errorf("failed to get product: %w", err)
 	}
 
-	if s.infrastructure.OutboxWriter != nil {
-		if err := s.publishProductViewedEvent(ctx, product); err != nil {
-			log.Printf("[WARN] CatalogService: Failed to publish product viewed event: %v", err)
-		}
-	}
+	// if s.infrastructure.OutboxWriter != nil {
+	// 	if err := s.publishProductViewedEvent(ctx, product); err != nil {
+	// 		log.Printf("[WARN] CatalogService: Failed to publish product viewed event: %v", err)
+	// 	}
+	// }
 
 	return product, nil
 }

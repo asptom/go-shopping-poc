@@ -23,11 +23,15 @@ func NewOnOrderCreated(sseHub *sse.Hub) *OnOrderCreated {
 }
 
 func (h *OnOrderCreated) Handle(ctx context.Context, event events.Event) error {
+	log.Printf("[DEBUG] SSE: Received event - Type: %T, processing...", event)
+
 	orderEvent, ok := event.(events.OrderEvent)
 	if !ok {
 		log.Printf("[ERROR] Cart: Expected OrderEvent, got %T", event)
 		return nil
 	}
+
+	log.Printf("[DEBUG] SSE: Event received - Type: %s, ID: %s, Topic: %s", orderEvent.EventType, orderEvent.ID, orderEvent.Topic())
 
 	if orderEvent.EventType != events.OrderCreated {
 		log.Printf("[DEBUG] Cart: Ignoring event type: %s", orderEvent.EventType)
@@ -39,18 +43,26 @@ func (h *OnOrderCreated) Handle(ctx context.Context, event events.Event) error {
 		orderEvent.Data.OrderID,
 		orderEvent.Data.CartID)
 
+	log.Printf("[DEBUG] SSE: Order created event - OrderID: %s, OrderNumber: %s, CartID: %s, Total: %.2f", orderEvent.Data.OrderID, orderEvent.Data.OrderNumber, orderEvent.Data.CartID, orderEvent.Data.Total)
+
 	// Push SSE event to subscribers
 	if h.sseHub != nil {
+		sseData := map[string]interface{}{
+			"orderId":     orderEvent.Data.OrderID,
+			"orderNumber": orderEvent.Data.OrderNumber,
+			"cartId":      orderEvent.Data.CartID,
+			"total":       orderEvent.Data.Total,
+		}
+		log.Printf("[DEBUG] SSE: Publishing 'order.created' event for cart %s", orderEvent.Data.CartID)
+
 		h.sseHub.Publish(
 			orderEvent.Data.CartID,
 			"order.created",
-			map[string]interface{}{
-				"orderId":     orderEvent.Data.OrderID,
-				"orderNumber": orderEvent.Data.OrderNumber,
-				"cartId":      orderEvent.Data.CartID,
-				"total":       orderEvent.Data.Total,
-			},
+			sseData,
 		)
+		log.Printf("[DEBUG] SSE: Successfully published 'order.created' event for cart %s", orderEvent.Data.CartID)
+	} else {
+		log.Printf("[WARN] SSE: sseHub is nil, cannot publish event for cart %s", orderEvent.Data.CartID)
 	}
 
 	return h.updateCartStatus(ctx, orderEvent.Data.CartID)

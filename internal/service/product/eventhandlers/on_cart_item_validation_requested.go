@@ -27,11 +27,15 @@ func NewOnCartItemValidationRequested(service *product.CatalogService) *OnCartIt
 
 // Handle processes the validation request event
 func (h *OnCartItemValidationRequested) Handle(ctx context.Context, event events.Event) error {
+	log.Printf("[DEBUG] SSE: Received event - Type: %T, processing...", event)
+
 	validationEvent, ok := event.(events.CartValidationEvent)
 	if !ok {
 		log.Printf("[ERROR] Product: Expected CartValidationEvent, got %T", event)
 		return nil
 	}
+
+	log.Printf("[DEBUG] SSE: Event received - Type: %s, ID: %s, Topic: %s", validationEvent.EventType, validationEvent.ID, validationEvent.Topic())
 
 	if validationEvent.EventType != events.CartItemValidationRequested {
 		log.Printf("[DEBUG] Product: Ignoring event type: %s", validationEvent.EventType)
@@ -40,9 +44,11 @@ func (h *OnCartItemValidationRequested) Handle(ctx context.Context, event events
 
 	payload, ok := validationEvent.EventPayload.(events.CartValidationPayload)
 	if !ok {
-		log.Printf("[ERROR] Product: Invalid payload type for validation request")
+		log.Printf("[ERROR] Product: Invalid payload type for validation request, got %T", validationEvent.EventPayload)
 		return nil
 	}
+
+	log.Printf("[DEBUG] Product: Validation request received - CorrelationID: %s, CartID: %s, ProductID: %s, Quantity: %d", payload.CorrelationID, payload.CartID, payload.ProductID, payload.Quantity)
 
 	utils := handler.NewEventUtils()
 	utils.LogEventProcessing(ctx, string(validationEvent.EventType),
@@ -91,6 +97,8 @@ func (h *OnCartItemValidationRequested) Handle(ctx context.Context, event events
 func (h *OnCartItemValidationRequested) publishValidationResult(ctx context.Context, correlationID string,
 	isValid, inStock bool, productName string, unitPrice float64, reason string) error {
 
+	log.Printf("[DEBUG] Product: Publishing validation result - CorrelationID: %s, IsValid: %v, InStock: %v, ProductName: %s, UnitPrice: %.2f, Reason: %s", correlationID, isValid, inStock, productName, unitPrice, reason)
+
 	infra := h.service.GetInfrastructure()
 
 	// Write result to outbox within a transaction
@@ -107,15 +115,18 @@ func (h *OnCartItemValidationRequested) publishValidationResult(ctx context.Cont
 	}()
 
 	resultEvent := events.NewCartItemValidationCompletedEvent(correlationID, isValid, inStock, productName, unitPrice, reason)
+	log.Printf("[DEBUG] Product: Validation result event created - EventID: %s, Type: %s", resultEvent.ID, resultEvent.EventType)
 
 	if err := infra.OutboxWriter.WriteEvent(ctx, tx, resultEvent); err != nil {
 		return fmt.Errorf("failed to write validation result to outbox: %w", err)
 	}
+	log.Printf("[DEBUG] Product: Validation result event written to outbox for CorrelationID: %s", correlationID)
 
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("failed to commit validation result: %w", err)
 	}
 	committed = true
+	log.Printf("[DEBUG] Product: Validation result committed for CorrelationID: %s", correlationID)
 
 	return nil
 }

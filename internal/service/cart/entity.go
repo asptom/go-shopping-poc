@@ -122,7 +122,7 @@ type CartItem struct {
 	// Validation state tracking for event-driven decoupling
 	Status          string  `json:"status" db:"status"`                               // "confirmed", "pending_validation", "backorder"
 	ValidationID    *string `json:"validation_id,omitempty" db:"validation_id"`       // correlation ID linking request to response
-	BackorderReason string  `json:"backorder_reason,omitempty" db:"backorder_reason"` // reason for backorder status
+	BackorderReason *string `json:"backorder_reason,omitempty" db:"backorder_reason"` // reason for backorder status
 }
 
 func (ci *CartItem) CalculateLineTotal() {
@@ -167,7 +167,7 @@ func (ci *CartItem) ConfirmItem(productName string, unitPrice float64) error {
 	ci.ProductName = productName
 	ci.UnitPrice = unitPrice
 	ci.CalculateLineTotal()
-	ci.BackorderReason = ""
+	ci.BackorderReason = nil
 	return nil
 }
 
@@ -178,7 +178,7 @@ func (ci *CartItem) MarkAsBackorder(reason string) error {
 		return fmt.Errorf("cannot mark as backorder: expected status 'pending_validation', got '%s'", ci.Status)
 	}
 	ci.Status = "backorder"
-	ci.BackorderReason = reason
+	ci.BackorderReason = &reason
 	return nil
 }
 

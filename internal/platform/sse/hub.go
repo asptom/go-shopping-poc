@@ -49,22 +49,53 @@ func (h *Hub) Unsubscribe(cartID string, client *Client) {
 
 // Publish sends an event to all subscribers of a cart
 func (h *Hub) Publish(cartID string, event string, data interface{}) {
+	log.Printf("[DEBUG] SSE: ========== PUBLISH REQUEST ==========")
+	log.Printf("[DEBUG] SSE: Publish called for cart %s, event '%s'", cartID, event)
+	log.Printf("[DEBUG] SSE: Data type: %T", data)
+
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
 	clients, ok := h.subscribers[cartID]
 	if !ok {
-		log.Printf("[DEBUG] Cart: No SSE subscribers for cart %s", cartID)
+		log.Printf("[DEBUG] SSE: No subscribers found for cart %s - event '%s' not sent", cartID, event)
+		log.Printf("[DEBUG] SSE: Available carts with subscribers: %v", h.getSubscriberCartIDs())
 		return
 	}
 
+	log.Printf("[DEBUG] SSE: Found %d subscriber(s) for cart %s", len(clients), cartID)
+
+	sentCount := 0
 	for client := range clients {
+		log.Printf("[DEBUG] SSE: Attempting to send to client for cart %s", cartID)
 		select {
 		case client.send <- Message{Event: event, Data: data}:
-			log.Printf("[DEBUG] Cart: Published SSE event %s to cart %s", event, cartID)
+			log.Printf("[DEBUG] SSE: Event '%s' successfully queued for cart %s", event, cartID)
+			sentCount++
 		default:
-			log.Printf("[WARN] Cart: SSE client buffer full, removing")
+			log.Printf("[WARN] SSE: Client buffer full for cart %s, removing client", cartID)
 			delete(clients, client)
 		}
 	}
+	log.Printf("[DEBUG] SSE: Publish complete - sent to %d/%d clients for cart %s", sentCount, len(clients), cartID)
+}
+
+// getSubscriberCartIDs returns a list of cart IDs that have subscribers (for debugging)
+func (h *Hub) getSubscriberCartIDs() []string {
+	var ids []string
+	for id := range h.subscribers {
+		ids = append(ids, id)
+	}
+	return ids
+}
+
+// GetSubscriberCount returns the number of subscribers for a cart
+func (h *Hub) GetSubscriberCount(cartID string) int {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	if clients, ok := h.subscribers[cartID]; ok {
+		return len(clients)
+	}
+	return 0
 }

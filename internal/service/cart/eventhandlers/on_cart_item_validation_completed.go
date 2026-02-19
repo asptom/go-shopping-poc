@@ -28,11 +28,15 @@ func NewOnCartItemValidationCompleted(repo cart.CartRepository, sseHub *sse.Hub)
 
 // Handle processes the validation result event
 func (h *OnCartItemValidationCompleted) Handle(ctx context.Context, event events.Event) error {
+	log.Printf("[DEBUG] Cart: Received event - Type: %T, processing...", event)
+
 	validationEvent, ok := event.(events.CartValidationEvent)
 	if !ok {
 		log.Printf("[ERROR] Cart: Expected CartValidationEvent, got %T", event)
 		return nil
 	}
+
+	log.Printf("[DEBUG] Cart: Event received - Type: %s, ID: %s, Topic: %s", validationEvent.EventType, validationEvent.ID, validationEvent.Topic())
 
 	if validationEvent.EventType != events.CartItemValidationCompleted {
 		log.Printf("[DEBUG] Cart: Ignoring event type: %s", validationEvent.EventType)
@@ -41,9 +45,11 @@ func (h *OnCartItemValidationCompleted) Handle(ctx context.Context, event events
 
 	payload, ok := validationEvent.EventPayload.(events.CartValidationResultPayload)
 	if !ok {
-		log.Printf("[ERROR] Cart: Invalid payload type for validation result")
+		log.Printf("[ERROR] Cart: Invalid payload type for validation result, got %T", validationEvent.EventPayload)
 		return nil
 	}
+
+	log.Printf("[DEBUG] Cart: Validation result received - CorrelationID: %s, IsValid: %v, InStock: %v, ProductName: %s", payload.CorrelationID, payload.IsValid, payload.InStock, payload.ProductName)
 
 	utils := handler.NewEventUtils()
 	utils.LogEventProcessing(ctx, string(validationEvent.EventType),
@@ -88,6 +94,7 @@ func (h *OnCartItemValidationCompleted) Handle(ctx context.Context, event events
 
 	// Update item in database
 	if err := h.repo.UpdateItemStatus(ctx, item); err != nil {
+		log.Printf("[ERROR] Cart: Failed to update item %s status in database: %v", item.LineNumber, err)
 		return err
 	}
 
@@ -101,6 +108,7 @@ func (h *OnCartItemValidationCompleted) Handle(ctx context.Context, event events
 	cartObj.CalculateTotals()
 
 	if err := h.repo.UpdateCart(ctx, cartObj); err != nil {
+		log.Printf("[ERROR] Cart: Failed to update cart %s totals after validation: %v", cartObj.CartID, err)
 		return err
 	}
 
@@ -111,20 +119,26 @@ func (h *OnCartItemValidationCompleted) Handle(ctx context.Context, event events
 			eventType = "cart.item.backorder"
 		}
 
+		sseData := map[string]interface{}{
+			"lineNumber":      item.LineNumber,
+			"productId":       item.ProductID,
+			"status":          item.Status,
+			"productName":     item.ProductName,
+			"unitPrice":       item.UnitPrice,
+			"quantity":        item.Quantity,
+			"totalPrice":      item.TotalPrice,
+			"backorderReason": item.BackorderReason,
+		}
+		log.Printf("[DEBUG] SSE: Publishing event '%s' for cart %s - lineNumber: %s, productId: %s, status: %s", eventType, item.CartID, item.LineNumber, item.ProductID, item.Status)
+
 		h.sseHub.Publish(
 			item.CartID.String(),
 			eventType,
-			map[string]interface{}{
-				"lineNumber":      item.LineNumber,
-				"productId":       item.ProductID,
-				"status":          item.Status,
-				"productName":     item.ProductName,
-				"unitPrice":       item.UnitPrice,
-				"quantity":        item.Quantity,
-				"totalPrice":      item.TotalPrice,
-				"backorderReason": item.BackorderReason,
-			},
+			sseData,
 		)
+		log.Printf("[DEBUG] SSE: Successfully published event '%s' for cart %s", eventType, item.CartID)
+	} else {
+		log.Printf("[WARN] SSE: sseHub is nil, cannot publish event for cart %s", item.CartID)
 	}
 
 	return nil

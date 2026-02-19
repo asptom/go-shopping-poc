@@ -34,6 +34,11 @@ type AdminConfig struct {
 	KeycloakIssuer       string `mapstructure:"keycloak_issuer" validate:"required"`
 	KeycloakJWKSURL      string `mapstructure:"keycloak_jwks_url" validate:"required"`
 	KeycloakClientSecret string `mapstructure:"keycloak_client_secret"`
+
+	// Outbox configuration for fast validation events (target: 200ms interval)
+	// Using product-admin-specific env vars to ensure fast validation response times
+	OutboxBatchSize       int           `mapstructure:"product_admin_outbox_batch_size"`
+	OutboxProcessInterval time.Duration `mapstructure:"product_admin_outbox_process_interval"`
 }
 
 // LoadAdminConfig loads product admin service configuration
@@ -60,6 +65,13 @@ func (c *AdminConfig) Validate() error {
 	}
 	if c.KeycloakJWKSURL == "" {
 		return errors.New("keycloak JWKS URL is required")
+	}
+	// Set defaults for outbox if not configured - fast interval for validation events
+	if c.OutboxBatchSize <= 0 {
+		c.OutboxBatchSize = 10
+	}
+	if c.OutboxProcessInterval <= 0 {
+		c.OutboxProcessInterval = 200 * time.Millisecond
 	}
 	return nil
 }
