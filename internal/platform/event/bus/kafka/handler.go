@@ -25,22 +25,22 @@ func NewTypedHandler[T events.Event](factory events.EventFactory[T], handler bus
 
 // Handle processes raw JSON data by unmarshaling it using the factory and then calling the handler
 func (h *TypedHandler[T]) Handle(ctx context.Context, data []byte) error {
-	log.Printf("[DEBUG] SSE: TypedHandler.Handle called with %d bytes of JSON data", len(data))
-	log.Printf("[DEBUG] SSE: Raw JSON data: %s", string(data))
+	log.Printf("[DEBUG] Eventbus: TypedHandler.Handle called with %d bytes of JSON data", len(data))
+	log.Printf("[DEBUG] Eventbus: Raw JSON data: %s", string(data))
 
 	evt, err := h.factory.FromJSON(data)
 	if err != nil {
-		log.Printf("[ERROR] SSE: Failed to unmarshal event: %v", err)
+		log.Printf("[ERROR] Eventbus: Failed to unmarshal event: %v", err)
 		return fmt.Errorf("failed to unmarshal event: %w", err)
 	}
 
-	log.Printf("[DEBUG] SSE: Event unmarshaled successfully - type: %T", evt)
+	log.Printf("[DEBUG] Eventbus: Event unmarshaled successfully - type: %T", evt)
 
 	result := h.handler(ctx, evt)
 	if result != nil {
-		log.Printf("[ERROR] SSE: Handler returned error: %v", result)
+		log.Printf("[ERROR] Eventbus: Handler returned error: %v", result)
 	} else {
-		log.Printf("[DEBUG] SSE: Handler completed successfully")
+		log.Printf("[DEBUG] Eventbus: Handler completed successfully")
 	}
 	return result
 }
