@@ -10,7 +10,6 @@ package product
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
 	events "go-shopping-poc/internal/contracts/events"
@@ -27,7 +26,7 @@ import (
 //
 // The product ID must be provided and unique.
 func (r *productRepository) InsertProduct(ctx context.Context, product *Product) error {
-	log.Printf("[DEBUG] Repository: Inserting new product...")
+	r.logger.Debug("Inserting new product")
 
 	r.prepareProductDefaults(product)
 
@@ -109,7 +108,7 @@ func (r *productRepository) insertProductRecord(ctx context.Context, tx database
 
 // UpdateProduct updates an existing product record
 func (r *productRepository) UpdateProduct(ctx context.Context, product *Product) error {
-	log.Printf("[DEBUG] Repository: Updating product %d", product.ID)
+	r.logger.Debug("Updating product", "product_id", product.ID)
 
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -180,7 +179,7 @@ func (r *productRepository) UpdateProduct(ctx context.Context, product *Product)
 
 // DeleteProduct removes a product and all its associated images
 func (r *productRepository) DeleteProduct(ctx context.Context, productID int64) error {
-	log.Printf("[DEBUG] Repository: Deleting product %d", productID)
+	r.logger.Debug("Deleting product", "product_id", productID)
 
 	if productID <= 0 {
 		return fmt.Errorf("%w: product ID must be positive", ErrInvalidProductID)

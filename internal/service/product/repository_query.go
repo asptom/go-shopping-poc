@@ -9,12 +9,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log"
 )
 
 // ProductExists checks if a product with the given ID exists
 func (r *productRepository) ProductExists(ctx context.Context, productID int64) (bool, error) {
-	log.Printf("[DEBUG] Repository: Checking existence of product %d", productID)
+	r.logger.Debug("Checking existence of product", "product_id", productID)
 
 	var exists bool
 	query := `SELECT EXISTS(SELECT 1 FROM products.products WHERE id = $1)`
@@ -29,7 +28,7 @@ func (r *productRepository) ProductExists(ctx context.Context, productID int64) 
 
 // GetProductByID retrieves a product by its ID with all associated images
 func (r *productRepository) GetProductByID(ctx context.Context, productID int64) (*Product, error) {
-	log.Printf("[DEBUG] Repository: Fetching product by ID: %d", productID)
+	r.logger.Debug("Fetching product by ID", "product_id", productID)
 
 	if productID <= 0 {
 		return nil, fmt.Errorf("%w: product ID must be positive", ErrInvalidProductID)
@@ -55,7 +54,7 @@ func (r *productRepository) GetProductByID(ctx context.Context, productID int64)
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("%w: product %d not found", ErrProductNotFound, productID)
 		}
-		log.Printf("[ERROR] Error fetching product by ID: %v", err)
+		r.logger.Error("Error fetching product by ID", "product_id", productID, "error", err.Error())
 		return nil, fmt.Errorf("%w: failed to fetch product %d: %v", ErrDatabaseOperation, productID, err)
 	}
 
@@ -70,7 +69,7 @@ func (r *productRepository) GetProductByID(ctx context.Context, productID int64)
 
 // GetProductsByCategory retrieves products by category with pagination
 func (r *productRepository) GetProductsByCategory(ctx context.Context, category string, limit, offset int) ([]*Product, error) {
-	log.Printf("[DEBUG] Repository: Fetching products by category: %s", category)
+	r.logger.Debug("Fetching products by category", "category", category, "limit", limit, "offset", offset)
 
 	if category == "" {
 		return nil, errors.New("category cannot be empty")
@@ -124,7 +123,7 @@ func (r *productRepository) GetProductsByCategory(ctx context.Context, category 
 
 // GetProductsByBrand retrieves products by brand with pagination
 func (r *productRepository) GetProductsByBrand(ctx context.Context, brand string, limit, offset int) ([]*Product, error) {
-	log.Printf("[DEBUG] Repository: Fetching products by brand: %s", brand)
+	r.logger.Debug("Fetching products by brand", "brand", brand, "limit", limit, "offset", offset)
 
 	if brand == "" {
 		return nil, errors.New("brand cannot be empty")
@@ -178,7 +177,7 @@ func (r *productRepository) GetProductsByBrand(ctx context.Context, brand string
 
 // SearchProducts performs a text search on product names and descriptions
 func (r *productRepository) SearchProducts(ctx context.Context, query string, limit, offset int) ([]*Product, error) {
-	log.Printf("[DEBUG] Repository: Searching products with query: %s", query)
+	r.logger.Debug("Searching products with query", "query", query, "limit", limit, "offset", offset)
 
 	if query == "" {
 		return nil, errors.New("search query cannot be empty")
@@ -233,7 +232,7 @@ func (r *productRepository) SearchProducts(ctx context.Context, query string, li
 
 // GetProductsInStock retrieves products that are currently in stock
 func (r *productRepository) GetProductsInStock(ctx context.Context, limit, offset int) ([]*Product, error) {
-	log.Printf("[DEBUG] Repository: Fetching in-stock products")
+	r.logger.Debug("Fetching in-stock products", "limit", limit, "offset", offset)
 
 	if limit <= 0 {
 		limit = 50
@@ -284,7 +283,7 @@ func (r *productRepository) GetProductsInStock(ctx context.Context, limit, offse
 
 // GetAllProducts retrieves all products with pagination
 func (r *productRepository) GetAllProducts(ctx context.Context, limit, offset int) ([]*Product, error) {
-	log.Printf("[DEBUG] Repository: Fetching all products")
+	r.logger.Debug("Fetching all products", "limit", limit, "offset", offset)
 
 	if limit <= 0 {
 		limit = 50
@@ -334,7 +333,7 @@ func (r *productRepository) GetAllProducts(ctx context.Context, limit, offset in
 
 // GetProductImages retrieves all images for a product
 func (r *productRepository) GetProductImages(ctx context.Context, productID int64) ([]ProductImage, error) {
-	log.Printf("[DEBUG] Repository: Fetching images for product %d", productID)
+	r.logger.Debug("Fetching images for product", "product_id", productID)
 
 	if productID <= 0 {
 		return nil, fmt.Errorf("%w: product ID must be positive", ErrInvalidProductID)
@@ -376,7 +375,7 @@ func (r *productRepository) GetProductImages(ctx context.Context, productID int6
 
 // GetProductImageByID retrieves a single image by its ID
 func (r *productRepository) GetProductImageByID(ctx context.Context, imageID int64) (*ProductImage, error) {
-	log.Printf("[DEBUG] Repository: Fetching image %d", imageID)
+	r.logger.Debug("Fetching image", "image_id", imageID)
 
 	if imageID <= 0 {
 		return nil, fmt.Errorf("%w: image ID must be positive", ErrInvalidProductID)

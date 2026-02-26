@@ -7,7 +7,6 @@ package customer
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"github.com/google/uuid"
 
@@ -16,7 +15,7 @@ import (
 
 // AddAddress adds a new address to a customer.
 func (r *customerRepository) AddAddress(ctx context.Context, customerID string, addr *Address) (*Address, error) {
-	log.Printf("[DEBUG] Repository: Adding address for customer %s", customerID)
+	r.logger.Debug("Adding address for customer", "customer_id", customerID)
 
 	custUUID, err := uuid.Parse(customerID)
 	if err != nil {
@@ -76,7 +75,7 @@ func (r *customerRepository) AddAddress(ctx context.Context, customerID string, 
 
 // UpdateAddress updates an existing address.
 func (r *customerRepository) UpdateAddress(ctx context.Context, addressID string, addr *Address) error {
-	log.Printf("[DEBUG] Repository: Updating address %s", addressID)
+	r.logger.Debug("Updating address", "address_id", addressID)
 
 	id, err := uuid.Parse(addressID)
 	if err != nil {
@@ -134,7 +133,7 @@ func (r *customerRepository) UpdateAddress(ctx context.Context, addressID string
 
 // DeleteAddress removes an address.
 func (r *customerRepository) DeleteAddress(ctx context.Context, addressID string) error {
-	log.Printf("[DEBUG] Repository: Deleting address with ID %s", addressID)
+	r.logger.Debug("Deleting address", "address_id", addressID)
 
 	id, err := uuid.Parse(addressID)
 	if err != nil {
@@ -179,7 +178,7 @@ func (r *customerRepository) DeleteAddress(ctx context.Context, addressID string
 
 // UpdateDefaultShippingAddress sets the default shipping address for a customer.
 func (r *customerRepository) UpdateDefaultShippingAddress(ctx context.Context, customerID, addressID string) error {
-	log.Printf("[DEBUG] Repository: Setting default shipping address %s for customer %s", addressID, customerID)
+	r.logger.Debug("Setting default shipping address", "address_id", addressID, "customer_id", customerID)
 
 	custUUID, err := uuid.Parse(customerID)
 	if err != nil {
@@ -232,7 +231,7 @@ func (r *customerRepository) UpdateDefaultShippingAddress(ctx context.Context, c
 
 // UpdateDefaultBillingAddress sets the default billing address for a customer.
 func (r *customerRepository) UpdateDefaultBillingAddress(ctx context.Context, customerID, addressID string) error {
-	log.Printf("[DEBUG] Repository: Setting default billing address %s for customer %s", addressID, customerID)
+	r.logger.Debug("Setting default billing address", "address_id", addressID, "customer_id", customerID)
 
 	custUUID, err := uuid.Parse(customerID)
 	if err != nil {
@@ -285,7 +284,7 @@ func (r *customerRepository) UpdateDefaultBillingAddress(ctx context.Context, cu
 
 // ClearDefaultShippingAddress clears the default shipping address for a customer.
 func (r *customerRepository) ClearDefaultShippingAddress(ctx context.Context, customerID string) error {
-	log.Printf("[DEBUG] Repository: Clearing default shipping address for customer %s", customerID)
+	r.logger.Debug("Clearing default shipping address", "customer_id", customerID)
 
 	custUUID, err := uuid.Parse(customerID)
 	if err != nil {
@@ -333,7 +332,7 @@ func (r *customerRepository) ClearDefaultShippingAddress(ctx context.Context, cu
 
 // ClearDefaultBillingAddress clears the default billing address for a customer.
 func (r *customerRepository) ClearDefaultBillingAddress(ctx context.Context, customerID string) error {
-	log.Printf("[DEBUG] Repository: Clearing default billing address for customer %s", customerID)
+	r.logger.Debug("Clearing default billing address", "customer_id", customerID)
 
 	custUUID, err := uuid.Parse(customerID)
 	if err != nil {

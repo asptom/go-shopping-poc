@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -14,6 +14,7 @@ import (
 	"go-shopping-poc/internal/platform/database"
 	"go-shopping-poc/internal/platform/downloader"
 	"go-shopping-poc/internal/platform/event"
+	"go-shopping-poc/internal/platform/logging"
 	"go-shopping-poc/internal/platform/outbox"
 	"go-shopping-poc/internal/platform/outbox/providers"
 	"go-shopping-poc/internal/platform/storage"
@@ -25,60 +26,75 @@ import (
 func main() {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("[ERROR] Panic recovered in product-admin service: %v", r)
+			slog.Default().Error("Panic recovered in product-admin service", "panic", r)
 		}
 	}()
-	log.SetFlags(log.LstdFlags)
-	log.Printf("[INFO] Product-Admin: Product admin service started...")
+
+	loggerProvider, err := logging.NewLoggerProvider(logging.LoggerConfig{
+		ServiceName: "product-admin",
+	})
+	if err != nil {
+		slog.Default().Error("Failed to create logger provider", "error", err.Error())
+		os.Exit(1)
+	}
+	logger := loggerProvider.Logger()
+
+	logger.Info("Product admin service starting")
 
 	cfg, err := product.LoadAdminConfig()
 	if err != nil {
-		log.Fatalf("Product-Admin: Failed to load config: %v", err)
+		logger.Error("Failed to load config", "error", err.Error())
+		os.Exit(1)
 	}
 
-	log.Printf("[DEBUG] Product-Admin: Configuration loaded successfully")
+	logger.Debug("Configuration loaded successfully")
 
 	dbURL := cfg.DatabaseURL
 	if dbURL == "" {
-		log.Fatalf("Product-Admin: Database URL is required in service config")
+		logger.Error("Database URL is required in service config")
+		os.Exit(1)
 	}
 
-	log.Printf("[DEBUG] Product-Admin: Creating database provider")
+	logger.Debug("Creating database provider")
 	dbProvider, err := database.NewDatabaseProvider(dbURL)
 	if err != nil {
-		log.Fatalf("Product-Admin: Failed to create database provider: %v", err)
+		logger.Error("Failed to create database provider", "error", err.Error())
+		os.Exit(1)
 	}
 	platformDB := dbProvider.GetDatabase()
 	defer func() {
 		if err := platformDB.Close(); err != nil {
-			log.Printf("[ERROR] Product-Admin: Error closing database connection: %v", err)
+			logger.Error("Error closing database connection", "error", err.Error())
 		}
 	}()
 
-	log.Printf("[DEBUG] Product-Admin: Creating event bus provider")
+	logger.Debug("Creating event bus provider")
 	eventBusConfig := event.EventBusConfig{
 		WriteTopic: cfg.WriteTopic,
 		GroupID:    cfg.Group,
 	}
 	eventBusProvider, err := event.NewEventBusProvider(eventBusConfig)
 	if err != nil {
-		log.Fatalf("Product-Admin: Failed to create event bus provider: %v", err)
+		logger.Error("Failed to create event bus provider", "error", err.Error())
+		os.Exit(1)
 	}
 	eventBus := eventBusProvider.GetEventBus()
 
-	log.Printf("[DEBUG] Product-Admin: Creating storage provider")
+	logger.Debug("Creating storage provider")
 	storageProvider, err := storage.NewStorageProvider()
 	if err != nil {
-		log.Fatalf("Product-Admin: Failed to create storage provider: %v", err)
+		logger.Error("Failed to create storage provider", "error", err.Error())
+		os.Exit(1)
 	}
 	minioStorage := storageProvider.GetObjectStorage()
 
 	// Validate config to set defaults
 	if err := cfg.Validate(); err != nil {
-		log.Fatalf("Product-Admin: Config validation failed: %v", err)
+		logger.Error("Config validation failed", "error", err.Error())
+		os.Exit(1)
 	}
 
-	log.Printf("[DEBUG] Product-Admin: Creating outbox providers")
+	logger.Debug("Creating outbox providers")
 	writerProvider := providers.NewWriterProvider(platformDB)
 
 	// Create outbox publisher with service-specific fast interval for validation events
@@ -86,15 +102,14 @@ func main() {
 		BatchSize:       cfg.OutboxBatchSize,
 		ProcessInterval: cfg.OutboxProcessInterval,
 	}
-	log.Printf("[INFO] Product-Admin: Outbox publisher configured with interval: %v (batch size: %d)",
-		outboxConfig.ProcessInterval, outboxConfig.BatchSize)
+	logger.Info("Outbox publisher configured", "interval", outboxConfig.ProcessInterval, "batch_size", outboxConfig.BatchSize)
 	outboxPublisher := outbox.NewPublisher(platformDB, eventBus, outboxConfig)
 	outboxPublisher.Start()
 	defer outboxPublisher.Stop()
 
 	outboxWriter := writerProvider.GetWriter()
 
-	log.Printf("[DEBUG] Product-Admin: Creating downloader provider")
+	logger.Debug("Creating downloader provider")
 	downloaderConfig := downloader.DownloaderProviderConfig{
 		CacheDir:     cfg.CacheDir,
 		CacheMaxAge:  cfg.CacheMaxAge,
@@ -102,39 +117,37 @@ func main() {
 	}
 	downloaderProvider, err := downloader.NewDownloaderProvider(downloaderConfig)
 	if err != nil {
-		log.Fatalf("Product-Admin: Failed to create downloader provider: %v", err)
+		logger.Error("Failed to create downloader provider", "error", err.Error())
+		os.Exit(1)
 	}
 	httpDownloader := downloaderProvider.GetHTTPDownloader()
 
-	log.Printf("[DEBUG] Product-Admin: Creating Keycloak validator")
+	logger.Debug("Creating Keycloak validator")
 	keycloakValidator := auth.NewKeycloakValidator(cfg.KeycloakIssuer, cfg.KeycloakJWKSURL)
 
-	// log.Printf("[DEBUG] Product-Admin: Creating product repository")
-	// repo := product.NewProductRepository(platformDB.DB())
-	// log.Printf("[DEBUG] Product-Admin: Repository created successfully")
-
-	log.Printf("[DEBUG] Product-Admin: Creating admin service")
+	logger.Debug("Creating admin service")
 	adminInfra := &product.AdminInfrastructure{
 		Database:       platformDB,
 		ObjectStorage:  minioStorage,
 		OutboxWriter:   outboxWriter,
 		HTTPDownloader: httpDownloader,
 	}
-	adminService := product.NewAdminService(cfg, adminInfra)
-	log.Printf("[DEBUG] Product-Admin: Service created successfully")
+	adminService := product.NewAdminService(logger, cfg, adminInfra)
+	logger.Debug("Service created successfully")
 
-	log.Printf("[DEBUG] Product-Admin: Creating admin handler")
+	logger.Debug("Creating admin handler")
 	adminHandler := product.NewAdminHandler(adminService)
-	log.Printf("[DEBUG] Product-Admin: Handler created successfully")
+	logger.Debug("Handler created successfully")
 
-	log.Printf("[DEBUG] Product-Admin: Setting up HTTP router")
+	logger.Debug("Setting up HTTP router")
 	router := chi.NewRouter()
-	log.Printf("[DEBUG] Product-Admin: Router setup completed")
+	logger.Debug("Router setup completed")
 
-	log.Printf("[DEBUG] Product-Admin: Creating CORS provider")
+	logger.Debug("Creating CORS provider")
 	corsProvider, err := cors.NewCORSProvider()
 	if err != nil {
-		log.Fatalf("Product-Admin: Failed to create CORS provider: %v", err)
+		logger.Error("Failed to create CORS provider", "error", err.Error())
+		os.Exit(1)
 	}
 	corsHandler := corsProvider.GetCORSHandler()
 	router.Use(corsHandler)
@@ -174,22 +187,22 @@ func main() {
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 
 	go func() {
-		log.Printf("[INFO] Product-Admin: Starting HTTP server on %s", serverAddr)
+		logger.Info("Starting HTTP server", "address", serverAddr)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Product-Admin: Failed to start HTTP server: %v", err)
+			logger.Error("Failed to start HTTP server", "error", err.Error())
 		}
 	}()
 
 	<-quit
-	log.Printf("[INFO] Product-Admin: Shutting down server...")
+	logger.Info("Shutting down server")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	if err := server.Shutdown(ctx); err != nil {
-		log.Fatalf("Product-Admin: Server forced to shutdown: %v", err)
+		logger.Error("Server forced to shutdown", "error", err.Error())
 	}
 
 	close(done)
-	log.Printf("[INFO] Product-Admin: Server exited")
+	logger.Info("Server exited")
 }

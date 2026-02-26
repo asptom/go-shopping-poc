@@ -2,7 +2,8 @@ package eventhandlers
 
 import (
 	"context"
-	"log"
+	"fmt"
+	"log/slog"
 	"strconv"
 
 	events "go-shopping-poc/internal/contracts/events"
@@ -17,13 +18,18 @@ import (
 type OnProductValidated struct {
 	repo   cart.CartRepository
 	sseHub *sse.Hub
+	logger *slog.Logger
 }
 
 // NewOnProductValidated creates a new product validation handler
-func NewOnProductValidated(repo cart.CartRepository, sseHub *sse.Hub) *OnProductValidated {
+func NewOnProductValidated(repo cart.CartRepository, sseHub *sse.Hub, logger *slog.Logger) *OnProductValidated {
+	if logger == nil {
+		logger = slog.Default()
+	}
 	return &OnProductValidated{
 		repo:   repo,
 		sseHub: sseHub,
+		logger: logger.With("handler", "on_product_validated"),
 	}
 }
 
@@ -31,7 +37,7 @@ func NewOnProductValidated(repo cart.CartRepository, sseHub *sse.Hub) *OnProduct
 func (h *OnProductValidated) Handle(ctx context.Context, event events.Event) error {
 	productEvent, ok := event.(events.ProductEvent)
 	if !ok {
-		log.Printf("[ERROR] Cart: Expected ProductEvent, got %T", event)
+		h.logger.Error("Expected ProductEvent", "actual_type", fmt.Sprintf("%T", event))
 		return nil
 	}
 
@@ -42,7 +48,7 @@ func (h *OnProductValidated) Handle(ctx context.Context, event events.Event) err
 	case events.ProductUnavailable:
 		return h.handleProductUnavailable(ctx, productEvent)
 	default:
-		log.Printf("[DEBUG] Cart: Ignoring product event type: %s", productEvent.EventType)
+		h.logger.Debug("Ignoring product event type", "event_type", productEvent.EventType)
 		return nil
 	}
 }
@@ -54,7 +60,7 @@ func (h *OnProductValidated) handleProductValidated(ctx context.Context, event e
 	productID := event.EventPayload.ProductID
 
 	if cartID == "" || lineNumber == "" {
-		log.Printf("[ERROR] Cart: Missing cart_id or line_number in ProductValidated event")
+		h.logger.Error("Missing cart_id or line_number in ProductValidated event")
 		return nil
 	}
 
@@ -64,7 +70,7 @@ func (h *OnProductValidated) handleProductValidated(ctx context.Context, event e
 	// Get cart and item
 	cartObj, err := h.repo.GetCartByID(ctx, cartID)
 	if err != nil {
-		log.Printf("[ERROR] Cart: Failed to get cart %s: %v", cartID, err)
+		h.logger.Error("Failed to get cart", "cart_id", cartID, "error", err.Error())
 		return err
 	}
 
@@ -78,7 +84,7 @@ func (h *OnProductValidated) handleProductValidated(ctx context.Context, event e
 	}
 
 	if targetItem == nil {
-		log.Printf("[DEBUG] Cart: Item %s not found in cart %s - may have been removed", lineNumber, cartID)
+		h.logger.Debug("Item not found in cart - may have been removed", "line_number", lineNumber, "cart_id", cartID)
 		return nil
 	}
 
@@ -97,13 +103,13 @@ func (h *OnProductValidated) handleProductValidated(ctx context.Context, event e
 	}
 
 	if err := targetItem.ConfirmItem(productName, unitPrice); err != nil {
-		log.Printf("[ERROR] Cart: Failed to confirm item %s: %v", lineNumber, err)
+		h.logger.Error("Failed to confirm item", "line_number", lineNumber, "error", err.Error())
 		return err
 	}
 
 	// Update item in database
 	if err := h.repo.UpdateItemStatus(ctx, targetItem); err != nil {
-		log.Printf("[ERROR] Cart: Failed to update item %s status: %v", lineNumber, err)
+		h.logger.Error("Failed to update item status", "line_number", lineNumber, "error", err.Error())
 		return err
 	}
 
@@ -116,7 +122,7 @@ func (h *OnProductValidated) handleProductValidated(ctx context.Context, event e
 	}
 	cartObj.CalculateTotals()
 	if err := h.repo.UpdateCart(ctx, cartObj); err != nil {
-		log.Printf("[ERROR] Cart: Failed to update cart %s totals: %v", cartID, err)
+		h.logger.Error("Failed to update cart totals", "cart_id", cartID, "error", err.Error())
 		return err
 	}
 
@@ -139,7 +145,7 @@ func (h *OnProductValidated) handleProductValidated(ctx context.Context, event e
 		})
 	}
 
-	log.Printf("[INFO] Cart: Item %s validated for cart %s", lineNumber, cartID)
+	h.logger.Info("Item validated", "line_number", lineNumber, "cart_id", cartID)
 	return nil
 }
 
@@ -151,7 +157,7 @@ func (h *OnProductValidated) handleProductUnavailable(ctx context.Context, event
 	reason := details["reason"]
 
 	if cartID == "" || lineNumber == "" {
-		log.Printf("[ERROR] Cart: Missing cart_id or line_number in ProductUnavailable event")
+		h.logger.Error("Missing cart_id or line_number in ProductUnavailable event")
 		return nil
 	}
 
@@ -161,7 +167,7 @@ func (h *OnProductValidated) handleProductUnavailable(ctx context.Context, event
 	// Get cart and item
 	cartObj, err := h.repo.GetCartByID(ctx, cartID)
 	if err != nil {
-		log.Printf("[ERROR] Cart: Failed to get cart %s: %v", cartID, err)
+		h.logger.Error("Failed to get cart", "cart_id", cartID, "error", err.Error())
 		return err
 	}
 
@@ -175,19 +181,19 @@ func (h *OnProductValidated) handleProductUnavailable(ctx context.Context, event
 	}
 
 	if targetItem == nil {
-		log.Printf("[DEBUG] Cart: Item %s not found in cart %s - may have been removed", lineNumber, cartID)
+		h.logger.Debug("Item not found in cart - may have been removed", "line_number", lineNumber, "cart_id", cartID)
 		return nil
 	}
 
 	// Mark as backorder
 	if err := targetItem.MarkAsBackorder(reason); err != nil {
-		log.Printf("[ERROR] Cart: Failed to mark item %s as backorder: %v", lineNumber, err)
+		h.logger.Error("Failed to mark item as backorder", "line_number", lineNumber, "error", err.Error())
 		return err
 	}
 
 	// Update item in database
 	if err := h.repo.UpdateItemStatus(ctx, targetItem); err != nil {
-		log.Printf("[ERROR] Cart: Failed to update item %s status: %v", lineNumber, err)
+		h.logger.Error("Failed to update item status", "line_number", lineNumber, "error", err.Error())
 		return err
 	}
 
@@ -200,7 +206,7 @@ func (h *OnProductValidated) handleProductUnavailable(ctx context.Context, event
 	}
 	cartObj.CalculateTotals()
 	if err := h.repo.UpdateCart(ctx, cartObj); err != nil {
-		log.Printf("[ERROR] Cart: Failed to update cart %s totals: %v", cartID, err)
+		h.logger.Error("Failed to update cart totals", "cart_id", cartID, "error", err.Error())
 		return err
 	}
 
@@ -214,7 +220,7 @@ func (h *OnProductValidated) handleProductUnavailable(ctx context.Context, event
 		})
 	}
 
-	log.Printf("[INFO] Cart: Item %s marked as backorder for cart %s: %s", lineNumber, cartID, reason)
+	h.logger.Info("Item marked as backorder", "line_number", lineNumber, "cart_id", cartID, "reason", reason)
 	return nil
 }
 

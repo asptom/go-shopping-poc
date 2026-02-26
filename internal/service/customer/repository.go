@@ -16,6 +16,7 @@ package customer
 import (
 	"context"
 	"errors"
+	"log/slog"
 
 	"go-shopping-poc/internal/platform/database"
 	"go-shopping-poc/internal/platform/outbox"
@@ -74,6 +75,7 @@ type CustomerRepository interface {
 type customerRepository struct {
 	db           database.Database
 	outboxWriter *outbox.Writer
+	logger       *slog.Logger
 }
 
 // NewCustomerRepository creates a new customer repository instance.
@@ -84,5 +86,9 @@ type customerRepository struct {
 //
 // Returns a configured customer repository ready for use.
 func NewCustomerRepository(db database.Database, outbox *outbox.Writer) *customerRepository {
-	return &customerRepository{db: db, outboxWriter: outbox}
+	return &customerRepository{
+		db:           db,
+		outboxWriter: outbox,
+		logger:       slog.Default().With("component", "customer_repository"),
+	}
 }

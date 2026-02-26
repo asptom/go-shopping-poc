@@ -2,7 +2,6 @@ package downloader
 
 import (
 	"fmt"
-	"log"
 	"time"
 )
 
@@ -60,7 +59,7 @@ func NewDownloaderProvider(config DownloaderProviderConfig) (DownloaderProvider,
 		return nil, fmt.Errorf("cache directory is required")
 	}
 
-	log.Printf("[INFO] DownloaderProvider: Initializing downloader provider with cache dir: %s", config.CacheDir)
+	logger.Info("DownloaderProvider: Initializing downloader provider with cache dir", "cacheDir", config.CacheDir)
 
 	// Set default cache policy if not specified
 	cachePolicy := CachePolicy{
@@ -76,16 +75,16 @@ func NewDownloaderProvider(config DownloaderProviderConfig) (DownloaderProvider,
 		cachePolicy.MaxSize = config.CacheMaxSize
 	}
 
-	log.Printf("[DEBUG] DownloaderProvider: Cache policy - max age: %v, max size: %d bytes", cachePolicy.MaxAge, cachePolicy.MaxSize)
+	logger.Debug("DownloaderProvider: Cache policy", "maxAge", cachePolicy.MaxAge, "maxSize", cachePolicy.MaxSize)
 
 	// Create HTTP downloader with cache policy
 	httpDownloader, err := NewHTTPDownloader(config.CacheDir, WithCachePolicy(cachePolicy))
 	if err != nil {
-		log.Printf("[ERROR] DownloaderProvider: Failed to create HTTP downloader: %v", err)
+		logger.Error("DownloaderProvider: Failed to create HTTP downloader", "error", err)
 		return nil, fmt.Errorf("failed to create HTTP downloader: %w", err)
 	}
 
-	log.Printf("[INFO] DownloaderProvider: Downloader provider initialized successfully")
+	logger.Info("DownloaderProvider: Downloader provider initialized successfully")
 
 	return &DownloaderProviderImpl{
 		downloader: httpDownloader,

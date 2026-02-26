@@ -8,10 +8,12 @@ package customer
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 
 	"go-shopping-poc/internal/platform/database"
 	"go-shopping-poc/internal/platform/event/bus"
+	"go-shopping-poc/internal/platform/logging"
 	"go-shopping-poc/internal/platform/outbox"
 	"go-shopping-poc/internal/platform/service"
 
@@ -110,18 +112,22 @@ type PatchCreditCardRequest struct {
 // logic, validation, and data transformation.
 type CustomerService struct {
 	*service.BaseService
+	logger         *slog.Logger
 	repo           CustomerRepository
 	infrastructure *CustomerInfrastructure
-	config         *Config // Store config for potential future use
+	config         *Config
 }
 
 // NewCustomerService creates a new customer service instance.
-func NewCustomerService(infrastructure *CustomerInfrastructure, config *Config) *CustomerService {
-	// Create repository from infrastructure components
+func NewCustomerService(logger *slog.Logger, infrastructure *CustomerInfrastructure, config *Config) *CustomerService {
+	if logger == nil {
+		logger = logging.FromContext(context.Background())
+	}
 	repo := NewCustomerRepository(infrastructure.Database, infrastructure.OutboxWriter)
 
 	return &CustomerService{
 		BaseService:    service.NewBaseService("customer"),
+		logger:         logger.With("component", "customer_service"),
 		repo:           repo,
 		infrastructure: infrastructure,
 		config:         config,
@@ -130,9 +136,13 @@ func NewCustomerService(infrastructure *CustomerInfrastructure, config *Config) 
 
 // NewCustomerServiceWithRepo creates a new customer service instance with a custom repository.
 // This is primarily used for testing to inject mock repositories.
-func NewCustomerServiceWithRepo(repo CustomerRepository, infrastructure *CustomerInfrastructure, config *Config) *CustomerService {
+func NewCustomerServiceWithRepo(logger *slog.Logger, repo CustomerRepository, infrastructure *CustomerInfrastructure, config *Config) *CustomerService {
+	if logger == nil {
+		logger = logging.FromContext(context.Background())
+	}
 	return &CustomerService{
 		BaseService:    service.NewBaseService("customer"),
+		logger:         logger.With("component", "customer_service"),
 		repo:           repo,
 		infrastructure: infrastructure,
 		config:         config,

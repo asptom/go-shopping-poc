@@ -3,7 +3,7 @@ package kafka
 import (
 	"context"
 	"encoding/json"
-	"log"
+	"log/slog"
 	"sync"
 
 	"go-shopping-poc/internal/contracts/events"
@@ -21,6 +21,11 @@ type EventBus struct {
 	typedHandlers map[string][]func(ctx context.Context, data []byte) error
 	kafkaCfg      *kafkaconfig.Config
 	mu            sync.RWMutex
+	logger        *slog.Logger
+}
+
+func init() {
+	logger = Logger()
 }
 
 // NewEventBus creates a Kafka event bus using the provided configuration.
@@ -31,6 +36,7 @@ func NewEventBus(kafkaCfg *kafkaconfig.Config) *EventBus {
 			readers:       make(map[string]*kafka.Reader),
 			typedHandlers: make(map[string][]func(ctx context.Context, data []byte) error),
 			kafkaCfg:      nil,
+			logger:        logger,
 		}
 	}
 
@@ -45,6 +51,7 @@ func NewEventBus(kafkaCfg *kafkaconfig.Config) *EventBus {
 		readers:       make(map[string]*kafka.Reader),
 		typedHandlers: make(map[string][]func(ctx context.Context, data []byte) error),
 		kafkaCfg:      kafkaCfg,
+		logger:        logger,
 	}
 }
 
@@ -82,21 +89,28 @@ func SubscribeTyped[T events.Event](eb *EventBus, factory events.EventFactory[T]
 			GroupID: eb.kafkaCfg.GroupID,
 		})
 		eb.readers[topic] = reader
-		log.Printf("[DEBUG] Eventbus: created new Kafka reader for topic: %s", topic)
+		eb.logger.Debug("created new Kafka reader for topic",
+			"topic", topic)
 	}
 
 	typedHandler := NewTypedHandler(factory, handler)
 	eb.typedHandlers[topic] = append(eb.typedHandlers[topic], typedHandler.Handle)
-	log.Printf("[INFO] Eventbus: subscribed to topic: %s with typed handler", topic)
+	eb.logger.Info("subscribed to topic",
+		"topic", topic)
 }
 
 // Publish sends an event to a specified Kafka topic.
 func (eb *EventBus) Publish(ctx context.Context, topic string, event events.Event) error {
-	log.Printf("[DEBUG] Eventbus: Publishing event to topic: %s, event type: %s", topic, event.Type())
+	eb.logger.Debug("Publishing event",
+		"topic", topic,
+		"event_type", event.Type(),
+	)
 
 	value, err := json.Marshal(event)
 	if err != nil {
-		log.Printf("[ERROR] Eventbus: Failed to convert event to JSON: %v", err)
+		eb.logger.Error("Failed to convert event to JSON",
+			"error", err,
+		)
 		return err
 	}
 	return eb.writer.WriteMessages(ctx, kafka.Message{
@@ -108,7 +122,10 @@ func (eb *EventBus) Publish(ctx context.Context, topic string, event events.Even
 // PublishRaw sends raw JSON data to a specified Kafka topic.
 // Used by the outbox publisher to avoid double marshaling.
 func (eb *EventBus) PublishRaw(ctx context.Context, topic string, eventType string, data []byte) error {
-	log.Printf("[DEBUG] Eventbus: Publishing raw event to topic: %s, event type: %s", topic, eventType)
+	eb.logger.Debug("Publishing raw event",
+		"topic", topic,
+		"event_type", eventType,
+	)
 
 	return eb.writer.WriteMessages(ctx, kafka.Message{
 		Key:   []byte(eventType),
@@ -132,7 +149,10 @@ func (eb *EventBus) StartConsuming(ctx context.Context) error {
 					return
 				}
 
-				log.Printf("[DEBUG] Eventbus: Received message from topic: %s, key: %s", topic, string(m.Key))
+				eb.logger.Debug("Received message",
+					"topic", topic,
+					"key", string(m.Key),
+				)
 
 				// Handle new typed handlers
 				eb.mu.RLock()
@@ -140,14 +160,19 @@ func (eb *EventBus) StartConsuming(ctx context.Context) error {
 				eb.mu.RUnlock()
 
 				if len(typedHandlers) > 0 {
-					log.Printf("[DEBUG] Eventbus: Processing with typed handlers for topic: %s", topic)
+					eb.logger.Debug("Processing with typed handlers",
+						"topic", topic,
+					)
 
 					for _, handler := range typedHandlers {
 						h := handler
 						data := m.Value // Raw JSON bytes
 						go func() {
 							if err := h(ctx, data); err != nil {
-								log.Printf("[ERROR] Eventbus: typed handler error for topic %s: %v", topic, err)
+								eb.logger.Error("typed handler error",
+									"topic", topic,
+									"error", err,
+								)
 							}
 						}()
 					}
@@ -155,7 +180,10 @@ func (eb *EventBus) StartConsuming(ctx context.Context) error {
 
 				// If no handlers found, log and continue
 				if len(typedHandlers) == 0 {
-					log.Printf("[DEBUG] Eventbus: No handlers found for topic: %s, key: %s", topic, string(m.Key))
+					eb.logger.Debug("No handlers found",
+						"topic", topic,
+						"key", string(m.Key),
+					)
 				}
 			}
 		}(topic, reader)

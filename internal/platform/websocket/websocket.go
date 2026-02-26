@@ -1,7 +1,6 @@
 package websocket
 
 import (
-	"log"
 	"net/http"
 
 	"github.com/gorilla/websocket"
@@ -88,7 +87,7 @@ func (s *WebSocketServer) Handle(customHandler HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		conn, err := s.Upgrader.Upgrade(w, r, nil)
 		if err != nil {
-			log.Printf("[ERROR] Upgrade error: %v", err)
+			logger.Error("Failed to upgrade connection", "error", err.Error())
 			return
 		}
 		s.Clients[conn] = true

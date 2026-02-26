@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -23,14 +23,16 @@ type CatalogHandler struct {
 	service       *CatalogService
 	objectStorage minio.ObjectStorage
 	bucket        string
+	logger        *slog.Logger
 }
 
 // NewCatalogHandler creates a new catalog handler instance.
-func NewCatalogHandler(service *CatalogService, objectStorage minio.ObjectStorage, bucket string) *CatalogHandler {
+func NewCatalogHandler(logger *slog.Logger, service *CatalogService, objectStorage minio.ObjectStorage, bucket string) *CatalogHandler {
 	return &CatalogHandler{
 		service:       service,
 		objectStorage: objectStorage,
 		bucket:        bucket,
+		logger:        logger.With("component", "catalog_handler"),
 	}
 }
 
@@ -316,15 +318,13 @@ func (h *CatalogHandler) GetProductMainImage(w http.ResponseWriter, r *http.Requ
 // GetDirectImage handles GET /api/v1/products/{id}/images/{imageName:.+} - streams image directly from Minio
 // Example: /api/v1/products/40121298/images/image_0.jpg -> object name: products/40121298/image_0.jpg
 func (h *CatalogHandler) GetDirectImage(w http.ResponseWriter, r *http.Request) {
-	// Log the full request info for debugging
-	log.Printf("[DEBUG] GetDirectImage: Handler invoked!")
-	log.Printf("[DEBUG] GetDirectImage: Method=%s, URL=%s, Path=%s", r.Method, r.URL.String(), r.URL.Path)
+	h.logger.Debug("GetDirectImage handler invoked", "method", r.Method, "url", r.URL.String(), "path", r.URL.Path)
 
 	// Extract product ID and image name from URL parameters
 	productIDStr := chi.URLParam(r, "id")
 	imageName := chi.URLParam(r, "imageName")
 
-	log.Printf("[DEBUG] GetDirectImage: URL params - productID='%s', imageName='%s'", productIDStr, imageName)
+	h.logger.Debug("GetDirectImage URL params", "product_id", productIDStr, "image_name", imageName)
 
 	if productIDStr == "" || imageName == "" {
 		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Missing product ID or image name in path")
@@ -346,15 +346,15 @@ func (h *CatalogHandler) GetDirectImage(w http.ResponseWriter, r *http.Request) 
 
 	// Construct Minio object name: products/{productID}/{imageName}
 	objectName := fmt.Sprintf("products/%d/%s", productID, imageName)
-	log.Printf("[DEBUG] GetDirectImage: Constructed objectName: '%s'", objectName)
+	h.logger.Debug("GetDirectImage constructed objectName", "object_name", objectName)
 
 	// Log bucket and object details
-	log.Printf("[DEBUG] GetDirectImage: Attempting to get object from bucket '%s', objectName: '%s'", h.bucket, objectName)
+	h.logger.Debug("GetDirectImage attempting to get object", "bucket", h.bucket, "object_name", objectName)
 
 	// Get object from Minio
 	object, err := h.objectStorage.GetObject(r.Context(), h.bucket, objectName)
 	if err != nil {
-		log.Printf("[ERROR] GetDirectImage: Failed to get object from Minio: %v", err)
+		h.logger.Error("GetDirectImage failed to get object from Minio", "error", err.Error())
 		errors.SendError(w, http.StatusNotFound, errors.ErrorTypeNotFound, "Image not found")
 		return
 	}
@@ -376,7 +376,7 @@ func (h *CatalogHandler) GetDirectImage(w http.ResponseWriter, r *http.Request) 
 
 	// Stream object to response
 	if _, err := io.Copy(w, object); err != nil {
-		log.Printf("[ERROR] Failed to stream image: %v", err)
+		h.logger.Error("Failed to stream image", "error", err.Error())
 		return
 	}
 }

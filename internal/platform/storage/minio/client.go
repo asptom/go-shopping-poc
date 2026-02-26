@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"net/url"
 	"path/filepath"
 	"strings"
@@ -310,11 +309,11 @@ func (c *Client) PresignedGetObject(ctx context.Context, bucketName, objectName 
 	}
 
 	originalURL := presignedURL.String()
-	log.Printf("[DEBUG] MinIO: Generated presigned URL (before endpoint replacement): %s", originalURL)
+	logger.Debug("Generated presigned URL (before endpoint replacement)", "url", originalURL)
 
 	// Use external endpoint for presigned URLs if configured
 	result := c.replaceEndpointIfConfigured(originalURL)
-	log.Printf("[DEBUG] MinIO: Final presigned URL (after endpoint replacement): %s", result)
+	logger.Debug("Final presigned URL (after endpoint replacement)", "url", result)
 	return result, nil
 }
 
@@ -343,14 +342,14 @@ func (c *Client) PresignedPutObject(ctx context.Context, bucketName, objectName 
 // This is used for presigned URLs so external clients can access them
 func (c *Client) replaceEndpointIfConfigured(urlStr string) string {
 	if c.config.ExternalEndpoint == "" {
-		log.Printf("[DEBUG] MinIO: ExternalEndpoint not configured, using original URL: %s", urlStr)
+		logger.Debug("ExternalEndpoint not configured, using original URL", "url", urlStr)
 		return urlStr
 	}
 
 	// Parse the generated URL
 	parsedURL, err := url.Parse(urlStr)
 	if err != nil {
-		log.Printf("[WARN] MinIO: Failed to parse generated URL '%s': %v", urlStr, err)
+		logger.Warn("Failed to parse generated URL", "url", urlStr, "error", err)
 		return urlStr
 	}
 
@@ -363,7 +362,7 @@ func (c *Client) replaceEndpointIfConfigured(urlStr string) string {
 
 	externalURL, err := url.Parse(externalEndpoint)
 	if err != nil {
-		log.Printf("[WARN] MinIO: Failed to parse external endpoint '%s': %v", externalEndpoint, err)
+		logger.Warn("Failed to parse external endpoint", "endpoint", externalEndpoint, "error", err)
 		return urlStr
 	}
 
@@ -372,7 +371,7 @@ func (c *Client) replaceEndpointIfConfigured(urlStr string) string {
 	parsedURL.Host = externalURL.Host
 
 	result := parsedURL.String()
-	log.Printf("[DEBUG] MinIO: Replaced endpoint in URL. Original: %s, External: %s, Result: %s", urlStr, externalEndpoint, result)
+	logger.Debug("Replaced endpoint in URL", "original", urlStr, "external", externalEndpoint, "result", result)
 	return result
 }
 

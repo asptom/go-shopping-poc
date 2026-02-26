@@ -3,6 +3,7 @@ package cart
 import (
 	"context"
 	"errors"
+	"log/slog"
 
 	"go-shopping-poc/internal/platform/database"
 	"go-shopping-poc/internal/platform/outbox"
@@ -58,12 +59,14 @@ type CartRepository interface {
 type cartRepository struct {
 	db           database.Database
 	outboxWriter *outbox.Writer
+	logger       *slog.Logger
 }
 
 func NewCartRepository(db database.Database, outbox *outbox.Writer) CartRepository {
 	return &cartRepository{
 		db:           db,
 		outboxWriter: outbox,
+		logger:       slog.Default().With("component", "cart_repository"),
 	}
 }
 

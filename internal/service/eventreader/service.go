@@ -14,7 +14,7 @@
 //
 //	// Create service
 //	eventBus := kafka.NewEventBus(config)
-//	service := eventreader.NewEventReaderService(eventBus)
+//	service := eventreader.NewEventReaderService(logger, eventBus)
 //
 //	// Register customer event handler
 //	err := eventreader.RegisterHandler(
@@ -28,6 +28,8 @@
 package eventreader
 
 import (
+	"log/slog"
+
 	"go-shopping-poc/internal/contracts/events"
 	"go-shopping-poc/internal/platform/event/bus"
 	"go-shopping-poc/internal/platform/service"
@@ -71,14 +73,17 @@ func RegisterHandler[T events.Event](s Service, factory events.EventFactory[T], 
 // EventReaderService implements the Service interface using platform infrastructure
 type EventReaderService struct {
 	*service.EventServiceBase
-	infrastructure *EventReaderInfrastructure // Infrastructure components
-	config         *Config                    // Store config for potential future use
+	infrastructure *EventReaderInfrastructure
+	config         *Config
 }
 
 // NewEventReaderService creates a new event reader service instance
-func NewEventReaderService(infrastructure *EventReaderInfrastructure, config *Config) *EventReaderService {
+func NewEventReaderService(logger *slog.Logger, infrastructure *EventReaderInfrastructure, config *Config) *EventReaderService {
+	if logger == nil {
+		logger = slog.Default()
+	}
 	return &EventReaderService{
-		EventServiceBase: service.NewEventServiceBase("eventreader", infrastructure.EventBus),
+		EventServiceBase: service.NewEventServiceBase("eventreader", infrastructure.EventBus, logger),
 		infrastructure:   infrastructure,
 		config:           config,
 	}

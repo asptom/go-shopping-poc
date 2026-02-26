@@ -3,7 +3,7 @@ package eventhandlers
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 
 	events "go-shopping-poc/internal/contracts/events"
 	"go-shopping-poc/internal/platform/event/bus"
@@ -13,10 +13,17 @@ import (
 
 type OnCartCheckedOut struct {
 	service *order.OrderService
+	logger  *slog.Logger
 }
 
-func NewOnCartCheckedOut(service *order.OrderService) *OnCartCheckedOut {
-	return &OnCartCheckedOut{service: service}
+func NewOnCartCheckedOut(service *order.OrderService, logger *slog.Logger) *OnCartCheckedOut {
+	if logger == nil {
+		logger = slog.Default()
+	}
+	return &OnCartCheckedOut{
+		service: service,
+		logger:  logger.With("handler", "on_cart_checked_out"),
+	}
 }
 
 func (h *OnCartCheckedOut) Handle(ctx context.Context, event events.Event) error {
@@ -27,12 +34,12 @@ func (h *OnCartCheckedOut) Handle(ctx context.Context, event events.Event) error
 	case *events.CartEvent:
 		cartEvent = *e
 	default:
-		log.Printf("[ERROR] Order: Expected CartEvent, got %T", event)
+		h.logger.Error("Expected CartEvent", "actual_type", fmt.Sprintf("%T", event))
 		return nil
 	}
 
 	if cartEvent.EventType != events.CartCheckedOut {
-		log.Printf("[DEBUG] Order: Ignoring non-CartCheckedOut event: %s", cartEvent.EventType)
+		h.logger.Debug("Ignoring non-CartCheckedOut event", "event_type", cartEvent.EventType)
 		return nil
 	}
 
@@ -51,21 +58,21 @@ func (h *OnCartCheckedOut) Handle(ctx context.Context, event events.Event) error
 
 func (h *OnCartCheckedOut) createOrderFromCart(ctx context.Context, cartEvent events.CartEvent) error {
 	cartID := cartEvent.EventPayload.CartID
-	log.Printf("[INFO] Order: Creating order from cart %s", cartID)
+	h.logger.Info("Creating order from cart", "cart_id", cartID)
 
 	snapshot := cartEvent.EventPayload.CartSnapshot
 	if snapshot == nil {
-		log.Printf("[ERROR] Order: Cart snapshot is missing for cart %s", cartID)
+		h.logger.Error("Cart snapshot is missing", "cart_id", cartID)
 		return fmt.Errorf("cart snapshot is required to create order")
 	}
 
 	order, err := h.service.CreateOrderFromSnapshot(ctx, cartID, snapshot)
 	if err != nil {
-		log.Printf("[ERROR] Order: Failed to create order from cart %s: %v", cartID, err)
+		h.logger.Error("Failed to create order from cart", "cart_id", cartID, "error", err.Error())
 		return err
 	}
 
-	log.Printf("[INFO] Order: Successfully created order %s from cart %s", order.OrderNumber, cartID)
+	h.logger.Info("Successfully created order", "order_number", order.OrderNumber, "cart_id", cartID)
 	return nil
 }
 
@@ -82,6 +89,3 @@ func (h *OnCartCheckedOut) CreateHandler() bus.HandlerFunc[events.CartEvent] {
 		return h.Handle(ctx, event)
 	}
 }
-
-var _ handler.EventHandler = (*OnCartCheckedOut)(nil)
-var _ handler.HandlerFactory[events.CartEvent] = (*OnCartCheckedOut)(nil)

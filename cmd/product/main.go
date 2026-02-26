@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -13,6 +14,7 @@ import (
 	"go-shopping-poc/internal/platform/cors"
 	"go-shopping-poc/internal/platform/database"
 	"go-shopping-poc/internal/platform/event"
+	"go-shopping-poc/internal/platform/logging"
 	"go-shopping-poc/internal/platform/outbox/providers"
 	"go-shopping-poc/internal/platform/storage/minio"
 	"go-shopping-poc/internal/service/product"
@@ -24,79 +26,92 @@ import (
 func main() {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("[ERROR] Panic recovered in product service: %v", r)
+			slog.Default().Error("Panic recovered in product service", "panic", r)
 		}
 	}()
-	log.SetFlags(log.LstdFlags)
-	log.Printf("[INFO] Product: Product catalog service started...")
+
+	loggerProvider, err := logging.NewLoggerProvider(logging.LoggerConfig{
+		ServiceName: "product",
+	})
+	if err != nil {
+		log.Fatalf("Product: Failed to create logger provider: %v", err)
+	}
+	logger := loggerProvider.Logger()
+
+	logger.Info("Product catalog service starting")
 
 	cfg, err := product.LoadConfig()
 	if err != nil {
-		log.Fatalf("Product: Failed to load config: %v", err)
+		logger.Error("Failed to load config", "error", err.Error())
+		os.Exit(1)
 	}
 
-	log.Printf("[DEBUG] Product: Configuration loaded successfully")
+	logger.Debug("Configuration loaded successfully")
 
 	dbURL := cfg.DatabaseURL
 	if dbURL == "" {
-		log.Fatalf("Product: Database URL is required in service config")
+		logger.Error("Database URL is required in service config")
+		os.Exit(1)
 	}
 
-	log.Printf("[DEBUG] Product: Creating database provider")
+	logger.Debug("Creating database provider")
 	dbProvider, err := database.NewDatabaseProvider(dbURL)
 	if err != nil {
-		log.Fatalf("Product: Failed to create database provider: %v", err)
+		logger.Error("Failed to create database provider", "error", err.Error())
+		os.Exit(1)
 	}
 	platformDB := dbProvider.GetDatabase()
 	defer func() {
 		if err := platformDB.Close(); err != nil {
-			log.Printf("[ERROR] Product: Error closing database connection: %v", err)
+			logger.Error("Error closing database connection", "error", err.Error())
 		}
 	}()
 
-	log.Printf("[DEBUG] Product: Creating outbox writer provider")
+	logger.Debug("Creating outbox writer provider")
 	writerProvider := providers.NewWriterProvider(platformDB)
 
 	// Event bus setup for consuming cart validation requests
-	log.Printf("[DEBUG] Product: Creating event bus provider")
+	logger.Debug("Creating event bus provider")
 	eventBusConfig := event.EventBusConfig{
 		WriteTopic: cfg.WriteTopic,
 		GroupID:    cfg.Group,
 	}
 	eventBusProvider, err := event.NewEventBusProvider(eventBusConfig)
 	if err != nil {
-		log.Fatalf("Product: Failed to create event bus provider: %v", err)
+		logger.Error("Failed to create event bus provider", "error", err.Error())
+		os.Exit(1)
 	}
 	eventBus := eventBusProvider.GetEventBus()
 
 	// Create outbox publisher for immediate event processing
-	log.Printf("[DEBUG] Product: Creating outbox publisher")
+	logger.Debug("Creating outbox publisher")
 	publisherProvider := providers.NewPublisherProvider(platformDB, eventBus)
 	outboxPublisher := publisherProvider.GetPublisher()
 	outboxPublisher.Start()
 	defer outboxPublisher.Stop()
 
-	log.Printf("[DEBUG] Product: Creating catalog service")
+	logger.Debug("Creating catalog service")
 	catalogInfra := &product.CatalogInfrastructure{
 		Database:        platformDB,
 		OutboxWriter:    writerProvider.GetWriter(),
 		OutboxPublisher: outboxPublisher,
 		EventBus:        eventBus,
 	}
-	catalogService := product.NewCatalogService(catalogInfra, cfg)
-	log.Printf("[DEBUG] Product: Service created successfully")
+	catalogService := product.NewCatalogService(logger, catalogInfra, cfg)
+	logger.Debug("Service created successfully")
 
 	// Register event handlers
-	log.Printf("[DEBUG] Product: Registering event handlers")
-	cartItemAddedHandler := eventhandlers.NewOnCartItemAdded(catalogService)
+	logger.Debug("Registering event handlers")
+	cartItemAddedHandler := eventhandlers.NewOnCartItemAdded(catalogService, logger)
 	if err := product.RegisterHandler(
 		catalogService,
 		cartItemAddedHandler.CreateFactory(),
 		cartItemAddedHandler.CreateHandler(),
 	); err != nil {
-		log.Fatalf("Product: Failed to register CartItemAdded handler: %v", err)
+		logger.Error("Failed to register CartItemAdded handler", "error", err.Error())
+		os.Exit(1)
 	}
-	log.Printf("[DEBUG] Product: Event handlers registered successfully")
+	logger.Debug("Event handlers registered successfully")
 
 	// Start event consumer in background
 	consumerCtx, consumerCancel := context.WithCancel(context.Background())
@@ -104,24 +119,25 @@ func main() {
 
 	go func() {
 		if err := catalogService.Start(consumerCtx); err != nil {
-			log.Printf("[ERROR] Product: Event consumer stopped: %v", err)
+			logger.Error("Event consumer stopped", "error", err.Error())
 		}
 	}()
 
-	log.Printf("[DEBUG] Product: Loading MinIO configuration")
+	logger.Debug("Loading MinIO configuration")
 	minioCfg, err := config.LoadConfig[minio.PlatformConfig]("platform-minio")
 	if err != nil {
-		log.Fatalf("Product: Failed to load MinIO config: %v", err)
+		logger.Error("Failed to load MinIO config", "error", err.Error())
+		os.Exit(1)
 	}
 
-	log.Printf("[DEBUG] Product: Creating MinIO storage client")
+	logger.Debug("Creating MinIO storage client")
 	// Choose MinIO endpoint based on environment
 	minioEndpoint := minioCfg.EndpointLocal
 	if os.Getenv("KUBERNETES_SERVICE_HOST") != "" {
 		minioEndpoint = minioCfg.EndpointKubernetes
-		log.Printf("[DEBUG] Product: Using Kubernetes MinIO endpoint for connections: %s", minioEndpoint)
+		logger.Debug("Using Kubernetes MinIO endpoint for connections", "endpoint", minioEndpoint)
 	} else {
-		log.Printf("[DEBUG] Product: Using local MinIO endpoint: %s", minioEndpoint)
+		logger.Debug("Using local MinIO endpoint", "endpoint", minioEndpoint)
 	}
 
 	minioStorage, err := minio.NewClient(&minio.Config{
@@ -131,22 +147,24 @@ func main() {
 		Secure:    minioCfg.TLSVerify,
 	})
 	if err != nil {
-		log.Fatalf("Product: Failed to create MinIO storage: %v", err)
+		logger.Error("Failed to create MinIO storage", "error", err.Error())
+		os.Exit(1)
 	}
-	log.Printf("[DEBUG] Product: MinIO storage initialized")
+	logger.Debug("MinIO storage initialized")
 
-	log.Printf("[DEBUG] Product: Creating catalog handler")
-	catalogHandler := product.NewCatalogHandler(catalogService, minioStorage, cfg.MinIOBucket)
-	log.Printf("[DEBUG] Product: Handler created successfully")
+	logger.Debug("Creating catalog handler")
+	catalogHandler := product.NewCatalogHandler(logger, catalogService, minioStorage, cfg.MinIOBucket)
+	logger.Debug("Handler created successfully")
 
-	log.Printf("[DEBUG] Product: Setting up HTTP router")
+	logger.Debug("Setting up HTTP router")
 	router := chi.NewRouter()
-	log.Printf("[DEBUG] Product: Router setup completed")
+	logger.Debug("Router setup completed")
 
-	log.Printf("[DEBUG] Product: Creating CORS provider")
+	logger.Debug("Creating CORS provider")
 	corsProvider, err := cors.NewCORSProvider()
 	if err != nil {
-		log.Fatalf("Product: Failed to create CORS provider: %v", err)
+		logger.Error("Failed to create CORS provider", "error", err.Error())
+		os.Exit(1)
 	}
 	corsHandler := corsProvider.GetCORSHandler()
 	router.Use(corsHandler)
@@ -169,7 +187,7 @@ func main() {
 	// Direct image access: /api/v1/products/{id}/images/{imageName:.+}
 	// Example: /api/v1/products/40121298/images/image_0.jpg
 	productRouter.Get("/products/{id}/images/{imageName:.+}", catalogHandler.GetDirectImage)
-	log.Printf("[DEBUG] Product: Registered /products/{id}/images/{imageName:.+} route for direct image access")
+	logger.Debug("Registered /products/{id}/images/{imageName:.+} route for direct image access")
 
 	router.Mount("/api/v1", productRouter)
 
@@ -189,22 +207,22 @@ func main() {
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 
 	go func() {
-		log.Printf("[INFO] Product: Starting HTTP server on %s", serverAddr)
+		logger.Info("Starting HTTP server", "address", serverAddr)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Product: Failed to start HTTP server: %v", err)
+			logger.Error("Failed to start HTTP server", "error", err.Error())
 		}
 	}()
 
 	<-quit
-	log.Printf("[INFO] Product: Shutting down server...")
+	logger.Info("Shutting down server")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	if err := server.Shutdown(ctx); err != nil {
-		log.Fatalf("Product: Server forced to shutdown: %v", err)
+		logger.Error("Server forced to shutdown", "error", err.Error())
 	}
 
 	close(done)
-	log.Printf("[INFO] Product: Server exited")
+	logger.Info("Server exited")
 }

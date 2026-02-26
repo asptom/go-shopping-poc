@@ -7,7 +7,6 @@ package product
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
 	events "go-shopping-poc/internal/contracts/events"
@@ -16,7 +15,7 @@ import (
 
 // AddProductImage adds a new image to a product
 func (r *productRepository) AddProductImage(ctx context.Context, image *ProductImage) error {
-	log.Printf("[DEBUG] Repository: Adding image for product %d", image.ProductID)
+	r.logger.Debug("Adding image for product", "product_id", image.ProductID)
 
 	if err := image.Validate(); err != nil {
 		return fmt.Errorf("image validation failed: %w", err)
@@ -128,7 +127,7 @@ func (r *productRepository) insertProductImageRecord(ctx context.Context, tx dat
 
 // UpdateProductImage updates an existing product image
 func (r *productRepository) UpdateProductImage(ctx context.Context, image *ProductImage) error {
-	log.Printf("[DEBUG] Repository: Updating image %d", image.ID)
+	r.logger.Debug("Updating image", "image_id", image.ID)
 
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -193,7 +192,7 @@ func (r *productRepository) UpdateProductImage(ctx context.Context, image *Produ
 
 // DeleteProductImage removes a product image
 func (r *productRepository) DeleteProductImage(ctx context.Context, image *ProductImage) error {
-	log.Printf("[DEBUG] Repository: Deleting image %d", image.ID)
+	r.logger.Debug("Deleting image", "image_id", image.ID)
 
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -245,7 +244,7 @@ func (r *productRepository) DeleteProductImage(ctx context.Context, image *Produ
 
 // SetMainImageFlag sets the is_main flag for an image without updating products.main_image
 func (r *productRepository) SetMainImageFlag(ctx context.Context, productID int64, imageID int64) error {
-	log.Printf("[DEBUG] Repository: Setting main image flag %d for product %d", imageID, productID)
+	r.logger.Debug("Setting main image flag", "image_id", imageID, "product_id", productID)
 
 	if productID <= 0 || imageID <= 0 {
 		return fmt.Errorf("%w: product ID and image ID must be positive", ErrInvalidProductID)

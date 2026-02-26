@@ -5,14 +5,17 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log"
 
 	"github.com/google/uuid"
 	"go-shopping-poc/internal/platform/database"
 )
 
 func (r *cartRepository) AddItem(ctx context.Context, cartID string, item *CartItem) error {
-	log.Printf("[DEBUG] CartRepository: Adding item to cart %s: product_id=%s, quantity=%d", cartID, item.ProductID, item.Quantity)
+	r.logger.Debug("Adding item to cart",
+		"cart_id", cartID,
+		"product_id", item.ProductID,
+		"quantity", item.Quantity,
+	)
 	cartUUID, err := uuid.Parse(cartID)
 	if err != nil {
 		return fmt.Errorf("%w: invalid cart ID: %v", ErrInvalidUUID, err)
@@ -20,7 +23,7 @@ func (r *cartRepository) AddItem(ctx context.Context, cartID string, item *CartI
 
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
-		log.Printf("[DEBUG] CartRepository: failed to begin transaction for adding item to cart %s: %v", cartID, err)
+		r.logger.Error("Failed to begin transaction for adding item", "cart_id", cartID, "error", err.Error())
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 
@@ -34,7 +37,7 @@ func (r *cartRepository) AddItem(ctx context.Context, cartID string, item *CartI
 	var nextLine int
 	err = r.db.QueryRow(ctx, `SELECT nextval('carts.cart_sequence')`).Scan(&nextLine)
 	if err != nil {
-		log.Printf("[DEBUG] CartRepository: failed to get next line number for cart %s: %v", cartID, err)
+		r.logger.Error("Failed to get next line number", "cart_id", cartID, "error", err.Error())
 		return fmt.Errorf("%w: failed to generate line number: %v", ErrDatabaseOperation, err)
 	}
 	item.LineNumber = fmt.Sprintf("%03d", nextLine)
@@ -52,12 +55,12 @@ func (r *cartRepository) AddItem(ctx context.Context, cartID string, item *CartI
 	_, err = tx.ExecContext(ctx, query,
 		item.CartID, item.LineNumber, item.ProductID, item.ProductName, item.UnitPrice, item.Quantity, item.TotalPrice)
 	if err != nil {
-		log.Printf("[DEBUG] CartRepository: failed to insert item into database for cart %s: %v", cartID, err)
+		r.logger.Error("Failed to insert item into database", "cart_id", cartID, "error", err.Error())
 		return fmt.Errorf("%w: failed to insert item: %v", ErrDatabaseOperation, err)
 	}
 
 	if err := tx.Commit(); err != nil {
-		log.Printf("[DEBUG] CartRepository: failed to commit transaction for adding item to cart %s: %v", cartID, err)
+		r.logger.Error("Failed to commit transaction for adding item", "cart_id", cartID, "error", err.Error())
 		return fmt.Errorf("%w: failed to commit transaction: %v", ErrTransactionFailed, err)
 	}
 	committed = true
@@ -137,7 +140,11 @@ func (r *cartRepository) GetCartItems(ctx context.Context, cartID string) ([]Car
 
 // AddItemTx adds an item within an existing transaction (for outbox pattern)
 func (r *cartRepository) AddItemTx(ctx context.Context, tx database.Tx, cartID string, item *CartItem) error {
-	log.Printf("[DEBUG] CartRepository: Adding item to cart %s (transactional): product_id=%s, quantity=%d", cartID, item.ProductID, item.Quantity)
+	r.logger.Debug("Adding item to cart (transactional)",
+		"cart_id", cartID,
+		"product_id", item.ProductID,
+		"quantity", item.Quantity,
+	)
 	cartUUID, err := uuid.Parse(cartID)
 	if err != nil {
 		return fmt.Errorf("%w: invalid cart ID: %v", ErrInvalidUUID, err)
@@ -146,7 +153,7 @@ func (r *cartRepository) AddItemTx(ctx context.Context, tx database.Tx, cartID s
 	var nextLine int
 	err = tx.QueryRow(ctx, `SELECT nextval('carts.cart_sequence')`).Scan(&nextLine)
 	if err != nil {
-		log.Printf("[DEBUG] CartRepository: failed to get next line number for cart %s: %v", cartID, err)
+		r.logger.Error("Failed to get next line number", "cart_id", cartID, "error", err.Error())
 		return fmt.Errorf("%w: failed to generate line number: %v", ErrDatabaseOperation, err)
 	}
 	item.LineNumber = fmt.Sprintf("%03d", nextLine)
@@ -164,7 +171,7 @@ func (r *cartRepository) AddItemTx(ctx context.Context, tx database.Tx, cartID s
 	_, err = tx.Exec(ctx, query,
 		item.CartID, item.LineNumber, item.ProductID, item.ProductName, item.UnitPrice, item.Quantity, item.TotalPrice, item.Status, item.ValidationID)
 	if err != nil {
-		log.Printf("[DEBUG] CartRepository: failed to insert item into database for cart %s: %v", cartID, err)
+		r.logger.Error("Failed to insert item into database (transactional)", "cart_id", cartID, "error", err.Error())
 		return fmt.Errorf("%w: failed to insert item: %v", ErrDatabaseOperation, err)
 	}
 

@@ -2,7 +2,6 @@ package storage
 
 import (
 	"fmt"
-	"log"
 	"os"
 
 	"go-shopping-poc/internal/platform/config"
@@ -39,24 +38,24 @@ type StorageProvider interface {
 //	}
 //	storage := provider.GetObjectStorage()
 func NewStorageProvider() (StorageProvider, error) {
-	log.Printf("[INFO] StorageProvider: Initializing storage provider")
+	logger.Info("StorageProvider: Initializing storage provider")
 
 	// Load platform MinIO configuration
 	platformCfg, err := config.LoadConfig[minio.PlatformConfig]("platform-minio")
 	if err != nil {
-		log.Printf("[ERROR] StorageProvider: Failed to load MinIO config: %v", err)
+		logger.Error("StorageProvider: Failed to load MinIO config", "error", err)
 		return nil, fmt.Errorf("failed to load MinIO config: %w", err)
 	}
 
-	log.Printf("[DEBUG] StorageProvider: MinIO config loaded successfully")
+	logger.Debug("StorageProvider: MinIO config loaded successfully")
 
 	// Determine endpoint based on environment
 	endpoint := platformCfg.EndpointLocal
 	if os.Getenv("KUBERNETES_SERVICE_HOST") != "" {
 		endpoint = platformCfg.EndpointKubernetes
-		log.Printf("[DEBUG] StorageProvider: Using Kubernetes endpoint: %s", endpoint)
+		logger.Debug("StorageProvider: Using Kubernetes endpoint", "endpoint", endpoint)
 	} else {
-		log.Printf("[DEBUG] StorageProvider: Using local endpoint: %s", endpoint)
+		logger.Debug("StorageProvider: Using local endpoint", "endpoint", endpoint)
 	}
 
 	// Create MinIO client configuration
@@ -69,16 +68,16 @@ func NewStorageProvider() (StorageProvider, error) {
 		SecretKey:        platformCfg.SecretKey,
 		Secure:           platformCfg.TLSVerify,
 	}
-	log.Printf("[DEBUG] StorageProvider: External endpoint for presigned URLs: %s", platformCfg.EndpointLocal)
+	logger.Debug("StorageProvider: External endpoint for presigned URLs", "endpoint", platformCfg.EndpointLocal)
 
 	// Create MinIO client
 	storageClient, err := minio.NewClient(minioCfg)
 	if err != nil {
-		log.Printf("[ERROR] StorageProvider: Failed to create MinIO client: %v", err)
+		logger.Error("StorageProvider: Failed to create MinIO client", "error", err)
 		return nil, fmt.Errorf("failed to create MinIO client: %w", err)
 	}
 
-	log.Printf("[INFO] StorageProvider: Storage provider initialized successfully")
+	logger.Info("StorageProvider: Storage provider initialized successfully")
 
 	return &StorageProviderImpl{
 		storage: storageClient,

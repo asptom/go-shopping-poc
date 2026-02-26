@@ -3,7 +3,7 @@ package eventhandlers
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"strconv"
 
 	events "go-shopping-poc/internal/contracts/events"
@@ -16,12 +16,14 @@ import (
 // It validates the product and emits product validation events
 type OnCartItemAdded struct {
 	service *product.CatalogService
+	logger  *slog.Logger
 }
 
 // NewOnCartItemAdded creates a new cart item added handler
-func NewOnCartItemAdded(service *product.CatalogService) *OnCartItemAdded {
+func NewOnCartItemAdded(service *product.CatalogService, logger *slog.Logger) *OnCartItemAdded {
 	return &OnCartItemAdded{
 		service: service,
+		logger:  logger.With("component", "on_cart_item_added"),
 	}
 }
 
@@ -29,13 +31,13 @@ func NewOnCartItemAdded(service *product.CatalogService) *OnCartItemAdded {
 func (h *OnCartItemAdded) Handle(ctx context.Context, event events.Event) error {
 	cartItemEvent, ok := event.(events.CartItemEvent)
 	if !ok {
-		log.Printf("[ERROR] Product: Expected CartItemEvent, got %T", event)
+		h.logger.Error("Expected CartItemEvent", "event_type", fmt.Sprintf("%T", event))
 		return nil
 	}
 
 	// Only handle CartItemAdded events
 	if cartItemEvent.EventType != events.CartItemAdded {
-		log.Printf("[DEBUG] Product: Ignoring event type: %s", cartItemEvent.EventType)
+		h.logger.Debug("Ignoring event type", "event_type", cartItemEvent.EventType)
 		return nil
 	}
 
@@ -46,29 +48,28 @@ func (h *OnCartItemAdded) Handle(ctx context.Context, event events.Event) error 
 		payload.ProductID,
 		payload.CartID)
 
-	log.Printf("[DEBUG] Product: Processing cart item added - CartID: %s, ProductID: %s, Quantity: %d",
-		payload.CartID, payload.ProductID, payload.Quantity)
+	h.logger.Debug("Processing cart item added", "cart_id", payload.CartID, "product_id", payload.ProductID, "quantity", payload.Quantity)
 
 	// Parse product ID
 	productID, err := strconv.ParseInt(payload.ProductID, 10, 64)
 	if err != nil {
-		log.Printf("[ERROR] Product: Invalid product ID format: %s", payload.ProductID)
+		h.logger.Error("Invalid product ID format", "product_id", payload.ProductID, "error", err.Error())
 		return h.publishValidationResult(ctx, payload, false, 0, "invalid_product_id")
 	}
 
 	// Get product details
 	product, err := h.service.GetProductByID(ctx, productID)
 	if err != nil {
-		log.Printf("[DEBUG] Product: Product %s not found: %v", payload.ProductID, err)
+		h.logger.Debug("Product not found", "product_id", payload.ProductID, "error", err.Error())
 		return h.publishValidationResult(ctx, payload, false, 0, "product_not_found")
 	}
 
 	if !product.InStock {
-		log.Printf("[DEBUG] Product: Product %s is out of stock", payload.ProductID)
+		h.logger.Debug("Product is out of stock", "product_id", payload.ProductID)
 		return h.publishValidationResult(ctx, payload, false, 0, "out_of_stock")
 	}
 
-	log.Printf("[DEBUG] Product: Product %s validated successfully", payload.ProductID)
+	h.logger.Debug("Product validated successfully", "product_id", payload.ProductID)
 	return h.publishValidationResult(ctx, payload, true, product.FinalPrice, "")
 }
 
@@ -114,13 +115,12 @@ func (h *OnCartItemAdded) publishValidationResult(ctx context.Context, payload e
 	if infra.OutboxPublisher != nil {
 		go func() {
 			if err := infra.OutboxPublisher.ProcessNow(); err != nil {
-				log.Printf("[WARN] Product: Failed to trigger immediate outbox processing: %v", err)
+				h.logger.Warn("Failed to trigger immediate outbox processing", "error", err.Error())
 			}
 		}()
 	}
 
-	log.Printf("[DEBUG] Product: Published validation result for product %s (available: %v)",
-		payload.ProductID, isAvailable)
+	h.logger.Debug("Published validation result for product", "product_id", payload.ProductID, "available", isAvailable)
 	return nil
 }
 

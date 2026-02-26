@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"sync/atomic"
 	"time"
 
@@ -92,18 +91,15 @@ func (p *Publisher) Stop() {
 func (p *Publisher) processOutbox() error {
 	ctx := p.shutdownCtx
 
-	//log.Printf("[DEBUG] Outbox Publisher: ---------------------------")
-	//log.Printf("[DEBUG] Outbox Publisher: Processing outbox events...")
-
 	query := `SELECT id, event_type, topic, event_payload, created_at, times_attempted, published_at FROM outbox.outbox WHERE published_at IS NULL LIMIT $1`
 
 	rows, err := p.db.Query(ctx, query, p.batchSize)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
-			log.Printf("[DEBUG] Outbox Publisher: Context cancelled during query, stopping")
+			logger.Debug("Context cancelled during query, stopping")
 			return nil
 		}
-		log.Printf("[ERROR] Outbox Publisher: Failed to read outbox events: %v", err)
+		logger.Error("Failed to read outbox events", "error", err)
 		return err
 	}
 	defer rows.Close()
@@ -114,10 +110,10 @@ func (p *Publisher) processOutbox() error {
 		err := rows.Scan(&event.ID, &event.EventType, &event.Topic, &event.EventPayload, &event.CreatedAt, &event.TimesAttempted, &event.PublishedAt)
 		if err != nil {
 			if errors.Is(err, context.Canceled) {
-				log.Printf("[DEBUG] Outbox Publisher: Context cancelled during scan, stopping iteration")
+				logger.Debug("Context cancelled during scan, stopping iteration")
 				return nil
 			}
-			log.Printf("[ERROR] Outbox Publisher: Failed to scan outbox event: %v", err)
+			logger.Error("Failed to scan outbox event", "error", err)
 			continue
 		}
 		outboxEvents = append(outboxEvents, event)
@@ -125,25 +121,25 @@ func (p *Publisher) processOutbox() error {
 
 	if err := rows.Err(); err != nil {
 		if errors.Is(err, context.Canceled) {
-			log.Printf("[DEBUG] Outbox Publisher: Context cancelled during iteration, stopping")
+			logger.Debug("Context cancelled during iteration, stopping")
 			return nil
 		}
-		log.Printf("[ERROR] Outbox Publisher: Error iterating over outbox events: %v", err)
+		logger.Error("Error iterating over outbox events", "error", err)
 		return err
 	}
 
 	if len(outboxEvents) == 0 {
-		//log.Printf("[DEBUG] Outbox Publisher: No new outbox events to process")
+		//logger.Debug("No new outbox events to process")
 		return nil
 	}
 
 	for _, outboxEvent := range outboxEvents {
-		log.Printf("[DEBUG] Outbox Publisher: Will publish outbox event to topic: %s", outboxEvent.Topic)
+		logger.Debug("Will publish outbox event to topic", "topic", outboxEvent.Topic)
 
 		// Check if we're shutting down before processing each event
 		select {
 		case <-p.shutdownCtx.Done():
-			log.Printf("[DEBUG] Outbox Publisher: Shutdown detected, stopping event processing")
+			logger.Debug("Shutdown detected, stopping event processing")
 			return nil
 		default:
 		}
@@ -151,18 +147,18 @@ func (p *Publisher) processOutbox() error {
 		// Use PublishRaw to avoid double marshaling and support both legacy and typed handlers
 		err := p.publishEvent(ctx, outboxEvent)
 		if err != nil {
-			log.Printf("[ERROR] Outbox Publisher: Failed to publish event %v: %v", outboxEvent.ID, err)
+			logger.Error("Failed to publish event", "event_id", outboxEvent.ID, "error", err)
 			outboxEvent.TimesAttempted++
 
 			updateQuery := "UPDATE outbox.outbox SET times_attempted = $1 WHERE id = $2"
 			_, err = p.db.Exec(ctx, updateQuery, outboxEvent.TimesAttempted, outboxEvent.ID)
 			if err != nil {
-				log.Printf("[ERROR] Outbox Publisher: Failed to update times attempted for event %v: %v", outboxEvent.ID, err)
+				logger.Error("Failed to update times attempted for event", "event_id", outboxEvent.ID, "error", err)
 			}
 			continue
 		}
 	}
-	//log.Printf("[DEBUG] Outbox Publisher: Processed %d outbox events", len(outboxEvents))
+	//logger.Debug("Processed %d outbox events", len(outboxEvents))
 	return nil
 }
 
@@ -178,7 +174,7 @@ func (p *Publisher) publishEvent(ctx context.Context, event OutboxEvent) error {
 		return WrapWithContext(errors.New("failed to update event status"), "failed to mark event as published")
 	}
 
-	log.Printf("[INFO] Outbox Publisher: Published event ID: %v to topic %s", event.ID, event.Topic)
+	logger.Info("Published event", "event_id", event.ID, "topic", event.Topic)
 	return nil
 }
 
@@ -193,14 +189,14 @@ func (p *Publisher) processImmediateQueue() {
 			current := atomic.LoadInt32(&p.currentProcessing)
 			if current >= int32(p.maxConcurrent) {
 				// Too many concurrent, skip this one (will be picked up by polling)
-				log.Printf("[DEBUG] Outbox Publisher: Max concurrent processing reached, skipping immediate")
+				logger.Debug("Max concurrent processing reached, skipping immediate")
 				continue
 			}
 
 			// Increment counter and process
 			atomic.AddInt32(&p.currentProcessing, 1)
 			if err := p.processOutbox(); err != nil {
-				log.Printf("[ERROR] Outbox Publisher: Immediate processing error: %v", err)
+				logger.Error("Immediate processing error", "error", err)
 			}
 			atomic.AddInt32(&p.currentProcessing, -1)
 		}
@@ -217,7 +213,7 @@ func (p *Publisher) ProcessNow() error {
 		return nil
 	default:
 		// Queue full, will be picked up by polling
-		log.Printf("[DEBUG] Outbox Publisher: Immediate queue full, event will be processed by polling")
+		logger.Debug("Immediate queue full, event will be processed by polling")
 		return nil
 	}
 }

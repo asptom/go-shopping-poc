@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,7 +14,7 @@ import (
 )
 
 func (r *orderRepository) CreateOrder(ctx context.Context, order *Order) error {
-	log.Printf("[DEBUG] Repository: Creating new order...")
+	r.logger.Debug("Creating new order")
 
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {

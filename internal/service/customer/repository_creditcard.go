@@ -7,7 +7,6 @@ package customer
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"github.com/google/uuid"
 
@@ -16,7 +15,7 @@ import (
 
 // AddCreditCard adds a new credit card to a customer.
 func (r *customerRepository) AddCreditCard(ctx context.Context, customerID string, card *CreditCard) (*CreditCard, error) {
-	log.Printf("[DEBUG] Repository: Adding credit card for customer %s", customerID)
+	r.logger.Debug("Adding credit card", "customer_id", customerID)
 
 	custUUID, err := uuid.Parse(customerID)
 	if err != nil {
@@ -76,7 +75,7 @@ func (r *customerRepository) AddCreditCard(ctx context.Context, customerID strin
 
 // UpdateCreditCard updates an existing credit card.
 func (r *customerRepository) UpdateCreditCard(ctx context.Context, cardID string, card *CreditCard) error {
-	log.Printf("[DEBUG] Repository: Updating credit card %s", cardID)
+	r.logger.Debug("Updating credit card", "card_id", cardID)
 
 	id, err := uuid.Parse(cardID)
 	if err != nil {
@@ -130,7 +129,7 @@ func (r *customerRepository) UpdateCreditCard(ctx context.Context, cardID string
 
 // DeleteCreditCard removes a credit card.
 func (r *customerRepository) DeleteCreditCard(ctx context.Context, cardID string) error {
-	log.Printf("[DEBUG] Repository: Deleting credit card with ID %s", cardID)
+	r.logger.Debug("Deleting credit card", "card_id", cardID)
 
 	id, err := uuid.Parse(cardID)
 	if err != nil {
@@ -175,7 +174,7 @@ func (r *customerRepository) DeleteCreditCard(ctx context.Context, cardID string
 
 // UpdateDefaultCreditCard sets the default credit card for a customer.
 func (r *customerRepository) UpdateDefaultCreditCard(ctx context.Context, customerID, cardID string) error {
-	log.Printf("[DEBUG] Repository: Setting default credit card %s for customer %s", cardID, customerID)
+	r.logger.Debug("Setting default credit card", "card_id", cardID, "customer_id", customerID)
 
 	custUUID, err := uuid.Parse(customerID)
 	if err != nil {
@@ -228,7 +227,7 @@ func (r *customerRepository) UpdateDefaultCreditCard(ctx context.Context, custom
 
 // ClearDefaultCreditCard clears the default credit card for a customer.
 func (r *customerRepository) ClearDefaultCreditCard(ctx context.Context, customerID string) error {
-	log.Printf("[DEBUG] Repository: Clearing default credit card for customer %s", customerID)
+	r.logger.Debug("Clearing default credit card", "customer_id", customerID)
 
 	custUUID, err := uuid.Parse(customerID)
 	if err != nil {

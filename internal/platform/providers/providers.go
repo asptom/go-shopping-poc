@@ -38,6 +38,7 @@
 package providers
 
 import (
+	"log/slog"
 	"net/http"
 
 	"go-shopping-poc/internal/platform/database"
@@ -96,4 +97,12 @@ type StorageProvider interface {
 type DownloaderProvider interface {
 	// GetHTTPDownloader returns a configured HTTP downloader instance
 	GetHTTPDownloader() downloader.HTTPDownloader
+}
+
+// LoggerProvider defines the interface for providing structured logging.
+// Implementations should return a configured slog.Logger that services can use
+// for structured logging with service identification and context support.
+type LoggerProvider interface {
+	// GetLogger returns a configured slog.Logger instance
+	GetLogger() *slog.Logger
 }

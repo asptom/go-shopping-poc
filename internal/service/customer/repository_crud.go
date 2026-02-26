@@ -8,7 +8,6 @@ package customer
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -20,7 +19,7 @@ import (
 
 // InsertCustomer creates a new customer record in the database.
 func (r *customerRepository) InsertCustomer(ctx context.Context, customer *Customer) error {
-	log.Printf("[DEBUG] Repository: Inserting new customer...")
+	r.logger.Debug("Inserting new customer")
 
 	r.prepareCustomerDefaults(customer)
 
@@ -119,7 +118,7 @@ func (r *customerRepository) prepareCustomerDefaults(customer *Customer) {
 }
 
 func (r *customerRepository) UpdateCustomer(ctx context.Context, customer *Customer) error {
-	log.Printf("[DEBUG] Repository: Updating customer (PUT - complete replace)...")
+	r.logger.Debug("Updating customer (PUT - complete replace)")
 
 	if err := r.validateCustomerForUpdate(customer); err != nil {
 		return err
@@ -284,7 +283,7 @@ func (r *customerRepository) insertCreditCards(ctx context.Context, tx database.
 
 // PatchCustomer applies partial updates to customer data (PATCH semantics).
 func (r *customerRepository) PatchCustomer(ctx context.Context, customerID string, patchData *PatchCustomerRequest) error {
-	log.Printf("[DEBUG] Repository: Patching customer %s", customerID)
+	r.logger.Debug("Patching customer", "customer_id", customerID)
 
 	existing, err := r.GetCustomerByID(ctx, customerID)
 	if err != nil {

@@ -3,7 +3,6 @@ package kafka
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"go-shopping-poc/internal/contracts/events"
 	"go-shopping-poc/internal/platform/event/bus"
@@ -25,22 +24,31 @@ func NewTypedHandler[T events.Event](factory events.EventFactory[T], handler bus
 
 // Handle processes raw JSON data by unmarshaling it using the factory and then calling the handler
 func (h *TypedHandler[T]) Handle(ctx context.Context, data []byte) error {
-	log.Printf("[DEBUG] Eventbus: TypedHandler.Handle called with %d bytes of JSON data", len(data))
-	log.Printf("[DEBUG] Eventbus: Raw JSON data: %s", string(data))
+	logger.Debug("TypedHandler.Handle called",
+		"bytes", len(data),
+	)
+
+	logger.Debug("Raw JSON data", "data", string(data))
 
 	evt, err := h.factory.FromJSON(data)
 	if err != nil {
-		log.Printf("[ERROR] Eventbus: Failed to unmarshal event: %v", err)
+		logger.Error("Failed to unmarshal event",
+			"error", err,
+		)
 		return fmt.Errorf("failed to unmarshal event: %w", err)
 	}
 
-	log.Printf("[DEBUG] Eventbus: Event unmarshaled successfully - type: %T", evt)
+	logger.Debug("Event unmarshaled successfully",
+		"type", fmt.Sprintf("%T", evt),
+	)
 
 	result := h.handler(ctx, evt)
 	if result != nil {
-		log.Printf("[ERROR] Eventbus: Handler returned error: %v", result)
+		logger.Error("Handler returned error",
+			"error", result,
+		)
 	} else {
-		log.Printf("[DEBUG] Eventbus: Handler completed successfully")
+		logger.Debug("Handler completed successfully")
 	}
 	return result
 }

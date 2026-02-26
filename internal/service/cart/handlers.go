@@ -2,13 +2,12 @@ package cart
 
 import (
 	"encoding/json"
-	"log"
+	"log/slog"
 	"net/http"
 
 	"go-shopping-poc/internal/platform/errors"
 
 	"github.com/go-chi/chi/v5"
-	//"github.com/google/uuid"
 )
 
 type CreateCartRequest struct {
@@ -52,10 +51,11 @@ type SetPaymentRequest struct {
 
 type CartHandler struct {
 	service *CartService
+	logger  *slog.Logger
 }
 
-func NewCartHandler(service *CartService) *CartHandler {
-	return &CartHandler{service: service}
+func NewCartHandler(logger *slog.Logger, service *CartService) *CartHandler {
+	return &CartHandler{logger: logger.With("component", "CartHandler"), service: service}
 }
 
 func (h *CartHandler) CreateCart(w http.ResponseWriter, r *http.Request) {
@@ -117,7 +117,7 @@ func (h *CartHandler) DeleteCart(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *CartHandler) AddItem(w http.ResponseWriter, r *http.Request) {
-	log.Printf("[DEBUG] Cart: Starting handler AddItem")
+	h.logger.Debug("Starting handler AddItem")
 
 	cartID := chi.URLParam(r, "id")
 	if cartID == "" {
@@ -136,8 +136,12 @@ func (h *CartHandler) AddItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("[DEBUG] Cart: Adding item to cart %s: product_id=%s, quantity=%d", cartID, req.ProductID, req.Quantity)
-	log.Printf("[DEBUG] Cart: Calling service.AddItem for cart %s", cartID)
+	h.logger.Debug("Adding item to cart",
+		"cart_id", cartID,
+		"product_id", req.ProductID,
+		"quantity", req.Quantity,
+	)
+	h.logger.Debug("Calling service.AddItem for cart", "cart_id", cartID)
 	item, err := h.service.AddItem(r.Context(), cartID, req.ProductID, req.Quantity)
 	if err != nil {
 		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to add item")
@@ -264,7 +268,7 @@ func (h *CartHandler) AddAddress(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *CartHandler) SetPayment(w http.ResponseWriter, r *http.Request) {
-	log.Printf("[DEBUG] CartHandler: Starting SetPayment handler for cart %s", chi.URLParam(r, "id"))
+	h.logger.Debug("Starting SetPayment handler", "cart_id", chi.URLParam(r, "id"))
 	cartID := chi.URLParam(r, "id")
 	if cartID == "" {
 		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Missing cart ID")
@@ -273,7 +277,7 @@ func (h *CartHandler) SetPayment(w http.ResponseWriter, r *http.Request) {
 
 	var req SetPaymentRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		log.Printf("[DEBUG] CartHandler: Failed to decode SetPayment request for cart %s: %v", cartID, err)
+		h.logger.Debug("Failed to decode SetPayment request", "cart_id", cartID, "error", err)
 		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Invalid JSON")
 		return
 	}
@@ -287,7 +291,7 @@ func (h *CartHandler) SetPayment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.service.SetCreditCard(r.Context(), cartID, card); err != nil {
-		log.Printf("[DEBUG] CartHandler: Failed to set payment for cart %s: %v", cartID, err)
+		h.logger.Debug("Failed to set payment for cart", "cart_id", cartID, "error", err)
 		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to set payment")
 		return
 	}

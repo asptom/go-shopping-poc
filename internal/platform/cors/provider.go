@@ -2,7 +2,6 @@ package cors
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 
 	"go-shopping-poc/internal/platform/config"
@@ -38,29 +37,29 @@ type CORSProvider interface {
 //	}
 //	corsHandler := provider.GetCORSHandler()
 func NewCORSProvider() (CORSProvider, error) {
-	log.Printf("[INFO] CORSProvider: Initializing CORS provider")
+	logger.Info("CORSProvider: Initializing CORS provider")
 
 	// Load platform CORS configuration
 	corsCfg, err := config.LoadConfig[Config]("platform-cors")
 	if err != nil {
-		log.Printf("[ERROR] CORSProvider: Failed to load CORS config: %v", err)
+		logger.Error("CORSProvider: Failed to load CORS config", "error", err)
 		return nil, fmt.Errorf("failed to load CORS config: %w", err)
 	}
 
-	log.Printf("[DEBUG] CORSProvider: CORS config loaded successfully")
+	logger.Debug("CORSProvider: CORS config loaded successfully")
 
 	// Validate the configuration
 	if err := corsCfg.Validate(); err != nil {
-		log.Printf("[ERROR] CORSProvider: CORS config validation failed: %v", err)
+		logger.Error("CORSProvider: CORS config validation failed", "error", err)
 		return nil, fmt.Errorf("CORS config validation failed: %w", err)
 	}
 
-	log.Printf("[DEBUG] CORSProvider: CORS config validated successfully")
+	logger.Debug("CORSProvider: CORS config validated successfully")
 
 	// Create CORS middleware handler
 	corsHandler := NewFromConfig(corsCfg)
 
-	log.Printf("[INFO] CORSProvider: CORS provider initialized successfully")
+	logger.Info("CORSProvider: CORS provider initialized successfully")
 
 	return &CORSProviderImpl{
 		corsHandler: corsHandler,

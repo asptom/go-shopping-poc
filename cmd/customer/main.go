@@ -12,6 +12,7 @@ import (
 	"go-shopping-poc/internal/platform/cors"
 	"go-shopping-poc/internal/platform/database"
 	"go-shopping-poc/internal/platform/event"
+	"go-shopping-poc/internal/platform/logging"
 	"go-shopping-poc/internal/platform/outbox/providers"
 
 	"go-shopping-poc/internal/service/customer"
@@ -20,126 +21,124 @@ import (
 )
 
 func main() {
+	loggerProvider, err := logging.NewLoggerProvider(logging.LoggerConfig{
+		ServiceName: "customer",
+	})
+	if err != nil {
+		log.Fatalf("Customer: Failed to create logger provider: %v", err)
+	}
+	logger := loggerProvider.Logger()
+
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("[ERROR] Panic recovered in customer service: %v", r)
+			logger.Error("Panic recovered in customer service", "panic", r)
 		}
 	}()
-	log.SetFlags(log.LstdFlags)
-	log.Printf("[INFO] Customer: Customer service started...")
 
-	// Load service-specific configuration
+	logger.Info("Customer service starting", "version", "1.0.0")
+
 	cfg, err := customer.LoadConfig()
 	if err != nil {
-		log.Fatalf("Customer: Failed to load config: %v", err)
+		logger.Error("Failed to load config", logging.ErrorAttr(err))
+		os.Exit(1)
 	}
 
-	log.Printf("[DEBUG] Customer: Configuration loaded successfully")
+	logger.Debug("Configuration loaded")
 
-	// Get database URL from service config
 	dbURL := cfg.DatabaseURL
 	if dbURL == "" {
-		log.Fatalf("Customer: Database URL is required in service config")
+		logger.Error("Database URL is required")
+		os.Exit(1)
 	}
 
-	// Create database provider
-	log.Printf("[DEBUG] Customer: Creating database provider")
+	logger.Debug("Creating database provider")
 	dbProvider, err := database.NewDatabaseProvider(dbURL)
 	if err != nil {
-		log.Fatalf("Customer: Failed to create database provider: %v", err)
+		logger.Error("Failed to create database provider", logging.ErrorAttr(err))
+		os.Exit(1)
 	}
 	db := dbProvider.GetDatabase()
 	defer func() {
 		if err := db.Close(); err != nil {
-			log.Printf("[ERROR] Customer: Error closing database connection: %v", err)
+			logger.Error("Error closing database connection", logging.ErrorAttr(err))
 		}
 	}()
 
-	// Create event bus provider
-	log.Printf("[DEBUG] Customer: Creating event bus provider")
+	logger.Debug("Creating event bus provider")
 	eventBusConfig := event.EventBusConfig{
 		WriteTopic: cfg.WriteTopic,
 		GroupID:    cfg.Group,
 	}
 	eventBusProvider, err := event.NewEventBusProvider(eventBusConfig)
 	if err != nil {
-		log.Fatalf("Customer: Failed to create event bus provider: %v", err)
+		logger.Error("Failed to create event bus provider", logging.ErrorAttr(err))
+		os.Exit(1)
 	}
 	eventBus := eventBusProvider.GetEventBus()
 
-	// Create outbox providers
-	log.Printf("[DEBUG] Customer: Creating outbox providers")
+	logger.Debug("Creating outbox providers")
 	writerProvider := providers.NewWriterProvider(db)
 	publisherProvider := providers.NewPublisherProvider(db, eventBus)
 	if publisherProvider == nil {
-		log.Fatalf("Customer: Failed to create publisher provider")
+		logger.Error("Failed to create publisher provider")
+		os.Exit(1)
 	}
 	outboxPublisher := publisherProvider.GetPublisher()
 	outboxPublisher.Start()
 	defer outboxPublisher.Stop()
 	outboxWriter := writerProvider.GetWriter()
 
-	// Create CORS provider
-	log.Printf("[DEBUG] Customer: Creating CORS provider")
+	logger.Debug("Creating CORS provider")
 	corsProvider, err := cors.NewCORSProvider()
 	if err != nil {
-		log.Fatalf("Customer: Failed to create CORS provider: %v", err)
+		logger.Error("Failed to create CORS provider", logging.ErrorAttr(err))
+		os.Exit(1)
 	}
 	corsHandler := corsProvider.GetCORSHandler()
 
-	// Create customer infrastructure
-	log.Printf("[DEBUG] Customer: Creating customer infrastructure")
+	logger.Debug("Creating customer infrastructure")
 	infrastructure := customer.NewCustomerInfrastructure(db, eventBus, outboxWriter, outboxPublisher, corsHandler)
-	log.Printf("[DEBUG] Customer: Infrastructure created successfully")
+	logger.Debug("Infrastructure created successfully")
 
-	log.Printf("[DEBUG] Customer: Creating customer service")
-	service := customer.NewCustomerService(infrastructure, cfg)
-	log.Printf("[DEBUG] Customer: Service created successfully")
+	logger.Debug("Creating customer service")
+	service := customer.NewCustomerService(logger, infrastructure, cfg)
+	logger.Debug("Service created successfully")
 
-	log.Printf("[DEBUG] Customer: Creating customer handler")
+	logger.Debug("Creating customer handler")
 	handler := customer.NewCustomerHandler(service)
-	log.Printf("[DEBUG] Customer: Handler created successfully")
+	logger.Debug("Handler created successfully")
 
-	// Set up router
-	log.Printf("[DEBUG] Customer: Setting up HTTP router")
+	logger.Debug("Setting up HTTP router")
 	router := chi.NewRouter()
-	log.Printf("[DEBUG] Customer: Router setup completed")
+	logger.Debug("Router setup completed")
 
-	// Apply CORS middleware using service infrastructure
 	router.Use(corsHandler)
 
-	// Health check endpoint
 	router.Get("/health", healthHandler)
 
-	// Define routes
 	customerRouter := chi.NewRouter()
 	customerRouter.Post("/customers", handler.CreateCustomer)
 	customerRouter.Get("/customers/{email}", handler.GetCustomerByEmailPath)
 	customerRouter.Put("/customers", handler.UpdateCustomer)
 	customerRouter.Patch("/customers/{id}", handler.PatchCustomer)
 
-	// Address endpoints
 	customerRouter.Post("/customers/{id}/addresses", handler.AddAddress)
 	customerRouter.Put("/customers/addresses/{addressId}", handler.UpdateAddress)
 	customerRouter.Delete("/customers/addresses/{addressId}", handler.DeleteAddress)
 
-	// Credit card endpoints
 	customerRouter.Post("/customers/{id}/credit-cards", handler.AddCreditCard)
 	customerRouter.Put("/customers/credit-cards/{cardId}", handler.UpdateCreditCard)
 	customerRouter.Delete("/customers/credit-cards/{cardId}", handler.DeleteCreditCard)
 
-	// Default address endpoints
 	customerRouter.Put("/customers/{id}/default-shipping-address/{addressId}", handler.SetDefaultShippingAddress)
 	customerRouter.Put("/customers/{id}/default-billing-address/{addressId}", handler.SetDefaultBillingAddress)
 	customerRouter.Delete("/customers/{id}/default-shipping-address", handler.ClearDefaultShippingAddress)
 	customerRouter.Delete("/customers/{id}/default-billing-address", handler.ClearDefaultBillingAddress)
 
-	// Default credit card endpoints
 	customerRouter.Put("/customers/{id}/default-credit-card/{cardId}", handler.SetDefaultCreditCard)
 	customerRouter.Delete("/customers/{id}/default-credit-card", handler.ClearDefaultCreditCard)
 
 	router.Mount("/api/v1", customerRouter)
-	// Start HTTP server with graceful shutdown
 	serverAddr := "0.0.0.0" + cfg.ServicePort
 
 	server := &http.Server{
@@ -150,39 +149,32 @@ func main() {
 		IdleTimeout:  120 * time.Second,
 	}
 
-	// Channel to listen for interrupt signal
 	done := make(chan bool, 1)
 	quit := make(chan os.Signal, 1)
 
-	// Register interrupt signals
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 
-	// Start server in a goroutine
 	go func() {
-		log.Printf("[INFO] Customer: Starting HTTP server on %s (Traefik will handle TLS)", serverAddr)
+		logger.Info("Starting HTTP server", "address", serverAddr)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Customer: Failed to start HTTP server: %v", err)
+			logger.Error("Failed to start HTTP server", logging.ErrorAttr(err))
 		}
 	}()
 
-	// Wait for interrupt signal
 	<-quit
-	log.Printf("[INFO] Customer: Shutting down server...")
+	logger.Info("Shutting down server")
 
-	// Create a deadline for shutdown
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer shutdownCancel()
 
-	// Attempt graceful shutdown
 	if err := server.Shutdown(shutdownCtx); err != nil {
-		log.Fatalf("Customer: Server forced to shutdown: %v", err)
+		logger.Error("Server forced to shutdown", logging.ErrorAttr(err))
 	}
 
 	close(done)
-	log.Printf("[INFO] Customer: Server exited")
+	logger.Info("Server exited")
 }
 
-// healthHandler returns a simple health check response
 func healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)

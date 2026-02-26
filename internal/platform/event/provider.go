@@ -2,7 +2,8 @@ package event
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
+	"os"
 
 	configPkg "go-shopping-poc/internal/platform/config"
 	"go-shopping-poc/internal/platform/event/bus"
@@ -35,6 +36,15 @@ type EventBusConfig struct {
 	GroupID string
 }
 
+var (
+	logger *slog.Logger
+)
+
+func init() {
+	logger = slog.New(slog.NewJSONHandler(os.Stderr, nil)).
+		With("platform", "event", "component", "event_bus_provider")
+}
+
 // NewEventBusProvider creates a new event bus provider with service-specific configuration.
 // It loads the platform Kafka configuration, applies service-specific overrides,
 // and creates a Kafka event bus instance.
@@ -65,33 +75,31 @@ func NewEventBusProvider(config EventBusConfig) (EventBusProvider, error) {
 		return nil, fmt.Errorf("group ID is required")
 	}
 
-	log.Printf("[INFO] EventBusProvider: Initializing event bus provider for topic: %s, group: %s",
-		config.WriteTopic, config.GroupID)
+	logger.Info("EventBusProvider: Initializing event bus provider", "topic", config.WriteTopic, "group", config.GroupID)
 
 	// Load platform Kafka configuration
 	kafkaCfg, err := configPkg.LoadConfig[kafkaconfig.Config]("platform-kafka")
 	if err != nil {
-		log.Printf("[ERROR] EventBusProvider: Failed to load Kafka config: %v", err)
+		logger.Error("EventBusProvider: Failed to load Kafka config", "error", err)
 		return nil, fmt.Errorf("failed to load Kafka config: %w", err)
 	}
 
-	log.Printf("[DEBUG] EventBusProvider: Platform Kafka config loaded successfully")
+	logger.Debug("EventBusProvider: Platform Kafka config loaded successfully")
 
 	// Apply service-specific configuration overrides
 	kafkaCfg.Topic = config.WriteTopic
 	kafkaCfg.GroupID = config.GroupID
 
-	log.Printf("[DEBUG] EventBusProvider: Applied service-specific config - topic: %s, group: %s",
-		kafkaCfg.Topic, kafkaCfg.GroupID)
+	logger.Debug("EventBusProvider: Applied service-specific config", "topic", kafkaCfg.Topic, "group", kafkaCfg.GroupID)
 
 	// Create Kafka event bus
 	eventBus := kafkabus.NewEventBus(kafkaCfg)
 	if eventBus == nil {
-		log.Printf("[ERROR] EventBusProvider: Failed to create event bus")
+		logger.Error("EventBusProvider: Failed to create event bus")
 		return nil, fmt.Errorf("failed to create event bus")
 	}
 
-	log.Printf("[INFO] EventBusProvider: Event bus provider initialized successfully")
+	logger.Info("EventBusProvider: Event bus provider initialized successfully")
 
 	return &EventBusProviderImpl{
 		eventBus: eventBus,

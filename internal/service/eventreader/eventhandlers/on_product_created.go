@@ -2,18 +2,27 @@ package eventhandlers
 
 import (
 	"context"
+	"fmt"
+	"log/slog"
+
 	events "go-shopping-poc/internal/contracts/events"
 	"go-shopping-poc/internal/platform/event/bus"
 	"go-shopping-poc/internal/platform/event/handler"
-	"log"
 )
 
 // OnProductCreated handles ProductCreated events
-type OnProductCreated struct{}
+type OnProductCreated struct {
+	logger *slog.Logger
+}
 
 // NewOnProductCreated creates a new ProductCreated event handler
-func NewOnProductCreated() *OnProductCreated {
-	return &OnProductCreated{}
+func NewOnProductCreated(logger *slog.Logger) *OnProductCreated {
+	if logger == nil {
+		logger = slog.Default()
+	}
+	return &OnProductCreated{
+		logger: logger.With("handler", "on_product_created"),
+	}
 }
 
 // Handle processes ProductCreated events
@@ -25,22 +34,20 @@ func (h *OnProductCreated) Handle(ctx context.Context, event events.Event) error
 	case *events.ProductEvent:
 		productEvent = *e
 	default:
-		log.Printf("[ERROR] Eventreader: Expected ProductEvent, got %T", event)
-		return nil // Don't fail processing, just log and continue
-	}
-
-	if productEvent.EventType != events.ProductCreated {
-		log.Printf("[DEBUG] Eventreader: Ignoring non-ProductCreated event: %s", productEvent.EventType)
+		h.logger.Error("Expected ProductEvent", "actual_type", fmt.Sprintf("%T", event))
 		return nil
 	}
 
-	// Use platform utilities for consistent logging
+	if productEvent.EventType != events.ProductCreated {
+		h.logger.Debug("Ignoring non-ProductCreated event", "event_type", productEvent.EventType)
+		return nil
+	}
+
 	utils := handler.NewEventUtils()
 	utils.LogEventProcessing(ctx, string(productEvent.EventType),
 		productEvent.EventPayload.ProductID,
 		productEvent.EventPayload.ResourceID)
 
-	// Business logic for handling customer creation
 	return h.processProductCreated(ctx, productEvent)
 }
 
@@ -49,28 +56,23 @@ func (h *OnProductCreated) processProductCreated(ctx context.Context, event even
 	productID := event.EventPayload.ProductID
 	utils := handler.NewEventUtils()
 
-	// Business logic for reacting to Product creation
 	if err := h.celebrateNewProduct(ctx, productID); err != nil {
 		utils.LogEventCompletion(ctx, string(event.EventType), productID, err)
-		// Continue processing even if email fails
 	}
 
-	// Log successful completion
 	utils.LogEventCompletion(ctx, string(event.EventType), productID, nil)
 	return nil
 }
 
-// sendWelcomeEmail sends a welcome email to the new customer
+// celebrateNewProduct celebrates a new product
 func (h *OnProductCreated) celebrateNewProduct(ctx context.Context, productID string) error {
-	// Check for context cancellation before proceeding
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
 	default:
 	}
 
-	log.Printf("[INFO] Eventreader: HOORAY!  A new product is here: %s", productID)
-
+	h.logger.Info("A new product is here", "product_id", productID)
 	return nil
 }
 
@@ -91,6 +93,5 @@ func (h *OnProductCreated) CreateHandler() bus.HandlerFunc[events.ProductEvent] 
 	}
 }
 
-// Ensure OnProductCreated implements the shared interfaces
 var _ handler.EventHandler = (*OnProductCreated)(nil)
 var _ handler.HandlerFactory[events.ProductEvent] = (*OnProductCreated)(nil)

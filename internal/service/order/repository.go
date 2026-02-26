@@ -3,6 +3,7 @@ package order
 import (
 	"context"
 	"errors"
+	"log/slog"
 
 	"go-shopping-poc/internal/platform/database"
 	"go-shopping-poc/internal/platform/outbox"
@@ -32,12 +33,14 @@ type OrderRepository interface {
 type orderRepository struct {
 	db           database.Database
 	outboxWriter *outbox.Writer
+	logger       *slog.Logger
 }
 
 func NewOrderRepository(db database.Database, outbox *outbox.Writer) OrderRepository {
 	return &orderRepository{
 		db:           db,
 		outboxWriter: outbox,
+		logger:       slog.Default().With("component", "order_repository"),
 	}
 }
 

@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -16,6 +16,7 @@ type PostgreSQLClient struct {
 	db          *sqlx.DB
 	databaseURL string
 	connConfig  ConnectionConfig
+	logger      *slog.Logger
 }
 
 // DB returns the underlying sqlx.DB instance
@@ -34,6 +35,7 @@ func NewPostgreSQLClient(databaseURL string, connConfig ...ConnectionConfig) (Da
 	client := &PostgreSQLClient{
 		databaseURL: databaseURL,
 		connConfig:  cfg,
+		logger:      Logger(),
 	}
 
 	return client, nil
@@ -55,12 +57,16 @@ func DefaultConnectionConfig() ConnectionConfig {
 
 // Connect establishes a connection to the database
 func (c *PostgreSQLClient) Connect(ctx context.Context) error {
-	log.Printf("[INFO] Database: Connecting to PostgreSQL")
+	c.logger.Info("Connecting to PostgreSQL",
+		"database", c.databaseURL,
+	)
 
 	// Connect to database
 	db, err := sqlx.Connect("pgx", c.databaseURL)
 	if err != nil {
-		log.Printf("[ERROR] Database: Failed to connect to PostgreSQL: %v", err)
+		c.logger.Error("Failed to connect to PostgreSQL",
+			"error", err.Error(),
+		)
 		return fmt.Errorf("failed to connect to database: %w", err)
 	}
 
@@ -72,7 +78,7 @@ func (c *PostgreSQLClient) Connect(ctx context.Context) error {
 
 	c.db = db
 
-	log.Printf("[INFO] Database: Successfully connected to PostgreSQL")
+	c.logger.Info("Successfully connected to PostgreSQL")
 	return nil
 }
 
@@ -82,16 +88,18 @@ func (c *PostgreSQLClient) Close() error {
 		return nil
 	}
 
-	log.Printf("[INFO] Database: Closing PostgreSQL connection")
+	c.logger.Info("Closing PostgreSQL connection")
 	err := c.db.Close()
 	c.db = nil
 
 	if err != nil {
-		log.Printf("[ERROR] Database: Failed to close connection: %v", err)
+		c.logger.Error("Failed to close connection",
+			"error", err.Error(),
+		)
 		return fmt.Errorf("failed to close database connection: %w", err)
 	}
 
-	log.Printf("[INFO] Database: PostgreSQL connection closed")
+	c.logger.Info("PostgreSQL connection closed")
 	return nil
 }
 
@@ -110,11 +118,14 @@ func (c *PostgreSQLClient) Ping(ctx context.Context) error {
 	latency := time.Since(start)
 
 	if err != nil {
-		log.Printf("[ERROR] Database: Ping failed after %v: %v", latency, err)
+		c.logger.Error("Ping failed",
+			"latency", latency.String(),
+			"error", err.Error(),
+		)
 		return fmt.Errorf("database ping failed: %w", err)
 	}
 
-	log.Printf("[DEBUG] Database: Ping successful (latency: %v)", latency)
+	c.logger.Debug("Ping successful", "latency", latency.String())
 	return nil
 }
 
@@ -127,18 +138,16 @@ func (c *PostgreSQLClient) Query(ctx context.Context, query string, args ...inte
 		return nil, fmt.Errorf("database connection not established")
 	}
 
-	//log.Printf("[DEBUG] Database: Executing query: %s", query)
-
 	start := time.Now()
 	rows, err := c.db.QueryContext(ctx, query, args...)
 	latency := time.Since(start)
 
 	if err != nil {
-		log.Printf("[ERROR] Database: Query failed after %v: %v", latency, err)
+		c.logger.Error("Query failed", "latency", latency.String(), "error", err.Error())
 		return nil, fmt.Errorf("query execution failed: %w", err)
 	}
 
-	//log.Printf("[DEBUG] Database: Query completed in %v", latency)
+	//logger.Debug("Query completed", "latency", latency.String())
 	return rows, nil
 }
 
@@ -151,7 +160,7 @@ func (c *PostgreSQLClient) QueryRow(ctx context.Context, query string, args ...i
 		return nil
 	}
 
-	//log.Printf("[DEBUG] Database: Executing query row: %s", query)
+	//c.logger.Debug("Executing query row", "query", query)
 
 	return c.db.QueryRowContext(ctx, query, args...)
 }
@@ -166,18 +175,16 @@ func (c *PostgreSQLClient) Exec(ctx context.Context, query string, args ...inter
 	queryCtx, cancel := context.WithTimeout(ctx, c.connConfig.QueryTimeout)
 	defer cancel()
 
-	//log.Printf("[DEBUG] Database: Executing exec: %s", query)
-
 	start := time.Now()
 	result, err := c.db.ExecContext(queryCtx, query, args...)
 	latency := time.Since(start)
 
 	if err != nil {
-		log.Printf("[ERROR] Database: Exec failed after %v: %v", latency, err)
+		c.logger.Error("Exec failed", "latency", latency.String(), "error", err.Error())
 		return nil, fmt.Errorf("exec execution failed: %w", err)
 	}
 
-	//log.Printf("[DEBUG] Database: Exec completed in %v", latency)
+	c.logger.Debug("Exec completed", "latency", latency.String())
 	return result, nil
 }
 
@@ -187,11 +194,13 @@ func (c *PostgreSQLClient) BeginTx(ctx context.Context, opts *sql.TxOptions) (Tx
 		return nil, fmt.Errorf("database connection not established")
 	}
 
-	log.Printf("[DEBUG] Database: Beginning transaction")
+	c.logger.Debug("Beginning transaction")
 
 	tx, err := c.db.BeginTxx(ctx, opts)
 	if err != nil {
-		log.Printf("[ERROR] Database: Failed to begin transaction: %v", err)
+		c.logger.Error("Failed to begin transaction",
+			"error", err.Error(),
+		)
 		return nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
 
@@ -264,24 +273,28 @@ func (t *PostgreSQLTx) SelectContext(ctx context.Context, dest interface{}, quer
 
 // Commit commits the transaction
 func (t *PostgreSQLTx) Commit() error {
-	log.Printf("[DEBUG] Database: Committing transaction")
+	logger.Debug("Committing transaction")
 	err := t.tx.Commit()
 	if err != nil {
-		log.Printf("[ERROR] Database: Failed to commit transaction: %v", err)
+		logger.Error("Failed to commit transaction",
+			"error", err.Error(),
+		)
 		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
-	log.Printf("[DEBUG] Database: Transaction committed")
+	logger.Debug("Transaction committed")
 	return nil
 }
 
 // Rollback rolls back the transaction
 func (t *PostgreSQLTx) Rollback() error {
-	log.Printf("[DEBUG] Database: Rolling back transaction")
+	logger.Debug("Rolling back transaction")
 	err := t.tx.Rollback()
 	if err != nil {
-		log.Printf("[ERROR] Database: Failed to rollback transaction: %v", err)
+		logger.Error("Failed to rollback transaction",
+			"error", err.Error(),
+		)
 		return fmt.Errorf("failed to rollback transaction: %w", err)
 	}
-	log.Printf("[DEBUG] Database: Transaction rolled back")
+	logger.Debug("Transaction rolled back")
 	return nil
 }

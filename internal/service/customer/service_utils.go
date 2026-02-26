@@ -6,24 +6,28 @@ package customer
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 )
 
 // CustomerServiceUtils provides utility functions for customer service operations
 // This contains common patterns and helpers used across customer service methods
-type CustomerServiceUtils struct{}
+type CustomerServiceUtils struct {
+	logger *slog.Logger
+}
 
 // NewCustomerServiceUtils creates a new customer service utilities instance
 func NewCustomerServiceUtils() *CustomerServiceUtils {
-	return &CustomerServiceUtils{}
+	return &CustomerServiceUtils{
+		logger: slog.Default().With("component", "customer_service_utils"),
+	}
 }
 
 // LogCustomerOperation logs customer-related operations with consistent formatting
 func (u *CustomerServiceUtils) LogCustomerOperation(operation string, customerID string, details map[string]interface{}) {
-	log.Printf("[INFO] CustomerService: %s for customer %s", operation, customerID)
+	u.logger.Info(operation, "customer_id", customerID)
 	if len(details) > 0 {
 		for key, value := range details {
-			log.Printf("[DEBUG] CustomerService: %s detail - %s: %v", operation, key, value)
+			u.logger.Debug(operation+" detail", "key", key, "value", value)
 		}
 	}
 }
@@ -39,12 +43,14 @@ func (u *CustomerServiceUtils) ValidateCustomerID(customerID string) error {
 	return nil
 }
 
+var utilsLogger = slog.Default().With("component", "customer_service_utils")
+
 // NewCustomerError creates a standardized customer service error
 func NewCustomerError(message string, cause error) error {
 	if cause != nil {
-		log.Printf("[ERROR] CustomerService: %s: %v", message, cause)
-		return fmt.Errorf("%s: %w", message, cause) // Wrap with domain-specific error
+		utilsLogger.Error(message, "error", cause.Error())
+		return fmt.Errorf("%s: %w", message, cause)
 	}
-	log.Printf("[ERROR] CustomerService: %s", message)
-	return fmt.Errorf("%s", message) // Return domain-specific error
+	utilsLogger.Error(message)
+	return fmt.Errorf("%s", message)
 }

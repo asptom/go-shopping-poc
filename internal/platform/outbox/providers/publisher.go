@@ -1,8 +1,6 @@
 package providers
 
 import (
-	"log"
-
 	"go-shopping-poc/internal/platform/config"
 	"go-shopping-poc/internal/platform/database"
 	"go-shopping-poc/internal/platform/event/bus"
@@ -24,11 +22,11 @@ func NewPublisherProvider(db database.Database, eventBus bus.Bus) PublisherProvi
 	// Load platform outbox configuration
 	cfg, err := config.LoadConfig[outbox.Config]("platform-outbox")
 	if err != nil {
-		log.Printf("[ERROR] PublisherProvider: Failed to load outbox config: %v", err)
+		logger.Error("PublisherProvider: Failed to load outbox config", "error", err)
 		return nil
 	}
 
-	log.Printf("[DEBUG] PublisherProvider: Creating publisher-only provider")
+	logger.Debug("PublisherProvider: Creating publisher-only provider")
 	publisher := outbox.NewPublisher(db, eventBus, *cfg)
 	return &PublisherProviderImpl{
 		publisher: publisher,

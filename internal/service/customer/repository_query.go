@@ -7,14 +7,13 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
 
 	"github.com/google/uuid"
 )
 
 // GetCustomerByID retrieves a customer by ID with all related data.
 func (r *customerRepository) GetCustomerByID(ctx context.Context, customerID string) (*Customer, error) {
-	log.Printf("[DEBUG] Repository: Fetching customer by ID...")
+	r.logger.Debug("Fetching customer by ID")
 
 	id, err := uuid.Parse(customerID)
 	if err != nil {
@@ -27,7 +26,7 @@ func (r *customerRepository) GetCustomerByID(ctx context.Context, customerID str
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
-		log.Printf("[ERROR] Error fetching customer by ID: %v", err)
+		r.logger.Error("Error fetching customer by ID", "error", err.Error())
 		return nil, fmt.Errorf("%w: failed to fetch customer %s: %v", ErrDatabaseOperation, customerID, err)
 	}
 
@@ -40,7 +39,7 @@ func (r *customerRepository) GetCustomerByID(ctx context.Context, customerID str
 
 // GetCustomerByEmail retrieves a customer by email with all related data.
 func (r *customerRepository) GetCustomerByEmail(ctx context.Context, email string) (*Customer, error) {
-	log.Printf("[DEBUG] Repository: Fetching customer by email...")
+	r.logger.Debug("Fetching customer by email")
 
 	query := `SELECT * FROM customers.Customer WHERE email = $1`
 	var customer Customer
@@ -48,7 +47,7 @@ func (r *customerRepository) GetCustomerByEmail(ctx context.Context, email strin
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
-		log.Printf("[ERROR] Error fetching customer by email: %v", err)
+		r.logger.Error("Error fetching customer by email", "error", err.Error())
 		return nil, fmt.Errorf("%w: failed to fetch customer by email %s: %v", ErrDatabaseOperation, email, err)
 	}
 

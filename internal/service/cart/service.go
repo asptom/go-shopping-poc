@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 
 	"net/http"
 
@@ -13,6 +13,7 @@ import (
 	events "go-shopping-poc/internal/contracts/events"
 	"go-shopping-poc/internal/platform/database"
 	"go-shopping-poc/internal/platform/event/bus"
+	"go-shopping-poc/internal/platform/logging"
 	"go-shopping-poc/internal/platform/outbox"
 	"go-shopping-poc/internal/platform/service"
 	"go-shopping-poc/internal/platform/sse"
@@ -59,25 +60,34 @@ func RegisterHandler[T events.Event](s Service, factory events.EventFactory[T], 
 
 type CartService struct {
 	*service.EventServiceBase
+	logger         *slog.Logger
 	repo           CartRepository
 	infrastructure *CartInfrastructure
 	config         *Config
 }
 
-func NewCartService(infrastructure *CartInfrastructure, config *Config) *CartService {
+func NewCartService(logger *slog.Logger, infrastructure *CartInfrastructure, config *Config) *CartService {
+	if logger == nil {
+		logger = logging.FromContext(context.Background())
+	}
 	repo := NewCartRepository(infrastructure.Database, infrastructure.OutboxWriter)
 
 	return &CartService{
-		EventServiceBase: service.NewEventServiceBase("cart", infrastructure.EventBus),
+		EventServiceBase: service.NewEventServiceBase("cart", infrastructure.EventBus, logger),
+		logger:           logger.With("component", "cart_service"),
 		repo:             repo,
 		infrastructure:   infrastructure,
 		config:           config,
 	}
 }
 
-func NewCartServiceWithRepo(repo CartRepository, infrastructure *CartInfrastructure, config *Config) *CartService {
+func NewCartServiceWithRepo(logger *slog.Logger, repo CartRepository, infrastructure *CartInfrastructure, config *Config) *CartService {
+	if logger == nil {
+		logger = logging.FromContext(context.Background())
+	}
 	return &CartService{
-		EventServiceBase: service.NewEventServiceBase("cart", infrastructure.EventBus),
+		EventServiceBase: service.NewEventServiceBase("cart", infrastructure.EventBus, logger),
+		logger:           logger.With("component", "cart_service"),
 		repo:             repo,
 		infrastructure:   infrastructure,
 		config:           config,
@@ -127,7 +137,11 @@ func (s *CartService) DeleteCart(ctx context.Context, cartID string) error {
 }
 
 func (s *CartService) AddItem(ctx context.Context, cartID string, productID string, quantity int) (*CartItem, error) {
-	log.Printf("[DEBUG] CartService: Adding item to cart %s: product_id=%s, quantity=%d", cartID, productID, quantity)
+	s.logger.Debug("Adding item to cart",
+		"cart_id", cartID,
+		"product_id", productID,
+		"quantity", quantity,
+	)
 
 	if quantity <= 0 {
 		return nil, errors.New("quantity must be positive")
@@ -198,7 +212,9 @@ func (s *CartService) AddItem(ctx context.Context, cartID string, productID stri
 	if s.infrastructure.OutboxPublisher != nil {
 		go func() {
 			if err := s.infrastructure.OutboxPublisher.ProcessNow(); err != nil {
-				log.Printf("[WARN] Cart: Failed to trigger immediate outbox processing: %v", err)
+				s.logger.Warn("Failed to trigger immediate outbox processing",
+					"error", err.Error(),
+				)
 			}
 		}()
 	}
@@ -207,13 +223,18 @@ func (s *CartService) AddItem(ctx context.Context, cartID string, productID stri
 	cart.Items = append(cart.Items, *item)
 	cart.CalculateTotals()
 
-	log.Printf("[DEBUG] CartService: Updating cart totals for cart %s after adding pending item", cartID)
+	s.logger.Debug("Updating cart totals after adding pending item", "cart_id", cartID)
 	if err := s.repo.UpdateCart(ctx, cart); err != nil {
-		log.Printf("[WARN] CartService: failed to update cart totals for cart %s: %v", cartID, err)
-		// Don't fail the request, cart totals will be updated on validation
+		s.logger.Warn("Failed to update cart totals",
+			"cart_id", cartID,
+			"error", err.Error(),
+		)
 	}
 
-	log.Printf("[INFO] CartService: Added pending item %s to cart %s", item.LineNumber, cartID)
+	s.logger.Info("Added pending item to cart",
+		"item_line_number", item.LineNumber,
+		"cart_id", cartID,
+	)
 	return item, nil
 }
 
@@ -281,25 +302,39 @@ func (s *CartService) RemoveItem(ctx context.Context, cartID string, lineNumber 
 }
 
 func (s *CartService) SetContact(ctx context.Context, cartID string, contact *Contact) error {
-	log.Printf("[DEBUG] CartService: Setting contact for cart %s: %+v", cartID, contact)
+	s.logger.Debug("Setting contact for cart",
+		"cart_id", cartID,
+		"contact", contact,
+	)
 	if err := contact.Validate(); err != nil {
-		log.Printf("[DEBUG] CartService: invalid contact for cart %s: %v", cartID, err)
+		s.logger.Debug("Invalid contact for cart",
+			"cart_id", cartID,
+			"error", err.Error(),
+		)
 		return fmt.Errorf("invalid contact: %w", err)
 	}
 
 	cart, err := s.repo.GetCartByID(ctx, cartID)
 	if err != nil {
-		log.Printf("[DEBUG] CartService: failed to get cart %s for setting contact: %v", cartID, err)
+		s.logger.Debug("Failed to get cart for setting contact",
+			"cart_id", cartID,
+			"error", err.Error(),
+		)
 		return fmt.Errorf("failed to get cart: %w", err)
 	}
 
 	if cart.CurrentStatus != "active" {
-		log.Printf("[DEBUG] CartService: cannot set contact for non-active cart %s", cartID)
+		s.logger.Debug("Cannot set contact for non-active cart",
+			"cart_id", cartID,
+		)
 		return errors.New("cannot modify contact for non-active cart")
 	}
 
 	if err := s.repo.SetContact(ctx, cartID, contact); err != nil {
-		log.Printf("[DEBUG] CartService: failed to set contact for cart %s: %v", cartID, err)
+		s.logger.Debug("Failed to set contact for cart",
+			"cart_id", cartID,
+			"error", err.Error(),
+		)
 		return fmt.Errorf("failed to set contact: %w", err)
 	}
 
@@ -328,24 +363,31 @@ func (s *CartService) AddAddress(ctx context.Context, cartID string, address *Ad
 }
 
 func (s *CartService) SetCreditCard(ctx context.Context, cartID string, card *CreditCard) error {
-	log.Printf("[DEBUG] CartService: Setting credit card for cart %s: %+v", cartID, card)
+	s.logger.Debug("Setting credit card for cart",
+		"cart_id", cartID,
+		"card", card,
+	)
 	if err := card.Validate(); err != nil {
 		return fmt.Errorf("invalid credit card: %w", err)
 	}
 
 	cart, err := s.repo.GetCartByID(ctx, cartID)
 	if err != nil {
-		log.Printf("[DEBUG] CartService: failed to get cart %s for setting credit card: %v", cartID, err)
+		s.logger.Debug("Failed to get cart for setting credit card",
+			"cart_id", cartID,
+			"error", err.Error(),
+		)
 		return fmt.Errorf("failed to get cart: %w", err)
 	}
 
 	if cart.CurrentStatus != "active" {
-		log.Printf("[DEBUG] CartService: cannot set credit card for non-active cart %s", cartID)
+		s.logger.Debug("Cannot set credit card for non-active cart",
+			"cart_id", cartID,
+		)
 		return errors.New("cannot modify payment for non-active cart")
 	}
 
 	if err := s.repo.SetCreditCard(ctx, cartID, card); err != nil {
-
 		return fmt.Errorf("failed to set credit card: %w", err)
 	}
 

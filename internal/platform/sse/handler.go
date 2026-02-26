@@ -3,12 +3,12 @@ package sse
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"go-shopping-poc/internal/platform/errors"
+
+	"github.com/go-chi/chi/v5"
 )
 
 // Handler handles SSE HTTP connections
@@ -35,9 +35,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("[DEBUG] SSE: ========== NEW CONNECTION ==========")
-	log.Printf("[DEBUG] SSE: New connection request for cart %s from %s", cartID, r.RemoteAddr)
-	log.Printf("[DEBUG] SSE: Request headers: %v", r.Header)
+	logger.Debug("SSE: ========== NEW CONNECTION ==========")
+	logger.Info("SSE: New connection request for cart", "cartID", cartID, "remoteAddr", r.RemoteAddr)
+	logger.Debug("SSE: Request headers", "headers", r.Header)
 
 	// Set SSE headers
 	w.Header().Set("Content-Type", "text/event-stream")
@@ -49,15 +49,15 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Create client and subscribe
 	client := NewClient(h.hub, cartID)
 	h.hub.Subscribe(cartID, client)
-	log.Printf("[DEBUG] SSE: Client subscribed to cart %s - total subscribers: %d", cartID, h.hub.GetSubscriberCount(cartID))
+	logger.Debug("SSE: Client subscribed to cart", "cartID", cartID, "totalSubscribers", h.hub.GetSubscriberCount(cartID))
 
 	// Ensure cleanup on disconnect
 	defer func() {
-		log.Printf("[DEBUG] SSE: ========== CONNECTION CLOSING ==========")
-		log.Printf("[DEBUG] SSE: Cleaning up connection for cart %s", cartID)
+		logger.Debug("SSE: ========== CONNECTION CLOSING ==========")
+		logger.Debug("SSE: Cleaning up connection for cart", "cartID", cartID)
 		h.hub.Unsubscribe(cartID, client)
 		client.Close()
-		log.Printf("[DEBUG] SSE: Connection cleanup complete for cart %s", cartID)
+		logger.Debug("SSE: Connection cleanup complete for cart", "cartID", cartID)
 	}()
 
 	// Handle client close
@@ -65,15 +65,15 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	flusher, ok := w.(http.Flusher)
 	if !ok {
-		log.Printf("[ERROR] SSE: Streaming not supported by ResponseWriter")
+		logger.Error("SSE: Streaming not supported by ResponseWriter")
 		return
 	}
 
 	// Send initial connection message
-	log.Printf("[DEBUG] SSE: Sending initial 'connected' event to cart %s", cartID)
+	logger.Debug("SSE: Sending initial 'connected' event to cart", "cartID", cartID)
 	fmt.Fprintf(w, "event: connected\ndata: {\"cartId\":\"%s\",\"status\":\"connected\"}\n\n", cartID)
 	flusher.Flush()
-	log.Printf("[DEBUG] SSE: Initial event sent, entering event loop for cart %s", cartID)
+	logger.Debug("SSE: Initial event sent, entering event loop for cart", "cartID", cartID)
 
 	// Keep connection alive and send events
 	ticker := time.NewTicker(5 * time.Second)
@@ -82,32 +82,32 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	loopCount := 0
 	for {
 		loopCount++
-		log.Printf("[DEBUG] SSE: Event loop iteration #%d for cart %s", loopCount, cartID)
+		logger.Debug("SSE: Event loop iteration", "iteration", loopCount, "cartID", cartID)
 
 		select {
 		case <-notify:
 			// Client disconnected
-			log.Printf("[INFO] SSE: Client disconnected via context.Done() for cart %s", cartID)
+			logger.Info("SSE: Client disconnected via context.Done()", "cartID", cartID)
 			return
 
 		case <-ticker.C:
 			// Send heartbeat to keep connection alive
-			log.Printf("[DEBUG] SSE: Sending heartbeat to cart %s (iteration #%d)", cartID, loopCount)
+			logger.Debug("SSE: Sending heartbeat to cart", "cartID", cartID, "iteration", loopCount)
 			fmt.Fprintf(w, ": ping %d\n\n", loopCount)
 			flusher.Flush()
-			log.Printf("[DEBUG] SSE: Heartbeat sent to cart %s", cartID)
+			logger.Debug("SSE: Heartbeat sent to cart", "cartID", cartID)
 
 		case msg, ok := <-client.send:
-			log.Printf("[DEBUG] SSE: Received message from client.send channel for cart %s (ok=%v)", cartID, ok)
+			logger.Debug("SSE: Received message from client.send channel", "cartID", cartID, "ok", ok)
 			if !ok {
 				// Channel closed
-				log.Printf("[WARN] SSE: client.send channel closed for cart %s", cartID)
+				logger.Warn("SSE: client.send channel closed for cart", "cartID", cartID)
 				return
 			}
 
 			dataBytes, err := json.Marshal(msg.Data)
 			if err != nil {
-				log.Printf("[ERROR] SSE: Failed to marshal message data: %v", err)
+				logger.Error("SSE: Failed to marshal message data", "cartID", cartID, "error", err.Error())
 				continue
 			}
 
@@ -116,7 +116,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 			fmt.Fprintf(w, "data: %s\n\n", dataBytes)
 			flusher.Flush()
-			log.Printf("[DEBUG] SSE: Sent event '%s' with data to cart %s", msg.Event, cartID)
+			logger.Debug("SSE: Sent event", "event", msg.Event, "cartID", cartID)
 		}
 	}
 }

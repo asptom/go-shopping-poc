@@ -1,8 +1,6 @@
 package providers
 
 import (
-	"log"
-
 	"go-shopping-poc/internal/platform/database"
 	"go-shopping-poc/internal/platform/outbox"
 )
@@ -19,7 +17,7 @@ type WriterProviderImpl struct {
 
 // NewWriterProvider creates a writer-only provider
 func NewWriterProvider(db database.Database) WriterProvider {
-	log.Printf("[DEBUG] WriterProvider: Creating writer-only provider")
+	logger.Debug("WriterProvider: Creating writer-only provider")
 	return &WriterProviderImpl{
 		writer: outbox.NewWriter(db),
 	}

@@ -2,18 +2,27 @@ package eventhandlers
 
 import (
 	"context"
+	"fmt"
+	"log/slog"
+
 	events "go-shopping-poc/internal/contracts/events"
 	"go-shopping-poc/internal/platform/event/bus"
 	"go-shopping-poc/internal/platform/event/handler"
-	"log"
 )
 
 // OnCustomerCreated handles CustomerCreated events
-type OnCustomerCreated struct{}
+type OnCustomerCreated struct {
+	logger *slog.Logger
+}
 
 // NewOnCustomerCreated creates a new CustomerCreated event handler
-func NewOnCustomerCreated() *OnCustomerCreated {
-	return &OnCustomerCreated{}
+func NewOnCustomerCreated(logger *slog.Logger) *OnCustomerCreated {
+	if logger == nil {
+		logger = slog.Default()
+	}
+	return &OnCustomerCreated{
+		logger: logger.With("handler", "on_customer_created"),
+	}
 }
 
 // Handle processes CustomerCreated events
@@ -25,22 +34,20 @@ func (h *OnCustomerCreated) Handle(ctx context.Context, event events.Event) erro
 	case *events.CustomerEvent:
 		customerEvent = *e
 	default:
-		log.Printf("[ERROR] Eventreader: Expected CustomerEvent, got %T", event)
-		return nil // Don't fail processing, just log and continue
-	}
-
-	if customerEvent.EventType != events.CustomerCreated {
-		log.Printf("[DEBUG] Eventreader: Ignoring non-CustomerCreated event: %s", customerEvent.EventType)
+		h.logger.Error("Expected CustomerEvent", "actual_type", fmt.Sprintf("%T", event))
 		return nil
 	}
 
-	// Use platform utilities for consistent logging
+	if customerEvent.EventType != events.CustomerCreated {
+		h.logger.Debug("Ignoring non-CustomerCreated event", "event_type", customerEvent.EventType)
+		return nil
+	}
+
 	utils := handler.NewEventUtils()
 	utils.LogEventProcessing(ctx, string(customerEvent.EventType),
 		customerEvent.EventPayload.CustomerID,
 		customerEvent.EventPayload.ResourceID)
 
-	// Business logic for handling customer creation
 	return h.processCustomerCreated(ctx, customerEvent)
 }
 

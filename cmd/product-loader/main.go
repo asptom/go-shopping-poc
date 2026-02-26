@@ -4,7 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
@@ -13,6 +13,7 @@ import (
 	"go-shopping-poc/internal/platform/config"
 	"go-shopping-poc/internal/platform/database"
 	"go-shopping-poc/internal/platform/downloader"
+	"go-shopping-poc/internal/platform/logging"
 	"go-shopping-poc/internal/platform/outbox/providers"
 	"go-shopping-poc/internal/platform/service"
 	"go-shopping-poc/internal/platform/storage/minio"
@@ -55,11 +56,11 @@ func parseFlags() (*CLIConfig, error) {
 }
 
 // runProductLoader executes the main product loader logic
-func runProductLoader(ctx context.Context, cliConfig *CLIConfig) error {
-	log.Printf("[INFO] Product Loader: Processing CSV file: %s", cliConfig.CSVPath)
-	log.Printf("[INFO] Product Loader: Batch ID: %s", cliConfig.BatchID)
-	log.Printf("[INFO] Product Loader: Use cache: %t", cliConfig.UseCache)
-	log.Printf("[INFO] Product Loader: Reset cache: %t", cliConfig.ResetCache)
+func runProductLoader(ctx context.Context, cliConfig *CLIConfig, logger *slog.Logger) error {
+	logger.Info("Processing CSV file", "csv_path", cliConfig.CSVPath)
+	logger.Info("Batch ID", "batch_id", cliConfig.BatchID)
+	logger.Info("Use cache", "use_cache", cliConfig.UseCache)
+	logger.Info("Reset cache", "reset_cache", cliConfig.ResetCache)
 
 	// Load loader-specific configuration
 	loaderCfg, err := LoadConfig()
@@ -67,12 +68,12 @@ func runProductLoader(ctx context.Context, cliConfig *CLIConfig) error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	log.Printf("[DEBUG] Product Loader: Configuration loaded successfully")
+	logger.Debug("Configuration loaded successfully")
 
 	// If CSV path not provided via CLI, use from configuration
 	if cliConfig.CSVPath == "" {
 		cliConfig.CSVPath = loaderCfg.CSVPath
-		log.Printf("[INFO] Using default CSV path from config: %s", cliConfig.CSVPath)
+		logger.Info("Using default CSV path from config", "csv_path", cliConfig.CSVPath)
 	}
 
 	// Validate CSV file exists
@@ -102,7 +103,7 @@ func runProductLoader(ctx context.Context, cliConfig *CLIConfig) error {
 		return fmt.Errorf("database URL is required in service config")
 	}
 
-	log.Printf("[DEBUG] Product Loader: Database connection config loaded")
+	logger.Debug("Database connection config loaded")
 
 	platformDB, err := database.NewPostgreSQLClient(dbURL, dbConnConfig)
 	if err != nil {
@@ -117,11 +118,11 @@ func runProductLoader(ctx context.Context, cliConfig *CLIConfig) error {
 	}
 	defer func() {
 		if err := platformDB.Close(); err != nil {
-			log.Printf("[ERROR] Product Loader: Error closing database connection: %v", err)
+			logger.Error("Error closing database connection", "error", err.Error())
 		}
 	}()
 
-	log.Printf("[DEBUG] Product Loader: Database connection established")
+	logger.Debug("Database connection established")
 
 	// Initialize HTTP downloader
 	httpDownloader, err := downloader.NewHTTPDownloader(cfg.CacheDir)
@@ -129,7 +130,7 @@ func runProductLoader(ctx context.Context, cliConfig *CLIConfig) error {
 		return fmt.Errorf("failed to create HTTP downloader: %w", err)
 	}
 
-	log.Printf("[DEBUG] Product Loader: HTTP downloader initialized")
+	logger.Debug("HTTP downloader initialized")
 
 	// Choose MinIO endpoint based on environment
 	minioEndpoint := minioCfg.EndpointLocal
@@ -147,12 +148,12 @@ func runProductLoader(ctx context.Context, cliConfig *CLIConfig) error {
 		return fmt.Errorf("failed to create MinIO storage: %w", err)
 	}
 
-	log.Printf("[DEBUG] Product Loader: MinIO storage initialized")
+	logger.Debug("MinIO storage initialized")
 
 	// Initialize outbox writer
 	writerProvider := providers.NewWriterProvider(platformDB)
 	outboxWriter := writerProvider.GetWriter()
-	log.Printf("[DEBUG] Product Loader: Outbox writer initialized")
+	logger.Debug("Outbox writer initialized")
 
 	// Create admin infrastructure
 	infrastructure := &product.AdminInfrastructure{
@@ -163,8 +164,8 @@ func runProductLoader(ctx context.Context, cliConfig *CLIConfig) error {
 	}
 
 	// Create admin service
-	adminService := product.NewAdminService(cfg, infrastructure)
-	log.Printf("[DEBUG] Product Loader: Admin service created")
+	adminService := product.NewAdminService(logger, cfg, infrastructure)
+	logger.Debug("Admin service created")
 
 	// Create service wrapper for lifecycle management
 	loaderService := &ProductLoaderService{
@@ -174,6 +175,7 @@ func runProductLoader(ctx context.Context, cliConfig *CLIConfig) error {
 		batchID:     cliConfig.BatchID,
 		useCache:    cliConfig.UseCache,
 		resetCache:  cliConfig.ResetCache,
+		logger:      logger,
 	}
 
 	// Set up signal handling for graceful shutdown
@@ -181,7 +183,7 @@ func runProductLoader(ctx context.Context, cliConfig *CLIConfig) error {
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	// Start the ingestion process
-	log.Printf("[INFO] Product Loader: Starting product ingestion process...")
+	logger.Info("Starting product ingestion process...")
 
 	ingestionCtx, ingestionCancel := context.WithCancel(ctx)
 	defer ingestionCancel()
@@ -196,20 +198,20 @@ func runProductLoader(ctx context.Context, cliConfig *CLIConfig) error {
 		}
 
 		// Log results
-		log.Printf("[INFO] Product Loader: Ingestion completed successfully!")
-		log.Printf("[INFO] Product Loader: Batch ID: %s", result.BatchID)
-		log.Printf("[INFO] Product Loader: Total Products: %d", result.TotalProducts)
-		log.Printf("[INFO] Product Loader: Processed Products: %d", result.ProcessedProducts)
-		log.Printf("[INFO] Product Loader: Total Images: %d", result.TotalImages)
-		log.Printf("[INFO] Product Loader: Successful Images: %d", result.SuccessfulImages)
-		log.Printf("[INFO] Product Loader: Failed Products: %d", result.FailedProducts)
-		log.Printf("[INFO] Product Loader: Failed Images: %d", result.FailedImages)
-		log.Printf("[INFO] Product Loader: Duration: %s", result.Duration)
+		logger.Info("Ingestion completed successfully!")
+		logger.Info("Batch ID", "batch_id", result.BatchID)
+		logger.Info("Total Products", "count", result.TotalProducts)
+		logger.Info("Processed Products", "count", result.ProcessedProducts)
+		logger.Info("Total Images", "count", result.TotalImages)
+		logger.Info("Successful Images", "count", result.SuccessfulImages)
+		logger.Info("Failed Products", "count", result.FailedProducts)
+		logger.Info("Failed Images", "count", result.FailedImages)
+		logger.Info("Duration", "duration", result.Duration)
 
 		if len(result.Errors) > 0 {
-			log.Printf("[WARN] Product Loader: %d errors occurred during ingestion:", len(result.Errors))
+			logger.Warn("Errors occurred during ingestion", "count", len(result.Errors))
 			for i, errMsg := range result.Errors {
-				log.Printf("[WARN] Product Loader: Error %d: %s", i+1, errMsg)
+				logger.Warn("Error", "index", i+1, "message", errMsg)
 			}
 		}
 
@@ -222,21 +224,21 @@ func runProductLoader(ctx context.Context, cliConfig *CLIConfig) error {
 		if err != nil {
 			return fmt.Errorf("ingestion failed: %w", err)
 		}
-		log.Printf("[INFO] Product Loader: Product loader completed successfully")
+		logger.Info("Product loader completed successfully")
 		return nil
 	case sig := <-sigChan:
-		log.Printf("[INFO] Product Loader: Received signal %v, initiating graceful shutdown...", sig)
+		logger.Info("Received signal, initiating graceful shutdown", "signal", sig)
 		ingestionCancel()
 
 		// Wait for ingestion to finish or timeout
 		select {
 		case <-done:
-			log.Printf("[INFO] Product Loader: Ingestion completed during shutdown")
+			logger.Info("Ingestion completed during shutdown")
 		case <-time.After(30 * time.Second):
-			log.Printf("[WARN] Product Loader: Ingestion did not complete within timeout")
+			logger.Warn("Ingestion did not complete within timeout")
 		}
 
-		log.Printf("[INFO] Product Loader: Shutdown complete")
+		logger.Info("Shutdown complete")
 		return nil
 	}
 }
@@ -244,25 +246,34 @@ func runProductLoader(ctx context.Context, cliConfig *CLIConfig) error {
 func main() {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("[ERROR] Panic recovered in product-loader: %v", r)
+			slog.Default().Error("Panic recovered in product-loader", "panic", r)
 			os.Exit(1)
 		}
 	}()
-	log.SetFlags(log.LstdFlags)
-	log.Printf("[INFO] Product Loader: Starting product loader service...")
+
+	loggerProvider, err := logging.NewLoggerProvider(logging.LoggerConfig{
+		ServiceName: "product-loader",
+	})
+	if err != nil {
+		slog.Default().Error("Failed to create logger provider", "error", err.Error())
+		os.Exit(1)
+	}
+	logger := loggerProvider.Logger()
+
+	logger.Info("Starting product loader service...")
 
 	// Parse command line arguments
 	cliConfig, err := parseFlags()
 	if err != nil {
-		log.Printf("[ERROR] Product Loader: %v", err)
+		logger.Error("Failed to parse flags", "error", err.Error())
 		flag.Usage()
 		os.Exit(1)
 	}
 
 	// Run the product loader
 	ctx := context.Background()
-	if err := runProductLoader(ctx, cliConfig); err != nil {
-		log.Printf("[ERROR] Product Loader: %v", err)
+	if err := runProductLoader(ctx, cliConfig, logger); err != nil {
+		logger.Error("Product loader failed", "error", err.Error())
 		os.Exit(1)
 	}
 }
@@ -275,6 +286,7 @@ type ProductLoaderService struct {
 	batchID    string
 	useCache   bool
 	resetCache bool
+	logger     *slog.Logger
 }
 
 // productConfigFromLoaderConfig converts loader config to product config
@@ -292,7 +304,7 @@ func productConfigFromLoaderConfig(loaderCfg *Config) *product.Config {
 
 // RunIngestion executes the product ingestion workflow
 func (s *ProductLoaderService) RunIngestion(ctx context.Context) (*product.ProductIngestionResult, error) {
-	log.Printf("[INFO] Product Loader: Starting ingestion for CSV: %s", s.csvPath)
+	s.logger.Info("Starting ingestion", "csv_path", s.csvPath)
 
 	req := &product.ProductIngestionRequest{
 		CSVPath:    s.csvPath,

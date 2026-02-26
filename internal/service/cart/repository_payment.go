@@ -5,16 +5,18 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log"
 
 	"github.com/google/uuid"
 )
 
 func (r *cartRepository) SetCreditCard(ctx context.Context, cartID string, card *CreditCard) error {
-	log.Printf("[DEBUG] CartRepository: Setting credit card for cart %s: %+v", cartID, card)
+	r.logger.Debug("Setting credit card for cart",
+		"cart_id", cartID,
+		"card", card,
+	)
 	cartUUID, err := uuid.Parse(cartID)
 	if err != nil {
-		log.Printf("[DEBUG] CartRepository: failed to parse cart ID %s for setting credit card: %v", cartID, err)
+		r.logger.Error("Failed to parse cart ID for setting credit card", "cart_id", cartID, "error", err.Error())
 		return fmt.Errorf("%w: invalid cart ID: %v", ErrInvalidUUID, err)
 	}
 
@@ -41,13 +43,13 @@ func (r *cartRepository) SetCreditCard(ctx context.Context, cartID string, card 
 		RETURNING id
 	`, cartUUID, card.CardType, card.CardNumber, card.CardHolderName, card.CardExpires, card.CardCVV).Scan(&card.ID)
 	if err != nil {
-		log.Printf("[DEBUG] CartRepository: failed to insert credit card for cart %s: %v", cartID, err)
+		r.logger.Error("Failed to insert credit card", "cart_id", cartID, "error", err.Error())
 		return fmt.Errorf("%w: failed to insert credit card: %v", ErrDatabaseOperation, err)
 	}
 
 	_, err = tx.Exec(ctx, `UPDATE carts.Cart SET credit_card_id = $1 WHERE cart_id = $2`, card.ID, cartUUID)
 	if err != nil {
-		log.Printf("[DEBUG] CartRepository: failed to update cart with credit card for cart %s: %v", cartID, err)
+		r.logger.Error("Failed to update cart with credit card", "cart_id", cartID, "error", err.Error())
 		return fmt.Errorf("%w: failed to update cart credit card: %v", ErrDatabaseOperation, err)
 	}
 

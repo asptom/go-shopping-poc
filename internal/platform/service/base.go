@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"log/slog"
+
 	"go-shopping-poc/internal/contracts/events"
 	"go-shopping-poc/internal/platform/event/bus"
 	kafka "go-shopping-poc/internal/platform/event/bus/kafka"
@@ -13,15 +15,20 @@ import (
 type EventServiceBase struct {
 	*BaseService
 	eventBus bus.Bus
-	handlers []any // Store any type of handler registration
+	handlers []any
+	logger   *slog.Logger
 }
 
-// NewEventServiceBase creates a new event service base with the given name and event bus
-func NewEventServiceBase(name string, eventBus bus.Bus) *EventServiceBase {
+// NewEventServiceBase creates a new event service base with the given name, event bus, and logger
+func NewEventServiceBase(name string, eventBus bus.Bus, logger *slog.Logger) *EventServiceBase {
+	if logger == nil {
+		logger = slog.Default().With("service", name)
+	}
 	return &EventServiceBase{
 		BaseService: NewBaseService(name),
 		eventBus:    eventBus,
 		handlers:    make([]any, 0),
+		logger:      logger,
 	}
 }
 
@@ -107,4 +114,9 @@ func (s *EventServiceBase) EventBus() bus.Bus {
 // HandlerCount returns the number of registered handlers
 func (s *EventServiceBase) HandlerCount() int {
 	return len(s.handlers)
+}
+
+// Logger returns the logger for the service
+func (s *EventServiceBase) Logger() *slog.Logger {
+	return s.logger
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -13,6 +14,7 @@ import (
 	"go-shopping-poc/internal/platform/cors"
 	"go-shopping-poc/internal/platform/database"
 	"go-shopping-poc/internal/platform/event"
+	"go-shopping-poc/internal/platform/logging"
 	"go-shopping-poc/internal/platform/outbox/providers"
 	"go-shopping-poc/internal/service/order"
 	"go-shopping-poc/internal/service/order/eventhandlers"
@@ -21,100 +23,102 @@ import (
 )
 
 func main() {
+	loggerProvider, err := logging.NewLoggerProvider(logging.LoggerConfig{
+		ServiceName: "order",
+	})
+	if err != nil {
+		log.Fatalf("Order: Failed to create logger provider: %v", err)
+	}
+	logger := loggerProvider.Logger()
 
-	log.SetFlags(log.LstdFlags)
-	log.Printf("[INFO] Order: Order service started...")
+	logger.Info("Order service started", "version", "1.0.0")
 
 	cfg, err := order.LoadConfig()
 	if err != nil {
-		log.Fatalf("Order: Failed to load config: %v", err)
+		logger.Error("Failed to load config", logging.ErrorAttr(err))
+		os.Exit(1)
 	}
 
-	log.Printf("[DEBUG] Order: Configuration loaded successfully")
-	log.Printf("[DEBUG] Order: Read Topics: %v, Write Topic: %v, Group: %s",
-		cfg.ReadTopics, cfg.WriteTopic, cfg.Group)
+	logger.Debug("Configuration loaded",
+		"read_topics", cfg.ReadTopics,
+		"write_topic", cfg.WriteTopic,
+		"group", cfg.Group,
+	)
 
-	// Database setup
 	dbURL := cfg.DatabaseURL
 	if dbURL == "" {
-		log.Fatalf("Order: Database URL is required")
+		logger.Error("Database URL is required")
+		os.Exit(1)
 	}
 
-	log.Printf("[DEBUG] Order: Creating database provider")
+	logger.Debug("Creating database provider")
 	dbProvider, err := database.NewDatabaseProvider(dbURL)
 	if err != nil {
-		log.Fatalf("Order: Failed to create database provider: %v", err)
+		logger.Error("Failed to create database provider", logging.ErrorAttr(err))
+		os.Exit(1)
 	}
 	db := dbProvider.GetDatabase()
 	defer func() {
 		if err := db.Close(); err != nil {
-			log.Printf("[ERROR] Order: Error closing database: %v", err)
+			logger.Error("Error closing database", logging.ErrorAttr(err))
 		}
 	}()
 
-	// Event bus setup
-	log.Printf("[DEBUG] Order: Creating event bus provider")
+	logger.Debug("Creating event bus provider")
 	eventBusConfig := event.EventBusConfig{
 		WriteTopic: cfg.WriteTopic,
 		GroupID:    cfg.Group,
 	}
 	eventBusProvider, err := event.NewEventBusProvider(eventBusConfig)
 	if err != nil {
-		log.Fatalf("Order: Failed to create event bus provider: %v", err)
+		logger.Error("Failed to create event bus provider", logging.ErrorAttr(err))
+		os.Exit(1)
 	}
 	eventBus := eventBusProvider.GetEventBus()
 
-	// Outbox setup
-	log.Printf("[DEBUG] Order: Creating outbox providers")
+	logger.Debug("Creating outbox providers")
 	writerProvider := providers.NewWriterProvider(db)
 	publisherProvider := providers.NewPublisherProvider(db, eventBus)
 	if publisherProvider == nil {
-		log.Fatalf("Order: Failed to create publisher provider")
+		logger.Error("Failed to create publisher provider")
+		os.Exit(1)
 	}
 	outboxPublisher := publisherProvider.GetPublisher()
 	outboxPublisher.Start()
 	defer outboxPublisher.Stop()
 	outboxWriter := writerProvider.GetWriter()
 
-	// CORS setup
-	log.Printf("[DEBUG] Order: Creating CORS provider")
+	logger.Debug("Creating CORS provider")
 	corsProvider, err := cors.NewCORSProvider()
 	if err != nil {
-		log.Fatalf("Order: Failed to create CORS provider: %v", err)
+		logger.Error("Failed to create CORS provider", logging.ErrorAttr(err))
+		os.Exit(1)
 	}
 	corsHandler := corsProvider.GetCORSHandler()
 
-	// Infrastructure and service setup
-	log.Printf("[DEBUG] Order: Creating order infrastructure")
-	infrastructure := order.NewOrderInfrastructure(
-		db, eventBus, outboxWriter, outboxPublisher, corsHandler,
-	)
+	logger.Debug("Creating order infrastructure")
+	infrastructure := order.NewOrderInfrastructure(db, eventBus, outboxWriter, outboxPublisher, corsHandler)
 
-	// Service setup
-	log.Printf("[DEBUG] Order: Creating order service")
-	service := order.NewOrderService(infrastructure, cfg)
+	logger.Debug("Creating order service")
+	service := order.NewOrderService(logger, infrastructure, cfg)
 
-	// Register event handlers
-	log.Printf("[DEBUG] Order: Registering event handlers")
-	if err := registerEventHandlers(service); err != nil {
-		log.Fatalf("Order: Failed to register event handlers: %v", err)
+	logger.Debug("Registering event handlers")
+	if err := registerEventHandlers(service, logger); err != nil {
+		logger.Error("Failed to register event handlers", logging.ErrorAttr(err))
 		os.Exit(1)
 	}
 
-	// Start consuming events from Kafka (in a goroutine so it doesn't block)
-	log.Printf("[INFO] Order: Starting event consumer...")
-	log.Printf("[INFO] Order: Subscribed to topics: %v", service.EventBus().ReadTopics())
+	logger.Info("Starting event consumer", "topics", service.EventBus().ReadTopics())
 	go func() {
-		ctx := context.Background()
-		if err := service.Start(ctx); err != nil {
-			log.Printf("[ERROR] Order: Event consumer error: %v", err)
+		if err := service.Start(context.Background()); err != nil {
+			logger.Error("Event consumer error", logging.ErrorAttr(err))
 		}
 	}()
 
-	log.Printf("[DEBUG] Order: Creating order handler")
+	logger.Debug("Creating order handler")
 	handler := order.NewOrderHandler(service)
 
-	log.Printf("[DEBUG] Order: Setting up HTTP router")
+	logger.Debug("Setting up HTTP router")
 	router := chi.NewRouter()
 	router.Use(corsHandler)
 
@@ -126,19 +130,16 @@ func main() {
 
 	orderRouter := chi.NewRouter()
 	orderRouter.Get("/orders/{id}", handler.GetOrder)
-	orderRouter.Get("/orders", handler.GetOrdersByCustomer)
-	orderRouter.Post("/orders/{id}/cancel", handler.CancelOrder)
-	orderRouter.Patch("/orders/{id}/status", handler.UpdateOrderStatus)
+	orderRouter.Get("/orders/customer/{customerId}", handler.GetOrdersByCustomer)
 
 	router.Mount("/api/v1", orderRouter)
 
 	serverAddr := "0.0.0.0" + cfg.ServicePort
 	server := &http.Server{
-		Addr:         serverAddr,
-		Handler:      router,
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 30 * time.Second,
-		IdleTimeout:  120 * time.Second,
+		Addr:        serverAddr,
+		Handler:     router,
+		ReadTimeout: 30 * time.Second,
+		IdleTimeout: 120 * time.Second,
 	}
 
 	done := make(chan bool, 1)
@@ -146,32 +147,33 @@ func main() {
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 
 	go func() {
-		log.Printf("[INFO] Order: Starting HTTP server on %s", serverAddr)
+		logger.Info("Starting HTTP server", "address", serverAddr)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Order: Failed to start HTTP server: %v", err)
+			logger.Error("Failed to start HTTP server", logging.ErrorAttr(err))
 		}
 	}()
 
 	<-quit
-	log.Printf("[INFO] Order: Shutting down server...")
+	logger.Info("Shutting down server")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	if err := server.Shutdown(ctx); err != nil {
-		log.Fatalf("Order: Server forced to shutdown: %v", err)
+		logger.Error("Server forced to shutdown", logging.ErrorAttr(err))
 	}
 
 	close(done)
-	log.Printf("[INFO] Order: Server exited")
+	logger.Info("Server exited")
 }
 
-func registerEventHandlers(service *order.OrderService) error {
-	log.Printf("[INFO] Order: Registering event handlers...")
+func registerEventHandlers(service *order.OrderService, logger *slog.Logger) error {
+	logger.Info("Registering event handlers")
 
-	cartCheckedOutHandler := eventhandlers.NewOnCartCheckedOut(service)
+	handlerLogger := logger.With("component", "event_handler")
 
-	log.Printf("[INFO] Order: Registering handler for event type: %s", cartCheckedOutHandler.EventType())
+	cartCheckedOutHandler := eventhandlers.NewOnCartCheckedOut(service, handlerLogger)
+	logger.Info("Registering handler", "event_type", cartCheckedOutHandler.EventType())
 
 	if err := order.RegisterHandler(
 		service,
@@ -181,8 +183,8 @@ func registerEventHandlers(service *order.OrderService) error {
 		return fmt.Errorf("failed to register CartCheckedOut handler: %w", err)
 	}
 
-	log.Printf("[INFO] Order: Successfully registered CartCheckedOut handler")
+	logger.Info("Successfully registered CartCheckedOut handler")
+	logger.Info("Event handler registration completed")
 
-	log.Printf("[INFO] Order: Event handler registration completed")
 	return nil
 }

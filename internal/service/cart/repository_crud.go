@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -14,7 +13,7 @@ import (
 )
 
 func (r *cartRepository) CreateCart(ctx context.Context, cart *Cart) error {
-	log.Printf("[DEBUG] Repository: Creating new cart...")
+	r.logger.Debug("Creating new cart")
 
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -75,7 +74,7 @@ func (r *cartRepository) CreateCart(ctx context.Context, cart *Cart) error {
 func (r *cartRepository) GetCartByID(ctx context.Context, cartID string) (*Cart, error) {
 	id, err := uuid.Parse(cartID)
 	if err != nil {
-		log.Printf("[ERROR] Repository: Invalid cart ID format: %v", err)
+		r.logger.Error("Invalid cart ID format", "error", err.Error())
 		return nil, fmt.Errorf("%w: invalid cart ID: %v", ErrInvalidUUID, err)
 	}
 
@@ -89,7 +88,7 @@ func (r *cartRepository) GetCartByID(ctx context.Context, cartID string) (*Cart,
 	var cart Cart
 	err = r.db.GetContext(ctx, &cart, query, id)
 	if err != nil {
-		log.Printf("[ERROR] Repository: Failed to get cart by ID: %v", err)
+		r.logger.Error("Failed to get cart by ID", "error", err.Error())
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrCartNotFound
 		}
@@ -97,7 +96,7 @@ func (r *cartRepository) GetCartByID(ctx context.Context, cartID string) (*Cart,
 	}
 
 	if err := r.loadCartRelations(ctx, &cart); err != nil {
-		log.Printf("[ERROR] Repository: Failed to load cart relations: %v", err)
+		r.logger.Error("Failed to load cart relations", "error", err.Error())
 		return nil, err
 	}
 
@@ -232,31 +231,31 @@ func (r *cartRepository) loadCartRelations(ctx context.Context, cart *Cart) erro
 
 	cart.Contact, err = r.GetContact(ctx, cart.CartID.String())
 	if err != nil && !errors.Is(err, ErrContactNotFound) {
-		log.Printf("[ERROR] Repository: Failed to load contact for cart: %v", err)
+		r.logger.Error("Failed to load contact for cart", "error", err.Error())
 		return fmt.Errorf("failed to load contact: %w", err)
 	}
 
 	cart.Addresses, err = r.GetAddresses(ctx, cart.CartID.String())
 	if err != nil {
-		log.Printf("[ERROR] Repository: Failed to load addresses for cart: %v", err)
+		r.logger.Error("Failed to load addresses for cart", "error", err.Error())
 		return fmt.Errorf("failed to load addresses: %w", err)
 	}
 
 	cart.CreditCard, err = r.GetCreditCard(ctx, cart.CartID.String())
 	if err != nil && !errors.Is(err, ErrCreditCardNotFound) {
-		log.Printf("[ERROR] Repository: Failed to load credit card for cart: %v", err)
+		r.logger.Error("Failed to load credit card for cart", "error", err.Error())
 		return fmt.Errorf("failed to load credit card: %w", err)
 	}
 
 	cart.Items, err = r.GetCartItems(ctx, cart.CartID.String())
 	if err != nil {
-		log.Printf("[ERROR] Repository: Failed to load items for cart: %v", err)
+		r.logger.Error("Failed to load items for cart", "error", err.Error())
 		return fmt.Errorf("failed to load items: %w", err)
 	}
 
 	cart.StatusHistory, err = r.GetStatusHistory(ctx, cart.CartID.String())
 	if err != nil {
-		log.Printf("[ERROR] Repository: Failed to load status history for cart: %v", err)
+		r.logger.Error("Failed to load status history for cart", "error", err.Error())
 		return fmt.Errorf("failed to load status history: %w", err)
 	}
 

@@ -8,160 +8,141 @@ package product
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 
 	events "go-shopping-poc/internal/contracts/events"
 	"go-shopping-poc/internal/platform/database"
 	"go-shopping-poc/internal/platform/event/bus"
+	"go-shopping-poc/internal/platform/logging"
 	"go-shopping-poc/internal/platform/outbox"
 	"go-shopping-poc/internal/platform/service"
 )
 
-// CatalogService handles read-only product operations and event publishing.
-//
-// CatalogService is focused on product browsing and retrieval with
-// optional event publishing for analytics. All view events are
-// published using the outbox pattern for reliable delivery.
-
-// CatalogInfrastructure defines infrastructure components for catalog service
 type CatalogInfrastructure struct {
 	Database        database.Database
 	OutboxWriter    *outbox.Writer
 	OutboxPublisher *outbox.Publisher
-	EventBus        bus.Bus // Event bus for consuming cart validation requests
+	EventBus        bus.Bus
 }
 
-// Service interface for event handler registration
 type Service interface {
 	service.Service
 }
 
-// RegisterHandler adds a new event handler for any event type to the service
 func RegisterHandler[T events.Event](s Service, factory events.EventFactory[T], handler bus.HandlerFunc[T]) error {
 	return service.RegisterHandler(s, factory, handler)
 }
 
 type CatalogService struct {
 	*service.EventServiceBase
+	logger         *slog.Logger
 	repo           ProductRepository
 	infrastructure *CatalogInfrastructure
 	config         *Config
 }
 
-// NewCatalogService creates a new catalog service instance.
-func NewCatalogService(infrastructure *CatalogInfrastructure, config *Config) *CatalogService {
-	repo := NewProductRepository(infrastructure.Database, infrastructure.OutboxWriter)
+func NewCatalogService(logger *slog.Logger, infrastructure *CatalogInfrastructure, config *Config) *CatalogService {
+	if logger == nil {
+		logger = logging.FromContext(context.Background())
+	}
+	repo := NewProductRepository(infrastructure.Database, infrastructure.OutboxWriter, logger)
 
 	return &CatalogService{
-		EventServiceBase: service.NewEventServiceBase("product", infrastructure.EventBus),
+		EventServiceBase: service.NewEventServiceBase("product", infrastructure.EventBus, logger),
+		logger:           logger.With("component", "catalog_service"),
 		repo:             repo,
 		infrastructure:   infrastructure,
 		config:           config,
 	}
 }
 
-// GetInfrastructure returns the infrastructure for use by event handlers
 func (s *CatalogService) GetInfrastructure() *CatalogInfrastructure {
 	return s.infrastructure
 }
 
-// GetProductByID retrieves a product by ID and publishes a view event
 func (s *CatalogService) GetProductByID(ctx context.Context, productID int64) (*Product, error) {
-	log.Printf("[INFO] CatalogService: Fetching product by ID: %d", productID)
+	s.logger.Debug("Fetching product by ID", "product_id", productID)
 
 	product, err := s.repo.GetProductByID(ctx, productID)
 	if err != nil {
-		log.Printf("[ERROR] CatalogService: Failed to get product %d: %v", productID, err)
+		s.logger.Error("Failed to get product", "product_id", productID, "error", err.Error())
 		return nil, fmt.Errorf("failed to get product: %w", err)
 	}
-
-	// if s.infrastructure.OutboxWriter != nil {
-	// 	if err := s.publishProductViewedEvent(ctx, product); err != nil {
-	// 		log.Printf("[WARN] CatalogService: Failed to publish product viewed event: %v", err)
-	// 	}
-	// }
 
 	return product, nil
 }
 
-// GetAllProducts retrieves all products with pagination
 func (s *CatalogService) GetAllProducts(ctx context.Context, limit, offset int) ([]*Product, error) {
-	log.Printf("[INFO] CatalogService: Fetching all products (limit: %d, offset: %d)", limit, offset)
+	s.logger.Debug("Fetching all products", "limit", limit, "offset", offset)
 
 	products, err := s.repo.GetAllProducts(ctx, limit, offset)
 	if err != nil {
-		log.Printf("[ERROR] CatalogService: Failed to get all products: %v", err)
+		s.logger.Error("Failed to get all products", "error", err.Error())
 		return nil, fmt.Errorf("failed to get all products: %w", err)
 	}
 
 	return products, nil
 }
 
-// GetProductsByCategory retrieves products by category and publishes a category view event
 func (s *CatalogService) GetProductsByCategory(ctx context.Context, category string, limit, offset int) ([]*Product, error) {
-	log.Printf("[INFO] CatalogService: Fetching products by category: %s (limit: %d, offset: %d)", category, limit, offset)
+	s.logger.Debug("Fetching products by category", "category", category, "limit", limit, "offset", offset)
 
 	products, err := s.repo.GetProductsByCategory(ctx, category, limit, offset)
 	if err != nil {
-		log.Printf("[ERROR] CatalogService: Failed to get products by category %s: %v", category, err)
+		s.logger.Error("Failed to get products by category", "category", category, "error", err.Error())
 		return nil, fmt.Errorf("failed to get products by category: %w", err)
 	}
 
 	if s.infrastructure.OutboxWriter != nil && len(products) > 0 {
 		if err := s.publishCategoryViewedEvent(ctx, category, len(products)); err != nil {
-			log.Printf("[WARN] CatalogService: Failed to publish category viewed event: %v", err)
+			s.logger.Warn("Failed to publish category viewed event", "error", err.Error())
 		}
 	}
 
 	return products, nil
 }
 
-// GetProductsByBrand retrieves products by brand
 func (s *CatalogService) GetProductsByBrand(ctx context.Context, brand string, limit, offset int) ([]*Product, error) {
-	log.Printf("[INFO] CatalogService: Fetching products by brand: %s (limit: %d, offset: %d)", brand, limit, offset)
+	s.logger.Debug("Fetching products by brand", "brand", brand, "limit", limit, "offset", offset)
 
 	products, err := s.repo.GetProductsByBrand(ctx, brand, limit, offset)
 	if err != nil {
-		log.Printf("[ERROR] CatalogService: Failed to get products by brand %s: %v", brand, err)
+		s.logger.Error("Failed to get products by brand", "brand", brand, "error", err.Error())
 		return nil, fmt.Errorf("failed to get products by brand: %w", err)
 	}
 
 	return products, nil
 }
 
-// SearchProducts searches products and publishes a search event
 func (s *CatalogService) SearchProducts(ctx context.Context, query string, limit, offset int) ([]*Product, error) {
-	log.Printf("[INFO] CatalogService: Searching products with query: %s (limit: %d, offset: %d)", query, limit, offset)
+	s.logger.Debug("Searching products", "query", query, "limit", limit, "offset", offset)
 
 	products, err := s.repo.SearchProducts(ctx, query, limit, offset)
 	if err != nil {
-		log.Printf("[ERROR] CatalogService: Failed to search products with query %s: %v", query, err)
+		s.logger.Error("Failed to search products", "query", query, "error", err.Error())
 		return nil, fmt.Errorf("failed to search products: %w", err)
 	}
 
 	if s.infrastructure.OutboxWriter != nil && len(products) > 0 {
 		if err := s.publishSearchExecutedEvent(ctx, query, len(products)); err != nil {
-			log.Printf("[WARN] CatalogService: Failed to publish search executed event: %v", err)
+			s.logger.Warn("Failed to publish search executed event", "error", err.Error())
 		}
 	}
 
 	return products, nil
 }
 
-// GetProductsInStock retrieves products that are in stock
 func (s *CatalogService) GetProductsInStock(ctx context.Context, limit, offset int) ([]*Product, error) {
-	log.Printf("[INFO] CatalogService: Fetching in-stock products (limit: %d, offset: %d)", limit, offset)
+	s.logger.Debug("Fetching in-stock products", "limit", limit, "offset", offset)
 
 	products, err := s.repo.GetProductsInStock(ctx, limit, offset)
 	if err != nil {
-		log.Printf("[ERROR] CatalogService: Failed to get in-stock products: %v", err)
+		s.logger.Error("Failed to get in-stock products", "error", err.Error())
 		return nil, fmt.Errorf("failed to get in-stock products: %w", err)
 	}
 
 	return products, nil
 }
-
-// Event publishing methods using outbox pattern
 
 func (s *CatalogService) publishProductViewedEvent(ctx context.Context, product *Product) error {
 	tx, err := s.infrastructure.Database.BeginTx(ctx, nil)

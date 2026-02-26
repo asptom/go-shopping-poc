@@ -2,7 +2,8 @@ package eventhandlers
 
 import (
 	"context"
-	"log"
+	"fmt"
+	"log/slog"
 
 	events "go-shopping-poc/internal/contracts/events"
 	"go-shopping-poc/internal/platform/event/bus"
@@ -13,28 +14,37 @@ import (
 // OnOrderCreated handles order.created events and publishes SSE notifications
 type OnOrderCreated struct {
 	sseHub *sse.Hub
+	logger *slog.Logger
 }
 
 // NewOnOrderCreated creates a new order created handler
-func NewOnOrderCreated(sseHub *sse.Hub) *OnOrderCreated {
+func NewOnOrderCreated(sseHub *sse.Hub, logger *slog.Logger) *OnOrderCreated {
+	if logger == nil {
+		logger = slog.Default()
+	}
 	return &OnOrderCreated{
 		sseHub: sseHub,
+		logger: logger.With("handler", "on_order_created"),
 	}
 }
 
 func (h *OnOrderCreated) Handle(ctx context.Context, event events.Event) error {
-	log.Printf("[DEBUG] Cart: Received event - Type: %T, processing...", event)
+	h.logger.Debug("Received event", "event_type", fmt.Sprintf("%T", event))
 
 	orderEvent, ok := event.(events.OrderEvent)
 	if !ok {
-		log.Printf("[ERROR] Cart: Expected OrderEvent, got %T", event)
+		h.logger.Error("Expected OrderEvent", "actual_type", fmt.Sprintf("%T", event))
 		return nil
 	}
 
-	log.Printf("[DEBUG] Cart: Event received - Type: %s, ID: %s, Topic: %s", orderEvent.EventType, orderEvent.ID, orderEvent.Topic())
+	h.logger.Debug("Event received",
+		"event_type", orderEvent.EventType,
+		"event_id", orderEvent.ID,
+		"topic", orderEvent.Topic(),
+	)
 
 	if orderEvent.EventType != events.OrderCreated {
-		log.Printf("[DEBUG] Cart: Ignoring event type: %s", orderEvent.EventType)
+		h.logger.Debug("Ignoring event type", "event_type", orderEvent.EventType)
 		return nil
 	}
 
@@ -43,7 +53,12 @@ func (h *OnOrderCreated) Handle(ctx context.Context, event events.Event) error {
 		orderEvent.Data.OrderID,
 		orderEvent.Data.CartID)
 
-	log.Printf("[DEBUG] Cart: Order created event - OrderID: %s, OrderNumber: %s, CartID: %s, Total: %.2f", orderEvent.Data.OrderID, orderEvent.Data.OrderNumber, orderEvent.Data.CartID, orderEvent.Data.Total)
+	h.logger.Debug("Order created event",
+		"order_id", orderEvent.Data.OrderID,
+		"order_number", orderEvent.Data.OrderNumber,
+		"cart_id", orderEvent.Data.CartID,
+		"total", orderEvent.Data.Total,
+	)
 
 	// Push SSE event to subscribers
 	if h.sseHub != nil {
@@ -53,28 +68,25 @@ func (h *OnOrderCreated) Handle(ctx context.Context, event events.Event) error {
 			"cartId":      orderEvent.Data.CartID,
 			"total":       orderEvent.Data.Total,
 		}
-		log.Printf("[DEBUG] Cart: Publishing 'order.created' event for cart %s", orderEvent.Data.CartID)
+		h.logger.Debug("Publishing order.created event", "cart_id", orderEvent.Data.CartID)
 
 		h.sseHub.Publish(
 			orderEvent.Data.CartID,
 			"order.created",
 			sseData,
 		)
-		log.Printf("[DEBUG] Cart: Successfully published 'order.created' event for cart %s", orderEvent.Data.CartID)
+		h.logger.Debug("Successfully published order.created event", "cart_id", orderEvent.Data.CartID)
 	} else {
-		log.Printf("[WARN] Cart: sseHub is nil, cannot publish event for cart %s", orderEvent.Data.CartID)
+		h.logger.Warn("sseHub is nil, cannot publish event", "cart_id", orderEvent.Data.CartID)
 	}
 
 	return h.updateCartStatus(ctx, orderEvent.Data.CartID)
 }
 
 func (h *OnOrderCreated) updateCartStatus(ctx context.Context, cartID string) error {
-	//Put the actual business logic for updating the cart status to completed here
-	log.Printf("[INFO] Cart: Processing OrderCreated event for cart %s", cartID)
-	_ = ctx // Placeholder to avoid unused variable error, replace with actual context usage in real implementation
-	// Simulate processing time
-	//time.Sleep(2 * time.Second)
-	log.Printf("[INFO] Cart: Updating cart %s status to completed", cartID)
+	h.logger.Info("Processing OrderCreated event", "cart_id", cartID)
+	_ = ctx
+	h.logger.Info("Updating cart status to completed", "cart_id", cartID)
 	return nil
 }
 

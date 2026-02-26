@@ -3,7 +3,6 @@ package database
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 )
 
@@ -13,7 +12,7 @@ func (c *PostgreSQLClient) CheckHealth(ctx context.Context) *HealthStatus {
 
 	if c.db == nil {
 		status.Error = fmt.Errorf("database connection not established")
-		log.Printf("[ERROR] Database: Health check failed - no connection")
+		c.logger.Error("Database: Health check failed - no connection")
 		return status
 	}
 
@@ -31,12 +30,12 @@ func (c *PostgreSQLClient) CheckHealth(ctx context.Context) *HealthStatus {
 
 	if err != nil {
 		status.Error = fmt.Errorf("database ping failed: %w", err)
-		log.Printf("[ERROR] Database: Health check failed after %v: %v", latency, err)
+		c.logger.Error("Database: Health check failed", "latency", latency.String(), "error", err.Error())
 		return status
 	}
 
 	status.Available = true
-	log.Printf("[DEBUG] Database: Health check passed (latency: %v)", latency)
+	c.logger.Debug("Database: Health check passed", "latency", latency.String())
 	return status
 }
 
@@ -101,18 +100,18 @@ func (c *PostgreSQLClient) ValidateConnection(ctx context.Context) error {
 		return fmt.Errorf("database validation query returned unexpected result: %d", result)
 	}
 
-	log.Printf("[INFO] Database: Connection validation successful")
+	c.logger.Info("Database: Connection validation successful")
 	return nil
 }
 
 // Reconnect attempts to reconnect to the database
 func (c *PostgreSQLClient) Reconnect(ctx context.Context) error {
-	log.Printf("[INFO] Database: Attempting to reconnect")
+	c.logger.Info("Database: Attempting to reconnect")
 
 	// Close existing connection if any
 	if c.db != nil {
 		if err := c.Close(); err != nil {
-			log.Printf("[WARNING] Database: Error closing existing connection during reconnect: %v", err)
+			c.logger.Warn("Database: Error closing existing connection during reconnect", "error", err.Error())
 		}
 	}
 

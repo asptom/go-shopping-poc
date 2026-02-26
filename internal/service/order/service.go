@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -13,6 +13,7 @@ import (
 	events "go-shopping-poc/internal/contracts/events"
 	"go-shopping-poc/internal/platform/database"
 	"go-shopping-poc/internal/platform/event/bus"
+	"go-shopping-poc/internal/platform/logging"
 	"go-shopping-poc/internal/platform/outbox"
 	"go-shopping-poc/internal/platform/service"
 )
@@ -51,16 +52,21 @@ func RegisterHandler[T events.Event](s Service, factory events.EventFactory[T], 
 
 type OrderService struct {
 	*service.EventServiceBase
+	logger         *slog.Logger
 	repo           OrderRepository
 	infrastructure *OrderInfrastructure
 	config         *Config
 }
 
-func NewOrderService(infrastructure *OrderInfrastructure, config *Config) *OrderService {
+func NewOrderService(logger *slog.Logger, infrastructure *OrderInfrastructure, config *Config) *OrderService {
+	if logger == nil {
+		logger = logging.FromContext(context.Background())
+	}
 	repo := NewOrderRepository(infrastructure.Database, infrastructure.OutboxWriter)
 
 	return &OrderService{
-		EventServiceBase: service.NewEventServiceBase("order", infrastructure.EventBus),
+		EventServiceBase: service.NewEventServiceBase("order", infrastructure.EventBus, logger),
+		logger:           logger.With("component", "order_service"),
 		repo:             repo,
 		infrastructure:   infrastructure,
 		config:           config,
@@ -68,7 +74,7 @@ func NewOrderService(infrastructure *OrderInfrastructure, config *Config) *Order
 }
 
 func (s *OrderService) GetOrder(ctx context.Context, orderID string) (*Order, error) {
-	log.Printf("[DEBUG] OrderService: Getting order %s", orderID)
+	s.logger.Debug("Getting order", "order_id", orderID)
 
 	order, err := s.repo.GetOrderByID(ctx, orderID)
 	if err != nil {
@@ -82,7 +88,7 @@ func (s *OrderService) GetOrder(ctx context.Context, orderID string) (*Order, er
 }
 
 func (s *OrderService) GetOrdersByCustomer(ctx context.Context, customerID string) ([]Order, error) {
-	log.Printf("[DEBUG] OrderService: Getting orders for customer %s", customerID)
+	s.logger.Debug("Getting orders for customer", "customer_id", customerID)
 
 	orders, err := s.repo.GetOrdersByCustomerID(ctx, customerID)
 	if err != nil {
@@ -93,7 +99,7 @@ func (s *OrderService) GetOrdersByCustomer(ctx context.Context, customerID strin
 }
 
 func (s *OrderService) CreateOrderFromSnapshot(ctx context.Context, cartID string, snapshot *events.CartSnapshot) (*Order, error) {
-	log.Printf("[DEBUG] OrderService: Creating order from cart snapshot %s", cartID)
+	s.logger.Debug("Creating order from cart snapshot", "cart_id", cartID)
 
 	cartIDUUID, err := uuid.Parse(cartID)
 	if err != nil {
@@ -164,7 +170,7 @@ func (s *OrderService) CreateOrderFromSnapshot(ctx context.Context, cartID strin
 	if s.infrastructure.OutboxPublisher != nil {
 		go func() {
 			if err := s.infrastructure.OutboxPublisher.ProcessNow(); err != nil {
-				log.Printf("[WARN] Order: Failed to trigger immediate outbox processing: %v", err)
+				s.logger.Warn("Failed to trigger immediate outbox processing", "error", err.Error())
 			}
 		}()
 	}
@@ -173,7 +179,7 @@ func (s *OrderService) CreateOrderFromSnapshot(ctx context.Context, cartID strin
 }
 
 func (s *OrderService) CancelOrder(ctx context.Context, orderID string) error {
-	log.Printf("[DEBUG] OrderService: Cancelling order %s", orderID)
+	s.logger.Debug("Cancelling order", "order_id", orderID)
 
 	order, err := s.repo.GetOrderByID(ctx, orderID)
 	if err != nil {
@@ -192,7 +198,7 @@ func (s *OrderService) CancelOrder(ctx context.Context, orderID string) error {
 }
 
 func (s *OrderService) UpdateOrderStatus(ctx context.Context, orderID string, newStatus string) error {
-	log.Printf("[DEBUG] OrderService: Updating order %s status to %s", orderID, newStatus)
+	s.logger.Debug("Updating order status", "order_id", orderID, "new_status", newStatus)
 
 	order, err := s.repo.GetOrderByID(ctx, orderID)
 	if err != nil {

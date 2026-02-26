@@ -3,7 +3,6 @@ package database
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"go-shopping-poc/internal/platform/config"
 )
@@ -44,22 +43,22 @@ func NewDatabaseProvider(databaseURL string) (DatabaseProvider, error) {
 		return nil, fmt.Errorf("database URL is required")
 	}
 
-	log.Printf("[INFO] DatabaseProvider: Initializing database provider")
+	logger.Info("DatabaseProvider: Initializing database provider")
 
 	// Load platform database connection configuration
 	connConfigPtr, err := config.LoadConfig[ConnectionConfig]("platform-database")
 	if err != nil {
-		log.Printf("[ERROR] DatabaseProvider: Failed to load connection config: %v", err)
+		logger.Error("DatabaseProvider: Failed to load connection config", "error", err)
 		return nil, fmt.Errorf("failed to load database connection config: %w", err)
 	}
 	connConfig := *connConfigPtr
 
-	log.Printf("[DEBUG] DatabaseProvider: Connection config loaded successfully")
+	logger.Debug("DatabaseProvider: Connection config loaded successfully")
 
 	// Create PostgreSQL database client
 	db, err := NewPostgreSQLClient(databaseURL, connConfig)
 	if err != nil {
-		log.Printf("[ERROR] DatabaseProvider: Failed to create database client: %v", err)
+		logger.Error("DatabaseProvider: Failed to create database client", "error", err)
 		return nil, fmt.Errorf("failed to create database client: %w", err)
 	}
 
@@ -68,11 +67,11 @@ func NewDatabaseProvider(databaseURL string) (DatabaseProvider, error) {
 	defer cancel()
 
 	if err := db.Connect(ctx); err != nil {
-		log.Printf("[ERROR] DatabaseProvider: Failed to connect to database: %v", err)
+		logger.Error("DatabaseProvider: Failed to connect to database", "error", err)
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
-	log.Printf("[INFO] DatabaseProvider: Database provider initialized successfully")
+	logger.Info("DatabaseProvider: Database provider initialized successfully")
 
 	return &DatabaseProviderImpl{
 		database: db,

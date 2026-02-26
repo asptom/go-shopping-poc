@@ -7,12 +7,11 @@ package product
 import (
 	"context"
 	"fmt"
-	"log"
 )
 
 // BulkInsertProducts inserts multiple products efficiently
 func (r *productRepository) BulkInsertProducts(ctx context.Context, products []*Product) error {
-	log.Printf("[DEBUG] Repository: Bulk inserting %d products", len(products))
+	r.logger.Debug("Bulk inserting products", "count", len(products))
 
 	if len(products) == 0 {
 		return nil
@@ -50,7 +49,7 @@ func (r *productRepository) BulkInsertProducts(ctx context.Context, products []*
 
 // BulkInsertProductImages inserts multiple product images efficiently
 func (r *productRepository) BulkInsertProductImages(ctx context.Context, images []*ProductImage) error {
-	log.Printf("[DEBUG] Repository: Bulk inserting %d product images", len(images))
+	r.logger.Debug("Bulk inserting product images", "count", len(images))
 
 	if len(images) == 0 {
 		return nil

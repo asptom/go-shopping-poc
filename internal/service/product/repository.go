@@ -16,6 +16,7 @@ package product
 import (
 	"context"
 	"errors"
+	"log/slog"
 
 	"go-shopping-poc/internal/platform/database"
 	"go-shopping-poc/internal/platform/outbox"
@@ -58,8 +59,16 @@ type ProductRepository interface {
 type productRepository struct {
 	db           database.Database
 	outboxWriter *outbox.Writer
+	logger       *slog.Logger
 }
 
-func NewProductRepository(db database.Database, outboxWriter *outbox.Writer) ProductRepository {
-	return &productRepository{db: db, outboxWriter: outboxWriter}
+func NewProductRepository(db database.Database, outboxWriter *outbox.Writer, logger *slog.Logger) ProductRepository {
+	if logger == nil {
+		logger = slog.Default().With("component", "product_repository")
+	}
+	return &productRepository{
+		db:           db,
+		outboxWriter: outboxWriter,
+		logger:       logger,
+	}
 }

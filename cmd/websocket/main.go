@@ -2,55 +2,60 @@ package main
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"go-shopping-poc/internal/platform/logging"
 	ws "go-shopping-poc/internal/platform/websocket"
 
 	"github.com/gorilla/websocket"
 )
 
-func echoHandler(conn *websocket.Conn) {
+func echoHandler(logger *slog.Logger, conn *websocket.Conn) {
 	for {
 		mt, msg, err := conn.ReadMessage()
 		if err != nil {
-			log.Printf("[ERROR] Websocket: Read error: %v", err)
+			logger.Error("WebSocket read error", "error", err.Error())
 			break
 		}
-		log.Printf("[INFO] Websocket: Received: %s", msg)
-		// Example business logic: echo back
+		logger.Info("WebSocket received message", "message", string(msg))
 		if err := conn.WriteMessage(mt, msg); err != nil {
-			log.Printf("[ERROR] Websocket: Write error: %v", err)
+			logger.Error("WebSocket write error", "error", err.Error())
 			break
 		}
 	}
 }
 
 func main() {
-	log.SetFlags(log.LstdFlags)
+	loggerProvider, err := logging.NewLoggerProvider(logging.LoggerConfig{
+		ServiceName: "websocket",
+	})
+	if err != nil {
+		slog.Error("Failed to create logger provider", "error", err.Error())
+		os.Exit(1)
+	}
+	logger := loggerProvider.Logger()
 
-	// Load platform WebSocket configuration
 	wsCfg, err := ws.LoadConfig()
 	if err != nil {
-		log.Printf("[ERROR] Websocket: Failed to load WebSocket config: %v", err)
+		logger.Error("Failed to load WebSocket config", "error", err.Error())
 		os.Exit(1)
 	}
 
 	wsServer, err := ws.NewWebSocketServer()
 	if err != nil {
-		log.Printf("[ERROR] Websocket: Failed to create WebSocket server: %v", err)
+		logger.Error("Failed to create WebSocket server", "error", err.Error())
 		os.Exit(1)
 	}
 
-	log.Printf("[DEBUG] Websocket: The WebSocket server is starting...")
+	logger.Info("WebSocket server starting")
 	addr := wsCfg.Port
-	log.Printf("[DEBUG] Websocket: server listening on %s/ws", addr)
+	logger.Info("WebSocket server listening", "address", addr+"/ws")
 
-	// Create HTTP server with timeouts
 	httpServer := &http.Server{
 		Addr:         addr,
 		ReadTimeout:  30 * time.Second,
@@ -58,25 +63,24 @@ func main() {
 		IdleTimeout:  120 * time.Second,
 	}
 
-	http.HandleFunc("/ws", wsServer.Handle(echoHandler))
+	http.HandleFunc("/ws", wsServer.Handle(func(conn *websocket.Conn) {
+		echoHandler(logger, conn)
+	}))
 
-	// Start server in a goroutine
 	go func() {
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Printf("[ERROR] Websocket: ListenAndServe: %v", err)
+			logger.Error("ListenAndServe error", "error", err.Error())
 		}
 	}()
 
-	// Wait for interrupt to exit
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 	<-sig
-	log.Printf("[INFO] Websocket: Shutting down WebSocket server...")
+	logger.Info("Shutting down WebSocket server")
 
-	// Graceful shutdown
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	if err := httpServer.Shutdown(shutdownCtx); err != nil {
-		log.Printf("[ERROR] Websocket: Server forced to shutdown: %v", err)
+		logger.Error("Server forced to shutdown", "error", err.Error())
 	}
 }
