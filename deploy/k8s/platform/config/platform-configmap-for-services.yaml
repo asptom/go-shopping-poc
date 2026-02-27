@@ -8,7 +8,7 @@ metadata:
     component: platform
 data:
   # General Settings (shared by all services)
-  LOG_LEVEL: "info"
+  LOG_LEVEL: "debug"
 
   # Database Connection Pool Settings (shared by all services)
   DATABASE_MAX_OPEN_CONNS: "25"

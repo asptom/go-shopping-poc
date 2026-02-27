@@ -3,15 +3,27 @@ package database
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"go-shopping-poc/internal/platform/config"
 )
+
+// Option is a functional option for configuring DatabaseProviderImpl.
+type Option func(*DatabaseProviderImpl)
+
+// WithLogger sets the logger for the DatabaseProviderImpl.
+func WithLogger(logger *slog.Logger) Option {
+	return func(p *DatabaseProviderImpl) {
+		p.logger = logger
+	}
+}
 
 // DatabaseProviderImpl implements the DatabaseProvider interface.
 // It encapsulates database connection logic and provides a configured
 // PostgreSQL database instance to services.
 type DatabaseProviderImpl struct {
 	database Database
+	logger   *slog.Logger
 }
 
 // DatabaseProvider defines the interface for providing database connectivity.
@@ -26,6 +38,7 @@ type DatabaseProvider interface {
 //
 // Parameters:
 //   - databaseURL: The PostgreSQL connection string (e.g., "postgres://user:pass@host:port/db?sslmode=disable")
+//   - opts: Optional functional options for configuring the provider
 //
 // Returns:
 //   - A configured DatabaseProvider that provides database connectivity
@@ -38,27 +51,43 @@ type DatabaseProvider interface {
 //	    log.Fatal(err)
 //	}
 //	db := provider.GetDatabase()
-func NewDatabaseProvider(databaseURL string) (DatabaseProvider, error) {
+//
+// Or with custom logger:
+//
+//	provider, err := database.NewDatabaseProvider(url, database.WithLogger(logger))
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+func NewDatabaseProvider(databaseURL string, opts ...Option) (DatabaseProvider, error) {
+	p := &DatabaseProviderImpl{}
+
+	for _, opt := range opts {
+		opt(p)
+	}
+
+	if p.logger == nil {
+		p.logger = Logger()
+	}
+
 	if databaseURL == "" {
 		return nil, fmt.Errorf("database URL is required")
 	}
 
-	logger.Info("DatabaseProvider: Initializing database provider")
-
 	// Load platform database connection configuration
 	connConfigPtr, err := config.LoadConfig[ConnectionConfig]("platform-database")
 	if err != nil {
-		logger.Error("DatabaseProvider: Failed to load connection config", "error", err)
+		p.logger.Error("DatabaseProvider: Failed to load connection config", "error", err)
 		return nil, fmt.Errorf("failed to load database connection config: %w", err)
 	}
 	connConfig := *connConfigPtr
 
-	logger.Debug("DatabaseProvider: Connection config loaded successfully")
+	p.logger.Debug("DatabaseProvider: Connection config loaded successfully")
 
-	// Create PostgreSQL database client
-	db, err := NewPostgreSQLClient(databaseURL, connConfig)
+	// Create PostgreSQL database client with platform attributes added
+	dbLogger := p.logger.With("platform", "database", "component", "postgresql")
+	db, err := NewPostgreSQLClientWithLogger(databaseURL, dbLogger, connConfig)
 	if err != nil {
-		logger.Error("DatabaseProvider: Failed to create database client", "error", err)
+		p.logger.Error("DatabaseProvider: Failed to create database client", "error", err)
 		return nil, fmt.Errorf("failed to create database client: %w", err)
 	}
 
@@ -67,14 +96,15 @@ func NewDatabaseProvider(databaseURL string) (DatabaseProvider, error) {
 	defer cancel()
 
 	if err := db.Connect(ctx); err != nil {
-		logger.Error("DatabaseProvider: Failed to connect to database", "error", err)
+		p.logger.Error("DatabaseProvider: Failed to connect to database", "error", err)
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
-	logger.Info("DatabaseProvider: Database provider initialized successfully")
+	p.logger.Info("DatabaseProvider: Database provider initialized successfully")
 
 	return &DatabaseProviderImpl{
 		database: db,
+		logger:   p.logger,
 	}, nil
 }
 

@@ -1,6 +1,7 @@
 package sse
 
 import (
+	"log/slog"
 	"sync"
 )
 
@@ -9,12 +10,14 @@ type Hub struct {
 	// Map of cartID -> set of clients subscribed to that cart
 	subscribers map[string]map[*Client]bool
 	mu          sync.RWMutex
+	logger      *slog.Logger
 }
 
 // NewHub creates a new SSE hub
 func NewHub() *Hub {
 	return &Hub{
 		subscribers: make(map[string]map[*Client]bool),
+		logger:      Logger(),
 	}
 }
 
@@ -27,7 +30,7 @@ func (h *Hub) Subscribe(cartID string, client *Client) {
 		h.subscribers[cartID] = make(map[*Client]bool)
 	}
 	h.subscribers[cartID][client] = true
-	logger.Info("SSE: Client subscribed to cart", "cartID", cartID)
+	h.logger.Info("SSE: Client subscribed to cart", "cartID", cartID)
 }
 
 // Unsubscribe removes a client from the subscription list
@@ -38,7 +41,7 @@ func (h *Hub) Unsubscribe(cartID string, client *Client) {
 	if clients, ok := h.subscribers[cartID]; ok {
 		if _, exists := clients[client]; exists {
 			delete(clients, client)
-			logger.Info("SSE: Client unsubscribed from cart", "cartID", cartID)
+			h.logger.Info("SSE: Client unsubscribed from cart", "cartID", cartID)
 		}
 		if len(clients) == 0 {
 			delete(h.subscribers, cartID)
@@ -48,34 +51,34 @@ func (h *Hub) Unsubscribe(cartID string, client *Client) {
 
 // Publish sends an event to all subscribers of a cart
 func (h *Hub) Publish(cartID string, event string, data interface{}) {
-	logger.Debug("SSE: ========== PUBLISH REQUEST ==========", "cartID", cartID, "event", event)
-	logger.Debug("SSE: Publish called for cart", "cartID", cartID, "event", event)
+	h.logger.Debug("SSE: ========== PUBLISH REQUEST ==========", "cartID", cartID, "event", event)
+	h.logger.Debug("SSE: Publish called for cart", "cartID", cartID, "event", event)
 
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
 	clients, ok := h.subscribers[cartID]
 	if !ok {
-		logger.Debug("SSE: No subscribers found for cart", "cartID", cartID, "event", event)
-		logger.Debug("SSE: Available carts with subscribers", "carts", h.getSubscriberCartIDs())
+		h.logger.Debug("SSE: No subscribers found for cart", "cartID", cartID, "event", event)
+		h.logger.Debug("SSE: Available carts with subscribers", "carts", h.getSubscriberCartIDs())
 		return
 	}
 
-	logger.Debug("SSE: Found subscribers for cart", "cartID", cartID, "count", len(clients))
+	h.logger.Debug("SSE: Found subscribers for cart", "cartID", cartID, "count", len(clients))
 
 	sentCount := 0
 	for client := range clients {
-		logger.Debug("SSE: Attempting to send to client for cart", "cartID", cartID)
+		h.logger.Debug("SSE: Attempting to send to client for cart", "cartID", cartID)
 		select {
 		case client.send <- Message{Event: event, Data: data}:
-			logger.Debug("SSE: Event successfully queued for cart", "event", event, "cartID", cartID)
+			h.logger.Debug("SSE: Event successfully queued for cart", "event", event, "cartID", cartID)
 			sentCount++
 		default:
-			logger.Warn("SSE: Client buffer full for cart, removing client", "cartID", cartID)
+			h.logger.Warn("SSE: Client buffer full for cart, removing client", "cartID", cartID)
 			delete(clients, client)
 		}
 	}
-	logger.Debug("SSE: Publish complete - sent to %d/%d clients for cart %s", sentCount, len(clients), cartID)
+	h.logger.Debug("SSE: Publish complete - sent to %d/%d clients for cart %s", sentCount, len(clients), cartID)
 }
 
 // getSubscriberCartIDs returns a list of cart IDs that have subscribers (for debugging)

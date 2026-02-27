@@ -251,9 +251,7 @@ func main() {
 		}
 	}()
 
-	loggerProvider, err := logging.NewLoggerProvider(logging.LoggerConfig{
-		ServiceName: "product-loader",
-	})
+	loggerProvider, err := logging.NewLoggerProvider(logging.DefaultLoggerConfig("product-loader"))
 	if err != nil {
 		slog.Default().Error("Failed to create logger provider", "error", err.Error())
 		os.Exit(1)

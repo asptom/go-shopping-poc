@@ -30,9 +30,7 @@ func main() {
 		}
 	}()
 
-	loggerProvider, err := logging.NewLoggerProvider(logging.LoggerConfig{
-		ServiceName: "product-admin",
-	})
+	loggerProvider, err := logging.NewLoggerProvider(logging.DefaultLoggerConfig("product-admin"))
 	if err != nil {
 		slog.Default().Error("Failed to create logger provider", "error", err.Error())
 		os.Exit(1)
@@ -56,7 +54,7 @@ func main() {
 	}
 
 	logger.Debug("Creating database provider")
-	dbProvider, err := database.NewDatabaseProvider(dbURL)
+	dbProvider, err := database.NewDatabaseProvider(dbURL, database.WithLogger(logger))
 	if err != nil {
 		logger.Error("Failed to create database provider", "error", err.Error())
 		os.Exit(1)
@@ -73,7 +71,7 @@ func main() {
 		WriteTopic: cfg.WriteTopic,
 		GroupID:    cfg.Group,
 	}
-	eventBusProvider, err := event.NewEventBusProvider(eventBusConfig)
+	eventBusProvider, err := event.NewEventBusProvider(eventBusConfig, event.WithLogger(logger))
 	if err != nil {
 		logger.Error("Failed to create event bus provider", "error", err.Error())
 		os.Exit(1)
@@ -81,7 +79,7 @@ func main() {
 	eventBus := eventBusProvider.GetEventBus()
 
 	logger.Debug("Creating storage provider")
-	storageProvider, err := storage.NewStorageProvider()
+	storageProvider, err := storage.NewStorageProvider(storage.WithLogger(logger))
 	if err != nil {
 		logger.Error("Failed to create storage provider", "error", err.Error())
 		os.Exit(1)
@@ -95,7 +93,7 @@ func main() {
 	}
 
 	logger.Debug("Creating outbox providers")
-	writerProvider := providers.NewWriterProvider(platformDB)
+	writerProvider := providers.NewWriterProvider(platformDB, providers.WithWriterLogger(logger))
 
 	// Create outbox publisher with service-specific fast interval for validation events
 	outboxConfig := outbox.Config{
@@ -103,7 +101,7 @@ func main() {
 		ProcessInterval: cfg.OutboxProcessInterval,
 	}
 	logger.Info("Outbox publisher configured", "interval", outboxConfig.ProcessInterval, "batch_size", outboxConfig.BatchSize)
-	outboxPublisher := outbox.NewPublisher(platformDB, eventBus, outboxConfig)
+	outboxPublisher := outbox.NewPublisher(platformDB, eventBus, outboxConfig, outbox.WithPublisherLogger(logger))
 	outboxPublisher.Start()
 	defer outboxPublisher.Stop()
 
@@ -115,7 +113,7 @@ func main() {
 		CacheMaxAge:  cfg.CacheMaxAge,
 		CacheMaxSize: cfg.CacheMaxSize,
 	}
-	downloaderProvider, err := downloader.NewDownloaderProvider(downloaderConfig)
+	downloaderProvider, err := downloader.NewDownloaderProvider(downloaderConfig, downloader.WithLogger(logger))
 	if err != nil {
 		logger.Error("Failed to create downloader provider", "error", err.Error())
 		os.Exit(1)
@@ -144,7 +142,7 @@ func main() {
 	logger.Debug("Router setup completed")
 
 	logger.Debug("Creating CORS provider")
-	corsProvider, err := cors.NewCORSProvider()
+	corsProvider, err := cors.NewCORSProvider(cors.WithLogger(logger))
 	if err != nil {
 		logger.Error("Failed to create CORS provider", "error", err.Error())
 		os.Exit(1)

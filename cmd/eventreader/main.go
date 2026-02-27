@@ -17,9 +17,7 @@ import (
 )
 
 func main() {
-	loggerProvider, err := logging.NewLoggerProvider(logging.LoggerConfig{
-		ServiceName: "eventreader",
-	})
+	loggerProvider, err := logging.NewLoggerProvider(logging.DefaultLoggerConfig("eventreader"))
 	if err != nil {
 		log.Fatalf("Eventreader: Failed to create logger provider: %v", err)
 	}
@@ -43,7 +41,7 @@ func main() {
 		WriteTopic: cfg.WriteTopic,
 		GroupID:    cfg.Group,
 	}
-	eventBusProvider, err := event.NewEventBusProvider(eventBusConfig)
+	eventBusProvider, err := event.NewEventBusProvider(eventBusConfig, event.WithLogger(logger))
 	if err != nil {
 		logger.Error("Failed to create event bus provider", logging.ErrorAttr(err))
 		os.Exit(1)

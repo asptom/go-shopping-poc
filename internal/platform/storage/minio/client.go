@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/url"
 	"path/filepath"
 	"strings"
@@ -17,6 +18,7 @@ import (
 type Client struct {
 	client *minio.Client
 	config *Config
+	logger *slog.Logger
 }
 
 // Config holds MinIO client configuration
@@ -68,6 +70,7 @@ func NewClient(config *Config) (*Client, error) {
 	client := &Client{
 		client: minioClient,
 		config: config,
+		logger: Logger(),
 	}
 
 	return client, nil
@@ -309,11 +312,11 @@ func (c *Client) PresignedGetObject(ctx context.Context, bucketName, objectName 
 	}
 
 	originalURL := presignedURL.String()
-	logger.Debug("Generated presigned URL (before endpoint replacement)", "url", originalURL)
+	c.logger.Debug("Generated presigned URL (before endpoint replacement)", "url", originalURL)
 
 	// Use external endpoint for presigned URLs if configured
 	result := c.replaceEndpointIfConfigured(originalURL)
-	logger.Debug("Final presigned URL (after endpoint replacement)", "url", result)
+	c.logger.Debug("Final presigned URL (after endpoint replacement)", "url", result)
 	return result, nil
 }
 
@@ -342,14 +345,14 @@ func (c *Client) PresignedPutObject(ctx context.Context, bucketName, objectName 
 // This is used for presigned URLs so external clients can access them
 func (c *Client) replaceEndpointIfConfigured(urlStr string) string {
 	if c.config.ExternalEndpoint == "" {
-		logger.Debug("ExternalEndpoint not configured, using original URL", "url", urlStr)
+		c.logger.Debug("ExternalEndpoint not configured, using original URL", "url", urlStr)
 		return urlStr
 	}
 
 	// Parse the generated URL
 	parsedURL, err := url.Parse(urlStr)
 	if err != nil {
-		logger.Warn("Failed to parse generated URL", "url", urlStr, "error", err)
+		c.logger.Warn("Failed to parse generated URL", "url", urlStr, "error", err)
 		return urlStr
 	}
 
@@ -362,7 +365,7 @@ func (c *Client) replaceEndpointIfConfigured(urlStr string) string {
 
 	externalURL, err := url.Parse(externalEndpoint)
 	if err != nil {
-		logger.Warn("Failed to parse external endpoint", "endpoint", externalEndpoint, "error", err)
+		c.logger.Warn("Failed to parse external endpoint", "endpoint", externalEndpoint, "error", err)
 		return urlStr
 	}
 
@@ -371,7 +374,7 @@ func (c *Client) replaceEndpointIfConfigured(urlStr string) string {
 	parsedURL.Host = externalURL.Host
 
 	result := parsedURL.String()
-	logger.Debug("Replaced endpoint in URL", "original", urlStr, "external", externalEndpoint, "result", result)
+	c.logger.Debug("Replaced endpoint in URL", "original", urlStr, "external", externalEndpoint, "result", result)
 	return result
 }
 

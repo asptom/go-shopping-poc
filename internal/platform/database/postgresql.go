@@ -26,16 +26,25 @@ func (c *PostgreSQLClient) DB() *sqlx.DB {
 
 // NewPostgreSQLClient creates a new PostgreSQL database client
 func NewPostgreSQLClient(databaseURL string, connConfig ...ConnectionConfig) (Database, error) {
+	return NewPostgreSQLClientWithLogger(databaseURL, nil, connConfig...)
+}
+
+// NewPostgreSQLClientWithLogger creates a new PostgreSQL database client with a custom logger
+func NewPostgreSQLClientWithLogger(databaseURL string, logger *slog.Logger, connConfig ...ConnectionConfig) (Database, error) {
 	// Use default connection config if not provided
 	cfg := DefaultConnectionConfig()
 	if len(connConfig) > 0 {
 		cfg = connConfig[0]
 	}
 
+	if logger == nil {
+		logger = Logger()
+	}
+
 	client := &PostgreSQLClient{
 		databaseURL: databaseURL,
 		connConfig:  cfg,
-		logger:      Logger(),
+		logger:      logger,
 	}
 
 	return client, nil
@@ -204,7 +213,7 @@ func (c *PostgreSQLClient) BeginTx(ctx context.Context, opts *sql.TxOptions) (Tx
 		return nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
 
-	return &PostgreSQLTx{tx: tx, ctx: ctx}, nil
+	return &PostgreSQLTx{tx: tx, ctx: ctx, logger: c.logger}, nil
 }
 
 // Stats returns database statistics
@@ -227,8 +236,9 @@ func (c *PostgreSQLClient) SelectContext(ctx context.Context, dest interface{}, 
 
 // PostgreSQLTx implements the Tx interface for PostgreSQL transactions
 type PostgreSQLTx struct {
-	tx  *sqlx.Tx
-	ctx context.Context
+	tx     *sqlx.Tx
+	ctx    context.Context
+	logger *slog.Logger
 }
 
 // Context returns the transaction's context for cancellation and tracing
@@ -273,28 +283,28 @@ func (t *PostgreSQLTx) SelectContext(ctx context.Context, dest interface{}, quer
 
 // Commit commits the transaction
 func (t *PostgreSQLTx) Commit() error {
-	logger.Debug("Committing transaction")
+	t.logger.Debug("Committing transaction")
 	err := t.tx.Commit()
 	if err != nil {
-		logger.Error("Failed to commit transaction",
+		t.logger.Error("Failed to commit transaction",
 			"error", err.Error(),
 		)
 		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
-	logger.Debug("Transaction committed")
+	t.logger.Debug("Transaction committed")
 	return nil
 }
 
 // Rollback rolls back the transaction
 func (t *PostgreSQLTx) Rollback() error {
-	logger.Debug("Rolling back transaction")
+	t.logger.Debug("Rolling back transaction")
 	err := t.tx.Rollback()
 	if err != nil {
-		logger.Error("Failed to rollback transaction",
+		t.logger.Error("Failed to rollback transaction",
 			"error", err.Error(),
 		)
 		return fmt.Errorf("failed to rollback transaction: %w", err)
 	}
-	logger.Debug("Transaction rolled back")
+	t.logger.Debug("Transaction rolled back")
 	return nil
 }

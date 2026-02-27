@@ -23,9 +23,7 @@ import (
 )
 
 func main() {
-	loggerProvider, err := logging.NewLoggerProvider(logging.LoggerConfig{
-		ServiceName: "order",
-	})
+	loggerProvider, err := logging.NewLoggerProvider(logging.DefaultLoggerConfig("order"))
 	if err != nil {
 		log.Fatalf("Order: Failed to create logger provider: %v", err)
 	}
@@ -52,7 +50,7 @@ func main() {
 	}
 
 	logger.Debug("Creating database provider")
-	dbProvider, err := database.NewDatabaseProvider(dbURL)
+	dbProvider, err := database.NewDatabaseProvider(dbURL, database.WithLogger(logger))
 	if err != nil {
 		logger.Error("Failed to create database provider", logging.ErrorAttr(err))
 		os.Exit(1)
@@ -69,7 +67,7 @@ func main() {
 		WriteTopic: cfg.WriteTopic,
 		GroupID:    cfg.Group,
 	}
-	eventBusProvider, err := event.NewEventBusProvider(eventBusConfig)
+	eventBusProvider, err := event.NewEventBusProvider(eventBusConfig, event.WithLogger(logger))
 	if err != nil {
 		logger.Error("Failed to create event bus provider", logging.ErrorAttr(err))
 		os.Exit(1)
@@ -77,8 +75,8 @@ func main() {
 	eventBus := eventBusProvider.GetEventBus()
 
 	logger.Debug("Creating outbox providers")
-	writerProvider := providers.NewWriterProvider(db)
-	publisherProvider := providers.NewPublisherProvider(db, eventBus)
+	writerProvider := providers.NewWriterProvider(db, providers.WithWriterLogger(logger))
+	publisherProvider := providers.NewPublisherProvider(db, eventBus, providers.WithPublisherLogger(logger))
 	if publisherProvider == nil {
 		logger.Error("Failed to create publisher provider")
 		os.Exit(1)
@@ -89,7 +87,7 @@ func main() {
 	outboxWriter := writerProvider.GetWriter()
 
 	logger.Debug("Creating CORS provider")
-	corsProvider, err := cors.NewCORSProvider()
+	corsProvider, err := cors.NewCORSProvider(cors.WithLogger(logger))
 	if err != nil {
 		logger.Error("Failed to create CORS provider", logging.ErrorAttr(err))
 		os.Exit(1)

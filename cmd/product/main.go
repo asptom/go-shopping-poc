@@ -30,9 +30,7 @@ func main() {
 		}
 	}()
 
-	loggerProvider, err := logging.NewLoggerProvider(logging.LoggerConfig{
-		ServiceName: "product",
-	})
+	loggerProvider, err := logging.NewLoggerProvider(logging.DefaultLoggerConfig("product"))
 	if err != nil {
 		log.Fatalf("Product: Failed to create logger provider: %v", err)
 	}
@@ -55,7 +53,7 @@ func main() {
 	}
 
 	logger.Debug("Creating database provider")
-	dbProvider, err := database.NewDatabaseProvider(dbURL)
+	dbProvider, err := database.NewDatabaseProvider(dbURL, database.WithLogger(logger))
 	if err != nil {
 		logger.Error("Failed to create database provider", "error", err.Error())
 		os.Exit(1)
@@ -68,7 +66,7 @@ func main() {
 	}()
 
 	logger.Debug("Creating outbox writer provider")
-	writerProvider := providers.NewWriterProvider(platformDB)
+	writerProvider := providers.NewWriterProvider(platformDB, providers.WithWriterLogger(logger))
 
 	// Event bus setup for consuming cart validation requests
 	logger.Debug("Creating event bus provider")
@@ -76,7 +74,7 @@ func main() {
 		WriteTopic: cfg.WriteTopic,
 		GroupID:    cfg.Group,
 	}
-	eventBusProvider, err := event.NewEventBusProvider(eventBusConfig)
+	eventBusProvider, err := event.NewEventBusProvider(eventBusConfig, event.WithLogger(logger))
 	if err != nil {
 		logger.Error("Failed to create event bus provider", "error", err.Error())
 		os.Exit(1)
@@ -85,7 +83,7 @@ func main() {
 
 	// Create outbox publisher for immediate event processing
 	logger.Debug("Creating outbox publisher")
-	publisherProvider := providers.NewPublisherProvider(platformDB, eventBus)
+	publisherProvider := providers.NewPublisherProvider(platformDB, eventBus, providers.WithPublisherLogger(logger))
 	outboxPublisher := publisherProvider.GetPublisher()
 	outboxPublisher.Start()
 	defer outboxPublisher.Stop()

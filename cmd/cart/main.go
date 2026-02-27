@@ -26,9 +26,7 @@ import (
 )
 
 func main() {
-	loggerProvider, err := logging.NewLoggerProvider(logging.LoggerConfig{
-		ServiceName: "cart",
-	})
+	loggerProvider, err := logging.NewLoggerProvider(logging.DefaultLoggerConfig("cart"))
 	if err != nil {
 		log.Fatalf("Cart: Failed to create logger provider: %v", err)
 	}
@@ -55,7 +53,7 @@ func main() {
 	}
 
 	logger.Debug("Creating database provider")
-	dbProvider, err := database.NewDatabaseProvider(dbURL)
+	dbProvider, err := database.NewDatabaseProvider(dbURL, database.WithLogger(logger))
 	if err != nil {
 		logger.Error("Failed to create database provider", logging.ErrorAttr(err))
 		os.Exit(1)
@@ -72,7 +70,7 @@ func main() {
 		WriteTopic: cfg.WriteTopic,
 		GroupID:    cfg.Group,
 	}
-	eventBusProvider, err := event.NewEventBusProvider(eventBusConfig)
+	eventBusProvider, err := event.NewEventBusProvider(eventBusConfig, event.WithLogger(logger))
 	if err != nil {
 		logger.Error("Failed to create event bus provider", logging.ErrorAttr(err))
 		os.Exit(1)
@@ -80,7 +78,7 @@ func main() {
 	eventBus := eventBusProvider.GetEventBus()
 
 	logger.Debug("Creating outbox components")
-	writerProvider := providers.NewWriterProvider(db)
+	writerProvider := providers.NewWriterProvider(db, providers.WithWriterLogger(logger))
 	outboxWriter := writerProvider.GetWriter()
 
 	outboxConfig := outbox.Config{
@@ -91,12 +89,12 @@ func main() {
 		"interval", outboxConfig.ProcessInterval.String(),
 		"batch_size", outboxConfig.BatchSize,
 	)
-	outboxPublisher := outbox.NewPublisher(db, eventBus, outboxConfig)
+	outboxPublisher := outbox.NewPublisher(db, eventBus, outboxConfig, outbox.WithPublisherLogger(logger))
 	outboxPublisher.Start()
 	defer outboxPublisher.Stop()
 
 	logger.Debug("Creating CORS provider")
-	corsProvider, err := cors.NewCORSProvider()
+	corsProvider, err := cors.NewCORSProvider(cors.WithLogger(logger))
 	if err != nil {
 		logger.Error("Failed to create CORS provider", logging.ErrorAttr(err))
 		os.Exit(1)
@@ -104,7 +102,7 @@ func main() {
 	corsHandler := corsProvider.GetCORSHandler()
 
 	logger.Debug("Creating SSE provider")
-	sseProvider := sse.NewProvider()
+	sseProvider := sse.NewProvider(sse.WithLogger(logger))
 
 	logger.Debug("Creating cart infrastructure")
 	infrastructure := cart.NewCartInfrastructure(

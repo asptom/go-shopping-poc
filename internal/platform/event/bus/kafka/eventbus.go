@@ -28,16 +28,31 @@ func init() {
 	logger = Logger()
 }
 
+// Option is a functional option for configuring EventBus
+type Option func(*EventBus)
+
+// WithLogger sets a custom logger for the EventBus
+func WithLogger(l *slog.Logger) Option {
+	return func(eb *EventBus) {
+		eb.logger = l
+	}
+}
+
 // NewEventBus creates a Kafka event bus using the provided configuration.
-func NewEventBus(kafkaCfg *kafkaconfig.Config) *EventBus {
+func NewEventBus(kafkaCfg *kafkaconfig.Config, opts ...Option) *EventBus {
+	eb := &EventBus{
+		readers:       make(map[string]*kafka.Reader),
+		typedHandlers: make(map[string][]func(ctx context.Context, data []byte) error),
+		kafkaCfg:      kafkaCfg,
+		logger:        logger,
+	}
+
+	for _, opt := range opts {
+		opt(eb)
+	}
+
 	if kafkaCfg == nil {
-		// Return a minimal eventbus that won't panic but won't work
-		return &EventBus{
-			readers:       make(map[string]*kafka.Reader),
-			typedHandlers: make(map[string][]func(ctx context.Context, data []byte) error),
-			kafkaCfg:      nil,
-			logger:        logger,
-		}
+		return eb
 	}
 
 	writer := &kafka.Writer{
@@ -46,13 +61,9 @@ func NewEventBus(kafkaCfg *kafkaconfig.Config) *EventBus {
 		Balancer: &kafka.LeastBytes{},
 	}
 
-	return &EventBus{
-		writer:        writer,
-		readers:       make(map[string]*kafka.Reader),
-		typedHandlers: make(map[string][]func(ctx context.Context, data []byte) error),
-		kafkaCfg:      kafkaCfg,
-		logger:        logger,
-	}
+	eb.writer = writer
+
+	return eb
 }
 
 func (eb *EventBus) WriteTopic() string {

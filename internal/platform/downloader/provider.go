@@ -2,14 +2,26 @@ package downloader
 
 import (
 	"fmt"
+	"log/slog"
 	"time"
 )
+
+// ProviderOption is a functional option for configuring DownloaderProviderImpl.
+type ProviderOption func(*DownloaderProviderImpl)
+
+// WithLogger sets the logger for the DownloaderProviderImpl.
+func WithLogger(logger *slog.Logger) ProviderOption {
+	return func(p *DownloaderProviderImpl) {
+		p.logger = logger
+	}
+}
 
 // DownloaderProviderImpl implements the DownloaderProvider interface.
 // It encapsulates HTTP downloader setup and provides a configured
 // HTTP downloader instance to services.
 type DownloaderProviderImpl struct {
 	downloader HTTPDownloader
+	logger     *slog.Logger
 }
 
 // DownloaderProvider defines the interface for providing HTTP downloading with caching.
@@ -37,6 +49,7 @@ type DownloaderProviderConfig struct {
 //
 // Parameters:
 //   - config: Configuration specifying cache directory and policy
+//   - opts: Optional functional options for configuring the provider
 //
 // Returns:
 //   - A configured DownloaderProvider that provides HTTP downloading with caching
@@ -54,12 +67,28 @@ type DownloaderProviderConfig struct {
 //	    log.Fatal(err)
 //	}
 //	downloader := provider.GetHTTPDownloader()
-func NewDownloaderProvider(config DownloaderProviderConfig) (DownloaderProvider, error) {
+//
+// Or with custom logger:
+//
+//	provider, err := downloader.NewDownloaderProvider(config, downloader.WithLogger(logger))
+func NewDownloaderProvider(config DownloaderProviderConfig, opts ...ProviderOption) (DownloaderProvider, error) {
+	p := &DownloaderProviderImpl{}
+
+	for _, opt := range opts {
+		opt(p)
+	}
+
+	if p.logger == nil {
+		p.logger = Logger()
+	}
+
+	p.logger = p.logger.With("platform", "downloader")
+
 	if config.CacheDir == "" {
 		return nil, fmt.Errorf("cache directory is required")
 	}
 
-	logger.Info("DownloaderProvider: Initializing downloader provider with cache dir", "cacheDir", config.CacheDir)
+	p.logger.Info("DownloaderProvider: Initializing downloader provider with cache dir", "cacheDir", config.CacheDir)
 
 	// Set default cache policy if not specified
 	cachePolicy := CachePolicy{
@@ -75,19 +104,20 @@ func NewDownloaderProvider(config DownloaderProviderConfig) (DownloaderProvider,
 		cachePolicy.MaxSize = config.CacheMaxSize
 	}
 
-	logger.Debug("DownloaderProvider: Cache policy", "maxAge", cachePolicy.MaxAge, "maxSize", cachePolicy.MaxSize)
+	p.logger.Debug("DownloaderProvider: Cache policy", "maxAge", cachePolicy.MaxAge, "maxSize", cachePolicy.MaxSize)
 
 	// Create HTTP downloader with cache policy
 	httpDownloader, err := NewHTTPDownloader(config.CacheDir, WithCachePolicy(cachePolicy))
 	if err != nil {
-		logger.Error("DownloaderProvider: Failed to create HTTP downloader", "error", err)
+		p.logger.Error("DownloaderProvider: Failed to create HTTP downloader", "error", err)
 		return nil, fmt.Errorf("failed to create HTTP downloader: %w", err)
 	}
 
-	logger.Info("DownloaderProvider: Downloader provider initialized successfully")
+	p.logger.Info("DownloaderProvider: Downloader provider initialized successfully")
 
 	return &DownloaderProviderImpl{
 		downloader: httpDownloader,
+		logger:     p.logger,
 	}, nil
 }
 

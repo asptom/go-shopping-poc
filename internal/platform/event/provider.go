@@ -11,11 +11,22 @@ import (
 	kafkaconfig "go-shopping-poc/internal/platform/event/kafka"
 )
 
+// Option is a functional option for configuring EventBusProviderImpl.
+type Option func(*EventBusProviderImpl)
+
+// WithLogger sets the logger for the EventBusProviderImpl.
+func WithLogger(logger *slog.Logger) Option {
+	return func(p *EventBusProviderImpl) {
+		p.logger = logger
+	}
+}
+
 // EventBusProviderImpl implements the EventBusProvider interface.
 // It encapsulates Kafka event bus setup and provides a configured event bus
 // instance to services with service-specific topic and group configuration.
 type EventBusProviderImpl struct {
 	eventBus bus.Bus
+	logger   *slog.Logger
 }
 
 // EventBusProvider defines the interface for providing event messaging infrastructure.
@@ -51,6 +62,7 @@ func init() {
 //
 // Parameters:
 //   - config: Service-specific event bus configuration containing topic and group ID
+//   - opts: Optional functional options for configuring the provider
 //
 // Returns:
 //   - A configured EventBusProvider that provides event messaging infrastructure
@@ -67,7 +79,21 @@ func init() {
 //	    log.Fatal(err)
 //	}
 //	bus := provider.GetEventBus()
-func NewEventBusProvider(config EventBusConfig) (EventBusProvider, error) {
+//
+// Or with custom logger:
+//
+//	provider, err := event.NewEventBusProvider(config, event.WithLogger(logger))
+func NewEventBusProvider(config EventBusConfig, opts ...Option) (EventBusProvider, error) {
+	p := &EventBusProviderImpl{}
+
+	for _, opt := range opts {
+		opt(p)
+	}
+
+	if p.logger == nil {
+		p.logger = logger
+	}
+
 	if config.WriteTopic == "" {
 		return nil, fmt.Errorf("write topic is required")
 	}
@@ -75,34 +101,36 @@ func NewEventBusProvider(config EventBusConfig) (EventBusProvider, error) {
 		return nil, fmt.Errorf("group ID is required")
 	}
 
-	logger.Info("EventBusProvider: Initializing event bus provider", "topic", config.WriteTopic, "group", config.GroupID)
+	p.logger.Info("EventBusProvider: Initializing event bus provider", "topic", config.WriteTopic, "group", config.GroupID)
 
 	// Load platform Kafka configuration
 	kafkaCfg, err := configPkg.LoadConfig[kafkaconfig.Config]("platform-kafka")
 	if err != nil {
-		logger.Error("EventBusProvider: Failed to load Kafka config", "error", err)
+		p.logger.Error("EventBusProvider: Failed to load Kafka config", "error", err)
 		return nil, fmt.Errorf("failed to load Kafka config: %w", err)
 	}
 
-	logger.Debug("EventBusProvider: Platform Kafka config loaded successfully")
+	p.logger.Debug("EventBusProvider: Platform Kafka config loaded successfully")
 
 	// Apply service-specific configuration overrides
 	kafkaCfg.Topic = config.WriteTopic
 	kafkaCfg.GroupID = config.GroupID
 
-	logger.Debug("EventBusProvider: Applied service-specific config", "topic", kafkaCfg.Topic, "group", kafkaCfg.GroupID)
+	p.logger.Debug("EventBusProvider: Applied service-specific config", "topic", kafkaCfg.Topic, "group", kafkaCfg.GroupID)
 
-	// Create Kafka event bus
-	eventBus := kafkabus.NewEventBus(kafkaCfg)
+	// Create Kafka event bus with platform attributes
+	kafkaLogger := p.logger.With("platform", "event", "component", "kafka")
+	eventBus := kafkabus.NewEventBus(kafkaCfg, kafkabus.WithLogger(kafkaLogger))
 	if eventBus == nil {
-		logger.Error("EventBusProvider: Failed to create event bus")
+		p.logger.Error("EventBusProvider: Failed to create event bus")
 		return nil, fmt.Errorf("failed to create event bus")
 	}
 
-	logger.Info("EventBusProvider: Event bus provider initialized successfully")
+	p.logger.Info("EventBusProvider: Event bus provider initialized successfully")
 
 	return &EventBusProviderImpl{
 		eventBus: eventBus,
+		logger:   p.logger,
 	}, nil
 }
 

@@ -2,17 +2,29 @@ package storage
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 
 	"go-shopping-poc/internal/platform/config"
 	"go-shopping-poc/internal/platform/storage/minio"
 )
 
+// Option is a functional option for configuring StorageProviderImpl.
+type Option func(*StorageProviderImpl)
+
+// WithLogger sets the logger for the StorageProviderImpl.
+func WithLogger(logger *slog.Logger) Option {
+	return func(p *StorageProviderImpl) {
+		p.logger = logger
+	}
+}
+
 // StorageProviderImpl implements the StorageProvider interface.
 // It encapsulates MinIO object storage setup and provides a configured
 // MinIO client to services.
 type StorageProviderImpl struct {
 	storage minio.ObjectStorage
+	logger  *slog.Logger
 }
 
 // StorageProvider defines the interface for providing object storage.
@@ -26,6 +38,9 @@ type StorageProvider interface {
 // based on the environment (Kubernetes vs Local), creates a MinIO client,
 // and establishes a connection to the object storage.
 //
+// Parameters:
+//   - opts: Optional functional options for configuring the provider
+//
 // Returns:
 //   - A configured StorageProvider that provides object storage connectivity
 //   - An error if configuration loading, client creation, or connection fails
@@ -37,25 +52,40 @@ type StorageProvider interface {
 //	    log.Fatal(err)
 //	}
 //	storage := provider.GetObjectStorage()
-func NewStorageProvider() (StorageProvider, error) {
-	logger.Info("StorageProvider: Initializing storage provider")
+//
+// Or with custom logger:
+//
+//	provider, err := storage.NewStorageProvider(storage.WithLogger(logger))
+func NewStorageProvider(opts ...Option) (StorageProvider, error) {
+	p := &StorageProviderImpl{}
+
+	for _, opt := range opts {
+		opt(p)
+	}
+
+	if p.logger == nil {
+		p.logger = Logger()
+	}
+
+	p.logger = p.logger.With("platform", "storage")
+	p.logger.Info("StorageProvider: Initializing storage provider")
 
 	// Load platform MinIO configuration
 	platformCfg, err := config.LoadConfig[minio.PlatformConfig]("platform-minio")
 	if err != nil {
-		logger.Error("StorageProvider: Failed to load MinIO config", "error", err)
+		p.logger.Error("StorageProvider: Failed to load MinIO config", "error", err)
 		return nil, fmt.Errorf("failed to load MinIO config: %w", err)
 	}
 
-	logger.Debug("StorageProvider: MinIO config loaded successfully")
+	p.logger.Debug("StorageProvider: MinIO config loaded successfully")
 
 	// Determine endpoint based on environment
 	endpoint := platformCfg.EndpointLocal
 	if os.Getenv("KUBERNETES_SERVICE_HOST") != "" {
 		endpoint = platformCfg.EndpointKubernetes
-		logger.Debug("StorageProvider: Using Kubernetes endpoint", "endpoint", endpoint)
+		p.logger.Debug("StorageProvider: Using Kubernetes endpoint", "endpoint", endpoint)
 	} else {
-		logger.Debug("StorageProvider: Using local endpoint", "endpoint", endpoint)
+		p.logger.Debug("StorageProvider: Using local endpoint", "endpoint", endpoint)
 	}
 
 	// Create MinIO client configuration
@@ -68,19 +98,20 @@ func NewStorageProvider() (StorageProvider, error) {
 		SecretKey:        platformCfg.SecretKey,
 		Secure:           platformCfg.TLSVerify,
 	}
-	logger.Debug("StorageProvider: External endpoint for presigned URLs", "endpoint", platformCfg.EndpointLocal)
+	p.logger.Debug("StorageProvider: External endpoint for presigned URLs", "endpoint", platformCfg.EndpointLocal)
 
 	// Create MinIO client
 	storageClient, err := minio.NewClient(minioCfg)
 	if err != nil {
-		logger.Error("StorageProvider: Failed to create MinIO client", "error", err)
+		p.logger.Error("StorageProvider: Failed to create MinIO client", "error", err)
 		return nil, fmt.Errorf("failed to create MinIO client: %w", err)
 	}
 
-	logger.Info("StorageProvider: Storage provider initialized successfully")
+	p.logger.Info("StorageProvider: Storage provider initialized successfully")
 
 	return &StorageProviderImpl{
 		storage: storageClient,
+		logger:  p.logger,
 	}, nil
 }
 

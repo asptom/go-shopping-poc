@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sync/atomic"
 	"time"
 
@@ -24,6 +25,7 @@ type Publisher struct {
 	immediateQueue    chan struct{} // Buffered channel for immediate processing requests
 	maxConcurrent     int           // Maximum concurrent immediate processing goroutines
 	currentProcessing int32         // Atomic counter for current processing goroutines
+	logger            *slog.Logger
 }
 
 var (
@@ -48,18 +50,41 @@ func init() {
 	prometheus.MustRegister(eventProcessingTime)
 }
 
-func NewPublisher(db database.Database, publisher bus.Bus, cfg Config) *Publisher {
-	ctx, cancel := context.WithCancel(context.Background())
-	return &Publisher{
+// PublisherOption is a functional option for configuring Publisher.
+type PublisherOption func(*Publisher)
+
+// WithPublisherLogger sets the logger for the Publisher.
+func WithPublisherLogger(logger *slog.Logger) PublisherOption {
+	return func(p *Publisher) {
+		p.logger = logger
+	}
+}
+
+func NewPublisher(db database.Database, publisher bus.Bus, cfg Config, opts ...PublisherOption) *Publisher {
+	p := &Publisher{
 		db:              db,
 		publisher:       publisher,
 		batchSize:       cfg.BatchSize,
 		processInterval: cfg.ProcessInterval,
-		shutdownCtx:     ctx,
-		shutdownCancel:  cancel,
 		immediateQueue:  make(chan struct{}, 100), // Buffer up to 100 immediate requests
 		maxConcurrent:   10,                       // Max 10 concurrent processing goroutines
 	}
+
+	for _, opt := range opts {
+		opt(p)
+	}
+
+	if p.logger == nil {
+		p.logger = Logger()
+	}
+
+	p.logger = p.logger.With("platform", "outbox", "component", "publisher")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	p.shutdownCtx = ctx
+	p.shutdownCancel = cancel
+
+	return p
 }
 
 // Start begins the publishing process.
@@ -96,10 +121,10 @@ func (p *Publisher) processOutbox() error {
 	rows, err := p.db.Query(ctx, query, p.batchSize)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
-			logger.Debug("Context cancelled during query, stopping")
+			p.logger.Debug("Context cancelled during query, stopping")
 			return nil
 		}
-		logger.Error("Failed to read outbox events", "error", err)
+		p.logger.Error("Failed to read outbox events", "error", err)
 		return err
 	}
 	defer rows.Close()
@@ -110,10 +135,10 @@ func (p *Publisher) processOutbox() error {
 		err := rows.Scan(&event.ID, &event.EventType, &event.Topic, &event.EventPayload, &event.CreatedAt, &event.TimesAttempted, &event.PublishedAt)
 		if err != nil {
 			if errors.Is(err, context.Canceled) {
-				logger.Debug("Context cancelled during scan, stopping iteration")
+				p.logger.Debug("Context cancelled during scan, stopping iteration")
 				return nil
 			}
-			logger.Error("Failed to scan outbox event", "error", err)
+			p.logger.Error("Failed to scan outbox event", "error", err)
 			continue
 		}
 		outboxEvents = append(outboxEvents, event)
@@ -121,10 +146,10 @@ func (p *Publisher) processOutbox() error {
 
 	if err := rows.Err(); err != nil {
 		if errors.Is(err, context.Canceled) {
-			logger.Debug("Context cancelled during iteration, stopping")
+			p.logger.Debug("Context cancelled during iteration, stopping")
 			return nil
 		}
-		logger.Error("Error iterating over outbox events", "error", err)
+		p.logger.Error("Error iterating over outbox events", "error", err)
 		return err
 	}
 
@@ -134,12 +159,12 @@ func (p *Publisher) processOutbox() error {
 	}
 
 	for _, outboxEvent := range outboxEvents {
-		logger.Debug("Will publish outbox event to topic", "topic", outboxEvent.Topic)
+		p.logger.Debug("Will publish outbox event to topic", "topic", outboxEvent.Topic)
 
 		// Check if we're shutting down before processing each event
 		select {
 		case <-p.shutdownCtx.Done():
-			logger.Debug("Shutdown detected, stopping event processing")
+			p.logger.Debug("Shutdown detected, stopping event processing")
 			return nil
 		default:
 		}
@@ -147,13 +172,13 @@ func (p *Publisher) processOutbox() error {
 		// Use PublishRaw to avoid double marshaling and support both legacy and typed handlers
 		err := p.publishEvent(ctx, outboxEvent)
 		if err != nil {
-			logger.Error("Failed to publish event", "event_id", outboxEvent.ID, "error", err)
+			p.logger.Error("Failed to publish event", "event_id", outboxEvent.ID, "error", err)
 			outboxEvent.TimesAttempted++
 
 			updateQuery := "UPDATE outbox.outbox SET times_attempted = $1 WHERE id = $2"
 			_, err = p.db.Exec(ctx, updateQuery, outboxEvent.TimesAttempted, outboxEvent.ID)
 			if err != nil {
-				logger.Error("Failed to update times attempted for event", "event_id", outboxEvent.ID, "error", err)
+				p.logger.Error("Failed to update times attempted for event", "event_id", outboxEvent.ID, "error", err)
 			}
 			continue
 		}
@@ -174,7 +199,7 @@ func (p *Publisher) publishEvent(ctx context.Context, event OutboxEvent) error {
 		return WrapWithContext(errors.New("failed to update event status"), "failed to mark event as published")
 	}
 
-	logger.Info("Published event", "event_id", event.ID, "topic", event.Topic)
+	p.logger.Info("Published event", "event_id", event.ID, "topic", event.Topic)
 	return nil
 }
 
@@ -189,14 +214,14 @@ func (p *Publisher) processImmediateQueue() {
 			current := atomic.LoadInt32(&p.currentProcessing)
 			if current >= int32(p.maxConcurrent) {
 				// Too many concurrent, skip this one (will be picked up by polling)
-				logger.Debug("Max concurrent processing reached, skipping immediate")
+				p.logger.Debug("Max concurrent processing reached, skipping immediate")
 				continue
 			}
 
 			// Increment counter and process
 			atomic.AddInt32(&p.currentProcessing, 1)
 			if err := p.processOutbox(); err != nil {
-				logger.Error("Immediate processing error", "error", err)
+				p.logger.Error("Immediate processing error", "error", err)
 			}
 			atomic.AddInt32(&p.currentProcessing, -1)
 		}
@@ -213,7 +238,7 @@ func (p *Publisher) ProcessNow() error {
 		return nil
 	default:
 		// Queue full, will be picked up by polling
-		logger.Debug("Immediate queue full, event will be processed by polling")
+		p.logger.Debug("Immediate queue full, event will be processed by polling")
 		return nil
 	}
 }

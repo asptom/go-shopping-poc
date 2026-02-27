@@ -31,9 +31,7 @@ func echoHandler(logger *slog.Logger, conn *websocket.Conn) {
 }
 
 func main() {
-	loggerProvider, err := logging.NewLoggerProvider(logging.LoggerConfig{
-		ServiceName: "websocket",
-	})
+	loggerProvider, err := logging.NewLoggerProvider(logging.DefaultLoggerConfig("websocket"))
 	if err != nil {
 		slog.Error("Failed to create logger provider", "error", err.Error())
 		os.Exit(1)

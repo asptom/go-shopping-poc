@@ -2,12 +2,34 @@ package config
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/spf13/viper"
 )
+
+var (
+	configLogger *slog.Logger
+)
+
+func init() {
+	level := slog.LevelInfo
+	if lvl := os.Getenv("LOG_LEVEL"); lvl != "" {
+		switch strings.ToLower(lvl) {
+		case "debug":
+			level = slog.LevelDebug
+		case "warn", "warning":
+			level = slog.LevelWarn
+		case "error":
+			level = slog.LevelError
+		}
+	}
+	configLogger = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+		Level: level,
+	})).With("component", "config")
+}
 
 // ConfigLoader provides generic configuration loading capabilities
 type ConfigLoader interface {
@@ -75,7 +97,7 @@ func (l *ViperLoader) Validate(config interface{}) error {
 
 // LoadConfig loads configuration from environment variables only
 func LoadConfig[T any](serviceName string) (*T, error) {
-	fmt.Printf("[DEBUG] Loading config for service: %s\n", serviceName)
+	configLogger.Debug("Loading config", "service", serviceName)
 
 	loader := NewViperLoader()
 
