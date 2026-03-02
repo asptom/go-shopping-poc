@@ -13,6 +13,7 @@ SERVICES_NAMESPACE := shopping
 AUTH_NAMESPACE := keycloak
 KAFKA_NAMESPACE := kafka
 MINIO_NAMESPACE := minio
+LOKI_NAMESPACE := loki
 
 # ------------------------------------------------------------------
 # --- Include sub-makefiles (use real paths under PROJECT_HOME) ---
@@ -35,6 +36,7 @@ include $(PROJECT_HOME)/resources/make/keycloak.mk
 include $(PROJECT_HOME)/resources/make/services.mk
 include $(PROJECT_HOME)/resources/make/config.mk
 include $(PROJECT_HOME)/resources/make/product-load.mk
+include $(PROJECT_HOME)/resources/make/loki.mk
 
 # ------------------------------------------------------------------
 # --- Targets ---
@@ -42,7 +44,7 @@ include $(PROJECT_HOME)/resources/make/product-load.mk
 
 $(eval $(call help_entry,platform,PRIMARY,Install all platform services (Keycloak, Postgres, Minio, Kafka, Certificates)))
 .PHONY: platform 
-platform: k8s-namespaces certificates-install postgres-platform keycloak-platform kafka-platform minio-install config-install
+platform: k8s-namespaces certificates-install postgres-platform keycloak-platform kafka-platform minio-install config-install loki-stack-install
 
 $(eval $(call help_entry,services,PRIMARY,Install all application services))
 .PHONY: services

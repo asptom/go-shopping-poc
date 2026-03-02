@@ -1,0 +1,24 @@
+controller:
+  type: daemonset
+
+alloy:
+  configMap:
+    content: |
+      {{ .Files.Get "alloy-logs.river" }}
+
+  extraArgs:
+    - "--server.http.listen-addr=0.0.0.0:12345"
+
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 50m
+    memory: 128Mi
+
+serviceAccount:
+  create: true
+
+rbac:
+  create: true

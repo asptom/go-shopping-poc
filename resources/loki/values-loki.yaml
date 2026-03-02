@@ -1,0 +1,67 @@
+deploymentMode: SingleBinary
+
+loki:
+  auth_enabled: false
+
+  schemaConfig:  # ← Must be nested under loki:
+    configs:
+      - from: 2024-01-01
+        store: tsdb
+        object_store: filesystem
+        schema: v13
+        index:
+          prefix: index_
+          period: 24h
+
+  storage:
+    type: filesystem
+    bucketNames:  # Dummies to satisfy chart validation (ignored for filesystem)
+      chunks: dummy-chunks
+      ruler: dummy-ruler
+      admin: dummy-admin
+    filesystem:
+      chunks_directory: /var/loki/chunks
+      rules_directory: /var/loki/rules
+
+  ingester:
+    lifecycler:
+      ring:
+        replication_factor: 1          # Reinforce here (overrides common if needed)
+        kvstore:
+          store: memberlist
+      heartbeat_period: 5s
+      heartbeat_timeout: 1m
+      num_tokens: 128                  # Lower for single node
+    autoforget_unhealthy: true         # Critical: auto-remove unhealthy from ring
+
+commonConfig:
+  replication_factor: 1
+
+singleBinary:
+  replicas: 1
+  persistence:
+    enabled: true
+    size: 2Gi  # Adjust based on your needs; Rancher Desktop's local-path StorageClass should handle this
+
+# Disable microservices components
+read:
+  replicas: 0
+write:
+  replicas: 0
+backend:
+  replicas: 0
+ingester:
+  replicas: 0
+querier:
+  replicas: 0
+
+gateway:
+  enabled: false
+
+# Disable extras for lightweight local setup
+chunksCache:
+  enabled: false
+resultsCache:
+  enabled: false
+lokiCanary:
+  enabled: true
