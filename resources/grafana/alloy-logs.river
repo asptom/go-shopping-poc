@@ -37,6 +37,6 @@ loki.source.kubernetes "pods" {
 // Send logs to Loki
 loki.write "default" {
   endpoint {
-    url = "http://loki.loki.svc.cluster.local:3100/loki/api/v1/push"
+    url = "http://loki.grafana.svc.cluster.local:3100/loki/api/v1/push"
   }
 }

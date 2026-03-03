@@ -101,7 +101,7 @@ func NewEventBusProvider(config EventBusConfig, opts ...Option) (EventBusProvide
 		return nil, fmt.Errorf("group ID is required")
 	}
 
-	p.logger.Info("EventBusProvider: Initializing event bus provider", "topic", config.WriteTopic, "group", config.GroupID)
+	p.logger.Debug("EventBusProvider: Initializing event bus provider", "topic", config.WriteTopic, "group", config.GroupID)
 
 	// Load platform Kafka configuration
 	kafkaCfg, err := configPkg.LoadConfig[kafkaconfig.Config]("platform-kafka")
@@ -126,7 +126,7 @@ func NewEventBusProvider(config EventBusConfig, opts ...Option) (EventBusProvide
 		return nil, fmt.Errorf("failed to create event bus")
 	}
 
-	p.logger.Info("EventBusProvider: Event bus provider initialized successfully")
+	p.logger.Debug("EventBusProvider: Event bus provider initialized successfully")
 
 	return &EventBusProviderImpl{
 		eventBus: eventBus,

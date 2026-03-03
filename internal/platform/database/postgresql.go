@@ -66,7 +66,7 @@ func DefaultConnectionConfig() ConnectionConfig {
 
 // Connect establishes a connection to the database
 func (c *PostgreSQLClient) Connect(ctx context.Context) error {
-	c.logger.Info("Connecting to PostgreSQL",
+	c.logger.Debug("Connecting to PostgreSQL",
 		"database", c.databaseURL,
 	)
 
@@ -87,7 +87,7 @@ func (c *PostgreSQLClient) Connect(ctx context.Context) error {
 
 	c.db = db
 
-	c.logger.Info("Successfully connected to PostgreSQL")
+	c.logger.Debug("Successfully connected to PostgreSQL")
 	return nil
 }
 
@@ -97,7 +97,7 @@ func (c *PostgreSQLClient) Close() error {
 		return nil
 	}
 
-	c.logger.Info("Closing PostgreSQL connection")
+	c.logger.Debug("Closing PostgreSQL connection")
 	err := c.db.Close()
 	c.db = nil
 
@@ -108,7 +108,7 @@ func (c *PostgreSQLClient) Close() error {
 		return fmt.Errorf("failed to close database connection: %w", err)
 	}
 
-	c.logger.Info("PostgreSQL connection closed")
+	c.logger.Debug("PostgreSQL connection closed")
 	return nil
 }
 

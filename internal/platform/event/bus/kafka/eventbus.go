@@ -106,7 +106,7 @@ func SubscribeTyped[T events.Event](eb *EventBus, factory events.EventFactory[T]
 
 	typedHandler := NewTypedHandler(factory, handler)
 	eb.typedHandlers[topic] = append(eb.typedHandlers[topic], typedHandler.Handle)
-	eb.logger.Info("subscribed to topic",
+	eb.logger.Debug("subscribed to topic",
 		"topic", topic)
 }
 

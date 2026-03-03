@@ -69,9 +69,9 @@ func (u *EventUtils) ValidateEvent(ctx context.Context, event events.Event) erro
 // LogEventProcessing provides standardized logging for event processing
 func (u *EventUtils) LogEventProcessing(ctx context.Context, eventType string, entityID string, resourceID string) {
 	if resourceID != "" {
-		logger.Info("Processing event", "event_type", eventType, "entity_id", entityID, "resource_id", resourceID)
+		logger.Debug("Processing event", "event_type", eventType, "entity_id", entityID, "resource_id", resourceID)
 	} else {
-		logger.Info("Processing event", "event_type", eventType, "entity_id", entityID)
+		logger.Debug("Processing event", "event_type", eventType, "entity_id", entityID)
 	}
 }
 
@@ -80,7 +80,7 @@ func (u *EventUtils) LogEventCompletion(ctx context.Context, eventType string, e
 	if err != nil {
 		logger.Error("Failed to process event", "event_type", eventType, "entity_id", entityID, "error", err)
 	} else {
-		logger.Info("Successfully processed event", "event_type", eventType, "entity_id", entityID)
+		logger.Debug("Successfully processed event", "event_type", eventType, "entity_id", entityID)
 	}
 }
 

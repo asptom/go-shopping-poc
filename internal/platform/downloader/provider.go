@@ -88,7 +88,7 @@ func NewDownloaderProvider(config DownloaderProviderConfig, opts ...ProviderOpti
 		return nil, fmt.Errorf("cache directory is required")
 	}
 
-	p.logger.Info("DownloaderProvider: Initializing downloader provider with cache dir", "cacheDir", config.CacheDir)
+	p.logger.Debug("DownloaderProvider: Initializing downloader provider with cache dir", "cacheDir", config.CacheDir)
 
 	// Set default cache policy if not specified
 	cachePolicy := CachePolicy{
@@ -113,7 +113,7 @@ func NewDownloaderProvider(config DownloaderProviderConfig, opts ...ProviderOpti
 		return nil, fmt.Errorf("failed to create HTTP downloader: %w", err)
 	}
 
-	p.logger.Info("DownloaderProvider: Downloader provider initialized successfully")
+	p.logger.Debug("DownloaderProvider: Downloader provider initialized successfully")
 
 	return &DownloaderProviderImpl{
 		downloader: httpDownloader,

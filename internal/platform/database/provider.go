@@ -100,7 +100,7 @@ func NewDatabaseProvider(databaseURL string, opts ...Option) (DatabaseProvider, 
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
-	p.logger.Info("DatabaseProvider: Database provider initialized successfully")
+	p.logger.Debug("DatabaseProvider: Database provider initialized successfully")
 
 	return &DatabaseProviderImpl{
 		database: db,

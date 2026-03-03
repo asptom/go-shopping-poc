@@ -67,7 +67,7 @@ func NewCORSProvider(opts ...Option) (CORSProvider, error) {
 	}
 
 	p.logger = p.logger.With("platform", "cors")
-	p.logger.Info("CORSProvider: Initializing CORS provider")
+	p.logger.Debug("CORSProvider: Initializing CORS provider")
 
 	// Load platform CORS configuration
 	corsCfg, err := config.LoadConfig[Config]("platform-cors")
@@ -89,7 +89,7 @@ func NewCORSProvider(opts ...Option) (CORSProvider, error) {
 	// Create CORS middleware handler
 	corsHandler := NewFromConfig(corsCfg)
 
-	p.logger.Info("CORSProvider: CORS provider initialized successfully")
+	p.logger.Debug("CORSProvider: CORS provider initialized successfully")
 
 	return &CORSProviderImpl{
 		corsHandler: corsHandler,

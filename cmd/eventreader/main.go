@@ -87,13 +87,13 @@ func main() {
 }
 
 func registerEventHandlers(service *eventreader.EventReaderService, logger *slog.Logger) error {
-	logger.Info("Registering event handlers")
+	logger.Debug("Registering event handlers")
 
 	handlerLogger := logger.With("component", "event_handler")
 
 	customerCreatedHandler := eventhandlers.NewOnCustomerCreated(handlerLogger)
 
-	logger.Info("Registering handler",
+	logger.Debug("Registering handler",
 		"event_type", customerCreatedHandler.EventType(),
 		"topic", events.CustomerEvent{}.Topic(),
 	)
@@ -106,11 +106,11 @@ func registerEventHandlers(service *eventreader.EventReaderService, logger *slog
 		return fmt.Errorf("failed to register CustomerCreated handler: %w", err)
 	}
 
-	logger.Info("Successfully registered CustomerCreated handler")
+	logger.Debug("Successfully registered CustomerCreated handler")
 
 	productCreatedHandler := eventhandlers.NewOnProductCreated(handlerLogger)
 
-	logger.Info("Registering handler",
+	logger.Debug("Registering handler",
 		"event_type", productCreatedHandler.EventType(),
 		"topic", events.ProductEvent{}.Topic(),
 	)
@@ -123,36 +123,36 @@ func registerEventHandlers(service *eventreader.EventReaderService, logger *slog
 		return fmt.Errorf("failed to register ProductCreated handler: %w", err)
 	}
 
-	logger.Info("Successfully registered ProductCreated handler")
-	logger.Info("Event handler registration completed")
+	logger.Debug("Successfully registered ProductCreated handler")
+	logger.Debug("Event handler registration completed")
 
 	return nil
 }
 
 func validateServiceConfiguration(service *eventreader.EventReaderService, logger *slog.Logger) error {
-	logger.Info("Validating service configuration")
+	logger.Debug("Validating service configuration")
 	_ = service
-	logger.Info("Service configuration validation passed")
+	logger.Debug("Service configuration validation passed")
 	return nil
 }
 
 func logServiceInformation(service *eventreader.EventReaderService, logger *slog.Logger) {
-	logger.Info("Service Information",
+	logger.Debug("Service Information",
 		"service_name", service.Name(),
 		"handlers_registered", service.HandlerCount(),
 	)
 
 	customerEvent := &events.CustomerEvent{}
-	logger.Info("Customer events will be processed",
+	logger.Debug("Customer events will be processed",
 		"topic", customerEvent.Topic(),
 		"event_types", []string{string(events.CustomerCreated), string(events.CustomerUpdated)},
 	)
 
 	productEvent := &events.ProductEvent{}
-	logger.Info("Product events will be processed",
+	logger.Debug("Product events will be processed",
 		"topic", productEvent.Topic(),
 		"event_types", []string{string(events.ProductCreated)},
 	)
 
-	logger.Info("Service is ready to start processing events")
+	logger.Debug("Service is ready to start processing events")
 }

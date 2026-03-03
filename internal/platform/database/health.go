@@ -100,13 +100,13 @@ func (c *PostgreSQLClient) ValidateConnection(ctx context.Context) error {
 		return fmt.Errorf("database validation query returned unexpected result: %d", result)
 	}
 
-	c.logger.Info("Database: Connection validation successful")
+	c.logger.Debug("Database: Connection validation successful")
 	return nil
 }
 
 // Reconnect attempts to reconnect to the database
 func (c *PostgreSQLClient) Reconnect(ctx context.Context) error {
-	c.logger.Info("Database: Attempting to reconnect")
+	c.logger.Debug("Database: Attempting to reconnect")
 
 	// Close existing connection if any
 	if c.db != nil {

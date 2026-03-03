@@ -84,9 +84,9 @@ func (h *OnOrderCreated) Handle(ctx context.Context, event events.Event) error {
 }
 
 func (h *OnOrderCreated) updateCartStatus(ctx context.Context, cartID string) error {
-	h.logger.Info("Processing OrderCreated event", "cart_id", cartID)
+	h.logger.Debug("Processing OrderCreated event", "cart_id", cartID)
 	_ = ctx
-	h.logger.Info("Updating cart status to completed", "cart_id", cartID)
+	h.logger.Debug("Updating cart status to completed", "cart_id", cartID)
 	return nil
 }
 

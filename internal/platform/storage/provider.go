@@ -68,7 +68,7 @@ func NewStorageProvider(opts ...Option) (StorageProvider, error) {
 	}
 
 	p.logger = p.logger.With("platform", "storage")
-	p.logger.Info("StorageProvider: Initializing storage provider")
+	p.logger.Debug("StorageProvider: Initializing storage provider")
 
 	// Load platform MinIO configuration
 	platformCfg, err := config.LoadConfig[minio.PlatformConfig]("platform-minio")
@@ -107,7 +107,7 @@ func NewStorageProvider(opts ...Option) (StorageProvider, error) {
 		return nil, fmt.Errorf("failed to create MinIO client: %w", err)
 	}
 
-	p.logger.Info("StorageProvider: Storage provider initialized successfully")
+	p.logger.Debug("StorageProvider: Storage provider initialized successfully")
 
 	return &StorageProviderImpl{
 		storage: storageClient,

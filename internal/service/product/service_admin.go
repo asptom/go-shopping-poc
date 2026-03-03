@@ -93,7 +93,7 @@ func NewAdminService(logger *slog.Logger, config interface{}, infrastructure *Ad
 
 // CreateProduct creates a new product with validation and event publishing
 func (s *AdminService) CreateProduct(ctx context.Context, product *Product) error {
-	s.logger.Info("Creating new product")
+	s.logger.Debug("Creating new product")
 
 	if err := product.Validate(); err != nil {
 		return fmt.Errorf("product validation failed: %w", err)
@@ -112,13 +112,13 @@ func (s *AdminService) CreateProduct(ctx context.Context, product *Product) erro
 		return fmt.Errorf("failed to insert product: %w", err)
 	}
 
-	s.logger.Info("Successfully created product", "product_id", product.ID)
+	s.logger.Debug("Successfully created product", "product_id", product.ID)
 	return nil
 }
 
 // UpdateProduct updates an existing product
 func (s *AdminService) UpdateProduct(ctx context.Context, product *Product) error {
-	s.logger.Info("Updating product", "product_id", product.ID)
+	s.logger.Debug("Updating product", "product_id", product.ID)
 
 	if err := product.Validate(); err != nil {
 		return fmt.Errorf("product validation failed: %w", err)
@@ -135,13 +135,13 @@ func (s *AdminService) UpdateProduct(ctx context.Context, product *Product) erro
 		return fmt.Errorf("failed to update product: %w", err)
 	}
 
-	s.logger.Info("Successfully updated product", "product_id", product.ID)
+	s.logger.Debug("Successfully updated product", "product_id", product.ID)
 	return nil
 }
 
 // DeleteProduct removes a product and publishes deletion event
 func (s *AdminService) DeleteProduct(ctx context.Context, productID int64) error {
-	s.logger.Info("Deleting product", "product_id", productID)
+	s.logger.Debug("Deleting product", "product_id", productID)
 
 	if productID == 0 {
 		return fmt.Errorf("product ID is required for deletion")
@@ -158,13 +158,13 @@ func (s *AdminService) DeleteProduct(ctx context.Context, productID int64) error
 		return fmt.Errorf("failed to delete product: %w", err)
 	}
 
-	s.logger.Info("Successfully deleted product", "product_id", productID)
+	s.logger.Debug("Successfully deleted product", "product_id", productID)
 	return nil
 }
 
 // AddProductImage adds an image to a product
 func (s *AdminService) AddProductImage(ctx context.Context, image *ProductImage) error {
-	s.logger.Info("Adding image for product", "product_id", image.ProductID)
+	s.logger.Debug("Adding image for product", "product_id", image.ProductID)
 
 	if err := image.Validate(); err != nil {
 		return fmt.Errorf("image validation failed: %w", err)
@@ -175,13 +175,13 @@ func (s *AdminService) AddProductImage(ctx context.Context, image *ProductImage)
 		return fmt.Errorf("failed to add image: %w", err)
 	}
 
-	s.logger.Info("Successfully added image for product", "product_id", image.ProductID)
+	s.logger.Debug("Successfully added image for product", "product_id", image.ProductID)
 	return nil
 }
 
 // UpdateProductImage updates an existing product image
 func (s *AdminService) UpdateProductImage(ctx context.Context, image *ProductImage) error {
-	s.logger.Info("Updating image", "image_id", image.ID)
+	s.logger.Debug("Updating image", "image_id", image.ID)
 
 	if err := image.Validate(); err != nil {
 		return fmt.Errorf("image validation failed: %w", err)
@@ -192,13 +192,13 @@ func (s *AdminService) UpdateProductImage(ctx context.Context, image *ProductIma
 		return fmt.Errorf("failed to update image: %w", err)
 	}
 
-	s.logger.Info("Successfully updated image", "image_id", image.ID)
+	s.logger.Debug("Successfully updated image", "image_id", image.ID)
 	return nil
 }
 
 // DeleteProductImage removes a product image
 func (s *AdminService) DeleteProductImage(ctx context.Context, imageID int64) error {
-	s.logger.Info("Deleting image", "image_id", imageID)
+	s.logger.Debug("Deleting image", "image_id", imageID)
 
 	// Get image details first (for Minio deletion)
 	// ADDED: Need to fetch image before deleting to get MinioObjectName
@@ -228,7 +228,7 @@ func (s *AdminService) DeleteProductImage(ctx context.Context, imageID int64) er
 // AddSingleImage adds a single image to a product by downloading from URL and uploading to Minio
 // ADDED: New method for admin API to add individual images
 func (s *AdminService) AddSingleImage(ctx context.Context, productID int64, imageURL string, isMain bool) (*ProductImage, error) {
-	s.logger.Info("Adding single image for product from URL", "product_id", productID)
+	s.logger.Debug("Adding single image for product from URL", "product_id", productID)
 
 	if productID <= 0 {
 		return nil, fmt.Errorf("product ID must be positive")
@@ -284,13 +284,13 @@ func (s *AdminService) AddSingleImage(ctx context.Context, productID int64, imag
 		return nil, fmt.Errorf("failed to add product image: %w", err)
 	}
 
-	s.logger.Info("Successfully added image to product", "image_id", productImage.ID, "product_id", productID)
+	s.logger.Debug("Successfully added image to product", "image_id", productImage.ID, "product_id", productID)
 	return productImage, nil
 }
 
 // SetMainImage sets the main image for a product
 func (s *AdminService) SetMainImage(ctx context.Context, productID int64, imageID int64) error {
-	s.logger.Info("Setting main image for product", "image_id", imageID, "product_id", productID)
+	s.logger.Debug("Setting main image for product", "image_id", imageID, "product_id", productID)
 
 	// CHANGED: Use SetMainImageFlag instead of SetMainImage (repository method renamed)
 	if err := s.repo.SetMainImageFlag(ctx, productID, imageID); err != nil {
@@ -303,7 +303,7 @@ func (s *AdminService) SetMainImage(ctx context.Context, productID int64, imageI
 
 // IngestProductsFromCSV orchestrates the complete product ingestion workflow
 func (s *AdminService) IngestProductsFromCSV(ctx context.Context, req *ProductIngestionRequest) (*ProductIngestionResult, error) {
-	s.logger.Info("Starting product ingestion from CSV", "csv_path", req.CSVPath)
+	s.logger.Debug("Starting product ingestion from CSV", "csv_path", req.CSVPath)
 
 	startTime := time.Now()
 	batchID := req.BatchID
@@ -351,13 +351,13 @@ func (s *AdminService) IngestProductsFromCSV(ctx context.Context, req *ProductIn
 	}
 
 	result.TotalProducts = len(records)
-	s.logger.Info("Parsed products from CSV", "count", result.TotalProducts)
+	s.logger.Debug("Parsed products from CSV", "count", result.TotalProducts)
 
 	if req.ResetCache {
 		if err := s.infrastructure.HTTPDownloader.ClearCache(); err != nil {
 			s.logger.Warn("Failed to clear cache", "error", err.Error())
 		} else {
-			s.logger.Info("Cache cleared successfully")
+			s.logger.Debug("Cache cleared successfully")
 		}
 	}
 
@@ -381,7 +381,7 @@ func (s *AdminService) IngestProductsFromCSV(ctx context.Context, req *ProductIn
 		}
 
 		batch := records[i:end]
-		s.logger.Info("Processing batch of products", "start", i+1, "end", end, "total", len(records))
+		s.logger.Debug("Processing batch of products", "start", i+1, "end", end, "total", len(records))
 
 		if err := s.processProductBatch(ctx, batch, req.UseCache, result); err != nil {
 			errMsg := fmt.Sprintf("Failed to process batch %d-%d: %v", i+1, end, err)
@@ -390,7 +390,7 @@ func (s *AdminService) IngestProductsFromCSV(ctx context.Context, req *ProductIn
 		}
 	}
 
-	s.logger.Info("Ingestion completed", "processed_products", result.ProcessedProducts, "total_products", result.TotalProducts, "successful_images", result.SuccessfulImages, "total_images", result.TotalImages)
+	s.logger.Debug("Ingestion completed", "processed_products", result.ProcessedProducts, "total_products", result.TotalProducts, "successful_images", result.SuccessfulImages, "total_images", result.TotalImages)
 
 	return result, nil
 }
@@ -626,7 +626,7 @@ func (s *AdminService) ensureBucketExists(ctx context.Context, bucketName string
 		if err := s.infrastructure.ObjectStorage.CreateBucket(ctx, bucketName); err != nil {
 			return fmt.Errorf("failed to create bucket %s: %w", bucketName, err)
 		}
-		s.logger.Info("Created MinIO bucket", "bucket", bucketName)
+		s.logger.Debug("Created MinIO bucket", "bucket", bucketName)
 	} else {
 		s.logger.Debug("MinIO bucket already exists", "bucket", bucketName)
 	}

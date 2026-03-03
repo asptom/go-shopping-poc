@@ -231,7 +231,7 @@ func (s *CartService) AddItem(ctx context.Context, cartID string, productID stri
 		)
 	}
 
-	s.logger.Info("Added pending item to cart",
+	s.logger.Debug("Added pending item to cart",
 		"item_line_number", item.LineNumber,
 		"cart_id", cartID,
 	)

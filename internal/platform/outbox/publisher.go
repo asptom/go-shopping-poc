@@ -199,7 +199,7 @@ func (p *Publisher) publishEvent(ctx context.Context, event OutboxEvent) error {
 		return WrapWithContext(errors.New("failed to update event status"), "failed to mark event as published")
 	}
 
-	p.logger.Info("Published event", "event_id", event.ID, "topic", event.Topic)
+	p.logger.Debug("Published event", "event_id", event.ID, "topic", event.Topic)
 	return nil
 }
 

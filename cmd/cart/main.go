@@ -118,7 +118,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	logger.Info("Starting event consumer", "topics", service.EventBus().ReadTopics())
+	logger.Debug("Starting event consumer", "topics", service.EventBus().ReadTopics())
 	go func() {
 		ctx := context.Background()
 		if err := service.Start(ctx); err != nil {
@@ -194,12 +194,12 @@ func main() {
 }
 
 func registerEventHandlers(service *cart.CartService, sseHub *sse.Hub, logger *slog.Logger) error {
-	logger.Info("Registering event handlers")
+	logger.Debug("Registering event handlers")
 
 	handlerLogger := logger.With("component", "event_handler")
 
 	orderCreatedHandler := eventhandlers.NewOnOrderCreated(sseHub, handlerLogger)
-	logger.Info("Registering handler",
+	logger.Debug("Registering handler",
 		"event_type", orderCreatedHandler.EventType(),
 		"topic", events.OrderEvent{}.Topic(),
 	)
@@ -212,10 +212,10 @@ func registerEventHandlers(service *cart.CartService, sseHub *sse.Hub, logger *s
 		return fmt.Errorf("failed to register OrderCreated handler: %w", err)
 	}
 
-	logger.Info("Successfully registered OrderCreated handler")
+	logger.Debug("Successfully registered OrderCreated handler")
 
 	productValidatedHandler := eventhandlers.NewOnProductValidated(service.GetRepository(), sseHub, handlerLogger)
-	logger.Info("Registering handler", "event_type", productValidatedHandler.EventType())
+	logger.Debug("Registering handler", "event_type", productValidatedHandler.EventType())
 
 	if err := cart.RegisterHandler(
 		service,
@@ -225,8 +225,8 @@ func registerEventHandlers(service *cart.CartService, sseHub *sse.Hub, logger *s
 		return fmt.Errorf("failed to register ProductValidated handler: %w", err)
 	}
 
-	logger.Info("Successfully registered ProductValidated handler")
-	logger.Info("Event handler registration completed")
+	logger.Debug("Successfully registered ProductValidated handler")
+	logger.Debug("Event handler registration completed")
 
 	return nil
 }

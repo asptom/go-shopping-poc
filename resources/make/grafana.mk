@@ -1,10 +1,12 @@
-# Sub-Makefile for LOki/Grafana installation and management
+# Sub-Makefile for Grafana - loki/alloy/grafana installation and management
 # Include this in your top-level Makefile with:
-#   include $(PROJECT_HOME)/resources/make/loki.mk
+#   include $(PROJECT_HOME)/resources/make/grafana.mk
 
-LOKI_NAMESPACE ?= loki
+GRAFANA_NAMESPACE ?= grafana
 SERVICES_NAMESPACE ?= shopping
 LOKI_CHART ?= grafana/loki
+ALLOY_CHART ?= grafana/alloy
+GRAFANA_CHART ?= grafana/grafana
 
 # ------------------------------------------------------------------
 # Install Loki using Helm
@@ -15,8 +17,8 @@ loki-install:
 	$(call run,Install Loki using Helm,$@, \
 		set -euo pipefail; \
 		helm upgrade --install loki $(LOKI_CHART) \
-			--namespace $(LOKI_NAMESPACE) \
-			--values $(PROJECT_HOME)/resources/loki/values-loki.yaml \
+			--namespace $(GRAFANA_NAMESPACE) \
+			--values $(PROJECT_HOME)/resources/grafana/values-loki.yaml \
 			--wait --timeout 180s; \
 	)
 
@@ -29,9 +31,9 @@ alloy-install:
 	$(call run,Install Alloy using Helm,$@, \
 		set -euo pipefail; \
 		helm upgrade --install alloy grafana/alloy \
-			--namespace $(SERVICES_NAMESPACE) \
-			--values $(PROJECT_HOME)/resources/loki/values-alloy.yaml \
-			--set-file alloy.configMap.content=$(PROJECT_HOME)/resources/loki/alloy-logs.river \
+			--namespace $(GRAFANA_NAMESPACE) \
+			--values $(PROJECT_HOME)/resources/grafana/values-alloy.yaml \
+			--set-file alloy.configMap.content=$(PROJECT_HOME)/resources/grafana/alloy-logs.river \
 			--wait --timeout 180s; \
 	)
 
@@ -44,17 +46,28 @@ grafana-install:
 	$(call run,Install Grafana using Helm,$@, \
 		set -euo pipefail; \
 		helm upgrade --install grafana grafana/grafana \
-			--namespace $(SERVICES_NAMESPACE) \
-			--values $(PROJECT_HOME)/resources/loki/values-grafana.yaml \
+			--namespace $(GRAFANA_NAMESPACE) \
+			--values $(PROJECT_HOME)/resources/grafana/values-grafana.yaml \
 			--wait --timeout 180s; \
 	)
 
 # ------------------------------------------------------------------
+# Install Grafana Ingress using kubectl
+# ------------------------------------------------------------------
+$(eval $(call help_entry,grafana-ingress-install,Loki,Install Grafana Ingress using kubectl))
+.PHONY: grafana-ingress-install
+grafana-ingress-install:
+	$(call run,Install Grafana Ingress using kubectl,$@, \
+		set -euo pipefail; \
+		kubectl apply -f deploy/k8s/platform/grafana/grafana-ingress.yaml; \
+	)	
+
+# ------------------------------------------------------------------
 # Install Grafana Loki Stack (Loki + Alloy + Grafana)
 # ------------------------------------------------------------------
-$(eval $(call help_entry,loki-stack-install,Loki,Install Grafana Loki Stack (Loki + Alloy + Grafana)))
-.PHONY: loki-stack-install
-loki-stack-install: loki-install alloy-install grafana-install
+$(eval $(call help_entry,grafana-stack-install,Loki,Install Grafana Loki Stack (Loki + Alloy + Grafana)))
+.PHONY: grafana-stack-install
+grafana-stack-install: loki-install alloy-install grafana-install grafana-ingress-install
 
 # ------------------------------------------------------------------
 # Uninstall Loki
@@ -64,7 +77,7 @@ $(eval $(call help_entry,loki-uninstall,Loki,Uninstall Loki using Helm))
 loki-uninstall:
 	$(call run,Uninstall Loki using Helm,$@, \
 		set -euo pipefail; \
-		helm uninstall loki -n $(LOKI_NAMESPACE); \
+		helm uninstall loki -n $(GRAFANA_NAMESPACE); \
 	)
 
 # ------------------------------------------------------------------
@@ -75,7 +88,7 @@ $(eval $(call help_entry,alloy-uninstall,Loki,Uninstall Alloy using Helm))
 alloy-uninstall:
 	$(call run,Uninstall Alloy using Helm,$@, \
 		set -euo pipefail; \
-		helm uninstall alloy -n $(SERVICES_NAMESPACE); \
+		helm uninstall alloy -n $(GRAFANA_NAMESPACE); \
 	)
 
 # ------------------------------------------------------------------
@@ -86,15 +99,27 @@ $(eval $(call help_entry,grafana-uninstall,Loki,Uninstall Grafana using Helm))
 grafana-uninstall:
 	$(call run,Uninstall Grafana using Helm,$@, \
 		set -euo pipefail; \
-		helm uninstall grafana -n $(SERVICES_NAMESPACE); \
+		helm uninstall grafana -n $(GRAFANA_NAMESPACE); \
+	)
+
+# ------------------------------------------------------------------
+# Uninstall Grafana Ingress
+# ------------------------------------------------------------------
+
+$(eval $(call help_entry,grafana-ingress-uninstall,Loki,Uninstall Grafana Ingress using kubectl))
+.PHONY: grafana-ingress-uninstall
+grafana-ingress-uninstall:
+	$(call run,Uninstall Grafana Ingress using kubectl,$@, \
+		set -euo pipefail; \
+		kubectl delete -f deploy/k8s/platform/grafana/grafana-ingress.yaml --ignore-not-found; \
 	)
 
 # ------------------------------------------------------------------
 # Uninstall Grafana Loki Stack (Loki + Alloy + Grafana)
 # ------------------------------------------------------------------
-$(eval $(call help_entry,loki-stack-uninstall,Loki,Uninstall Grafana Loki Stack (Loki + Alloy + Grafana)))
-.PHONY: loki-stack-uninstall
-loki-stack-uninstall: loki-uninstall alloy-uninstall grafana-uninstall
+$(eval $(call help_entry,grafana-stack-uninstall,Loki,Uninstall Grafana Loki Stack (Loki + Alloy + Grafana)))
+.PHONY: grafana-stack-uninstall
+grafana-stack-uninstall: loki-uninstall alloy-uninstall grafana-uninstall grafana-ingress-uninstall
 
 # ------------------------------------------------------------------
 # Get Grafana credentials
@@ -105,20 +130,8 @@ $(eval $(call help_entry,grafana-credentials,Loki,Retrieve Grafana credentials f
 grafana-credentials:
 	$(call run,Retrieve Grafana credentials from secret,$@, \
 		set -euo pipefail; \
-		kubectl get secret --namespace $(SERVICES_NAMESPACE) grafana -o jsonpath="{.data.admin-user}" | base64 --decode ; echo ""; \
+		kubectl get secret --namespace $(GRAFANA_NAMESPACE) grafana -o jsonpath="{.data.admin-user}" | base64 --decode ; echo ""; \
 		echo ""; \
-		 kubectl get secret --namespace $(SERVICES_NAMESPACE) grafana -o jsonpath="{.data.admin-password}" | base64 --decode ; echo ""; \
+		 kubectl get secret --namespace $(GRAFANA_NAMESPACE) grafana -o jsonpath="{.data.admin-password}" | base64 --decode ; echo ""; \
 		echo ""; \
-	)
-
-#-------------------------------------------------------------------
-# Expose Grafana port using port-forwarding
-#-------------------------------------------------------------------
-$(eval $(call help_entry,grafana-port-forward,Loki,Expose Grafana port using port-forwarding))
-.PHONY: grafana-port-forward
-grafana-port-forward:
-	$(call run,Expose Grafana port using port-forwarding,$@, \
-		set -euo pipefail; \
-		export POD_NAME=$(kubectl get pods --namespace $(SERVICES_NAMESPACE) -l "app.kubernetes.io/name=grafana,app.kubernetes.io/instance=grafana" -o jsonpath="{.items[0].metadata.name}"); \
-     	kubectl --namespace $(SERVICES_NAMESPACE) port-forward $$POD_NAME 3000;\
 	)

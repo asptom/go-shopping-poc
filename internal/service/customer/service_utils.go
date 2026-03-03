@@ -24,7 +24,7 @@ func NewCustomerServiceUtils() *CustomerServiceUtils {
 
 // LogCustomerOperation logs customer-related operations with consistent formatting
 func (u *CustomerServiceUtils) LogCustomerOperation(operation string, customerID string, details map[string]interface{}) {
-	u.logger.Info(operation, "customer_id", customerID)
+	u.logger.Debug(operation, "customer_id", customerID)
 	if len(details) > 0 {
 		for key, value := range details {
 			u.logger.Debug(operation+" detail", "key", key, "value", value)

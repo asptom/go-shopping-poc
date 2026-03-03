@@ -100,7 +100,7 @@ func main() {
 		BatchSize:       cfg.OutboxBatchSize,
 		ProcessInterval: cfg.OutboxProcessInterval,
 	}
-	logger.Info("Outbox publisher configured", "interval", outboxConfig.ProcessInterval, "batch_size", outboxConfig.BatchSize)
+	logger.Debug("Outbox publisher configured", "interval", outboxConfig.ProcessInterval, "batch_size", outboxConfig.BatchSize)
 	outboxPublisher := outbox.NewPublisher(platformDB, eventBus, outboxConfig, outbox.WithPublisherLogger(logger))
 	outboxPublisher.Start()
 	defer outboxPublisher.Stop()

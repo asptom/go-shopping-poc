@@ -106,7 +106,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	logger.Info("Starting event consumer", "topics", service.EventBus().ReadTopics())
+	logger.Debug("Starting event consumer", "topics", service.EventBus().ReadTopics())
 	go func() {
 		if err := service.Start(context.Background()); err != nil {
 			logger.Error("Event consumer error", logging.ErrorAttr(err))
@@ -166,12 +166,12 @@ func main() {
 }
 
 func registerEventHandlers(service *order.OrderService, logger *slog.Logger) error {
-	logger.Info("Registering event handlers")
+	logger.Debug("Registering event handlers")
 
 	handlerLogger := logger.With("component", "event_handler")
 
 	cartCheckedOutHandler := eventhandlers.NewOnCartCheckedOut(service, handlerLogger)
-	logger.Info("Registering handler", "event_type", cartCheckedOutHandler.EventType())
+	logger.Debug("Registering handler", "event_type", cartCheckedOutHandler.EventType())
 
 	if err := order.RegisterHandler(
 		service,
@@ -181,8 +181,8 @@ func registerEventHandlers(service *order.OrderService, logger *slog.Logger) err
 		return fmt.Errorf("failed to register CartCheckedOut handler: %w", err)
 	}
 
-	logger.Info("Successfully registered CartCheckedOut handler")
-	logger.Info("Event handler registration completed")
+	logger.Debug("Successfully registered CartCheckedOut handler")
+	logger.Debug("Event handler registration completed")
 
 	return nil
 }
