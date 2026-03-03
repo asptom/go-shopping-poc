@@ -52,13 +52,13 @@ func (h *OnCartCheckedOut) Handle(ctx context.Context, event events.Event) error
 
 	utils.LogEventCompletion(ctx, string(cartEvent.EventType),
 		cartEvent.EventPayload.CartID, err)
-
+	h.logger.Info("Finished processing CartCheckedOut event", "cart_id", cartEvent.EventPayload.CartID, "error", fmt.Sprintf("%v", err))
 	return err
 }
 
 func (h *OnCartCheckedOut) createOrderFromCart(ctx context.Context, cartEvent events.CartEvent) error {
 	cartID := cartEvent.EventPayload.CartID
-	h.logger.Info("Creating order from cart", "cart_id", cartID)
+	h.logger.Debug("Creating order from cart", "cart_id", cartID)
 
 	snapshot := cartEvent.EventPayload.CartSnapshot
 	if snapshot == nil {

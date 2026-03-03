@@ -117,7 +117,6 @@ func (h *CartHandler) DeleteCart(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *CartHandler) AddItem(w http.ResponseWriter, r *http.Request) {
-	h.logger.Debug("Starting handler AddItem")
 
 	cartID := chi.URLParam(r, "id")
 	if cartID == "" {
@@ -141,7 +140,6 @@ func (h *CartHandler) AddItem(w http.ResponseWriter, r *http.Request) {
 		"product_id", req.ProductID,
 		"quantity", req.Quantity,
 	)
-	h.logger.Debug("Calling service.AddItem for cart", "cart_id", cartID)
 	item, err := h.service.AddItem(r.Context(), cartID, req.ProductID, req.Quantity)
 	if err != nil {
 		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to add item")
@@ -268,7 +266,7 @@ func (h *CartHandler) AddAddress(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *CartHandler) SetPayment(w http.ResponseWriter, r *http.Request) {
-	h.logger.Debug("Starting SetPayment handler", "cart_id", chi.URLParam(r, "id"))
+	// h.logger.Debug("Starting SetPayment handler", "cart_id", chi.URLParam(r, "id"))
 	cartID := chi.URLParam(r, "id")
 	if cartID == "" {
 		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Missing cart ID")

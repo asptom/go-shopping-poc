@@ -48,6 +48,7 @@ func (h *OnCustomerCreated) Handle(ctx context.Context, event events.Event) erro
 		customerEvent.EventPayload.CustomerID,
 		customerEvent.EventPayload.ResourceID)
 
+	h.logger.Info("Processing customer created event", "customer_id", customerEvent.EventPayload.CustomerID)
 	return h.processCustomerCreated(ctx, customerEvent)
 }
 

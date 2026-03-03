@@ -193,7 +193,7 @@ func (c *PostgreSQLClient) Exec(ctx context.Context, query string, args ...inter
 		return nil, fmt.Errorf("exec execution failed: %w", err)
 	}
 
-	c.logger.Debug("Exec completed", "latency", latency.String())
+	//c.logger.Debug("Exec completed", "latency", latency.String())
 	return result, nil
 }
 

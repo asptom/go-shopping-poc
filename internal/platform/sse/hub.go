@@ -51,7 +51,6 @@ func (h *Hub) Unsubscribe(cartID string, client *Client) {
 
 // Publish sends an event to all subscribers of a cart
 func (h *Hub) Publish(cartID string, event string, data interface{}) {
-	h.logger.Debug("SSE: ========== PUBLISH REQUEST ==========", "cartID", cartID, "event", event)
 	h.logger.Debug("SSE: Publish called for cart", "cartID", cartID, "event", event)
 
 	h.mu.RLock()

@@ -48,6 +48,7 @@ func (h *OnProductCreated) Handle(ctx context.Context, event events.Event) error
 		productEvent.EventPayload.ProductID,
 		productEvent.EventPayload.ResourceID)
 
+	h.logger.Info("Processing product created event", "product_id", productEvent.EventPayload.ProductID)
 	return h.processProductCreated(ctx, productEvent)
 }
 

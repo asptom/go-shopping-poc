@@ -67,7 +67,6 @@ func NewCORSProvider(opts ...Option) (CORSProvider, error) {
 	}
 
 	p.logger = p.logger.With("platform", "cors")
-	p.logger.Debug("CORSProvider: Initializing CORS provider")
 
 	// Load platform CORS configuration
 	corsCfg, err := config.LoadConfig[Config]("platform-cors")

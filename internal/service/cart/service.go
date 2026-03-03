@@ -112,6 +112,7 @@ func (s *CartService) CreateCart(ctx context.Context, customerID *string) (*Cart
 		return nil, fmt.Errorf("failed to create cart: %w", err)
 	}
 
+	s.logger.Info("Created new cart", "cart_id", cart.CartID)
 	return cart, nil
 }
 
@@ -234,6 +235,12 @@ func (s *CartService) AddItem(ctx context.Context, cartID string, productID stri
 	s.logger.Debug("Added pending item to cart",
 		"item_line_number", item.LineNumber,
 		"cart_id", cartID,
+	)
+	s.logger.Info("Added item to cart, pending validation",
+		"cart_id", cartID,
+		"product_id", productID,
+		"quantity", quantity,
+		"item_line_number", item.LineNumber,
 	)
 	return item, nil
 }
@@ -417,6 +424,8 @@ func (s *CartService) Checkout(ctx context.Context, cartID string) (*Cart, error
 	if err != nil {
 		return nil, fmt.Errorf("checkout failed: %w", err)
 	}
+
+	s.logger.Info("Cart checked out successfully", "cart_id", cartID)
 
 	return checkedOutCart, nil
 }

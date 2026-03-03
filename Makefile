@@ -56,7 +56,7 @@ install: platform services
 
 $(eval $(call help_entry,uninstall,PRIMARY,Uninstall all services and all supporting components))
 .PHONY: uninstall
-uninstall: k8s-delete-namespaces
+uninstall: grafana-stack-uninstall k8s-delete-namespaces
 
 .PHONY: help
 help:

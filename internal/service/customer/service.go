@@ -177,10 +177,12 @@ func (s *CustomerService) CreateCustomer(ctx context.Context, customer *Customer
 		}
 	}
 
+	s.logger.Info("Creating new customer", "email", customer.Email)
 	return s.repo.InsertCustomer(ctx, customer)
 }
 
 func (s *CustomerService) UpdateCustomer(ctx context.Context, customer *Customer) error {
+	s.logger.Info("Updating customer", "customer_id", customer.CustomerID)
 	return s.repo.UpdateCustomer(ctx, customer)
 }
 
@@ -196,6 +198,7 @@ func (s *CustomerService) PatchCustomer(ctx context.Context, customerID string, 
 	}
 
 	// Delegate to repository for selective updates
+	s.logger.Info("Patching customer", "customer_id", customerID)
 	return s.repo.PatchCustomer(ctx, customerID, patchData)
 }
 

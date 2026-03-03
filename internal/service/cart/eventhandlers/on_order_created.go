@@ -29,7 +29,6 @@ func NewOnOrderCreated(sseHub *sse.Hub, logger *slog.Logger) *OnOrderCreated {
 }
 
 func (h *OnOrderCreated) Handle(ctx context.Context, event events.Event) error {
-	h.logger.Debug("Received event", "event_type", fmt.Sprintf("%T", event))
 
 	orderEvent, ok := event.(events.OrderEvent)
 	if !ok {
@@ -80,6 +79,7 @@ func (h *OnOrderCreated) Handle(ctx context.Context, event events.Event) error {
 		h.logger.Warn("sseHub is nil, cannot publish event", "cart_id", orderEvent.Data.CartID)
 	}
 
+	h.logger.Info("Sent order.created event to front-end", "order_id", orderEvent.Data.OrderID, "cart_id", orderEvent.Data.CartID)
 	return h.updateCartStatus(ctx, orderEvent.Data.CartID)
 }
 

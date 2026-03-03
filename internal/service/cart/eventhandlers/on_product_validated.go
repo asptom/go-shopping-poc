@@ -35,6 +35,13 @@ func NewOnProductValidated(repo cart.CartRepository, sseHub *sse.Hub, logger *sl
 
 // Handle processes product validation events
 func (h *OnProductValidated) Handle(ctx context.Context, event events.Event) error {
+
+	h.logger.Debug("Event received",
+		"event_type", event.Type(),
+		"event_id", event.GetEntityID(),
+		"topic", event.Topic(),
+	)
+
 	productEvent, ok := event.(events.ProductEvent)
 	if !ok {
 		h.logger.Error("Expected ProductEvent", "actual_type", fmt.Sprintf("%T", event))
@@ -44,8 +51,10 @@ func (h *OnProductValidated) Handle(ctx context.Context, event events.Event) err
 	// Handle both validated and unavailable events
 	switch productEvent.EventType {
 	case events.ProductValidated:
+		h.logger.Debug("Processing ProductValidated event", "product_id", productEvent.EventPayload.ProductID)
 		return h.handleProductValidated(ctx, productEvent)
 	case events.ProductUnavailable:
+		h.logger.Debug("Processing ProductUnavailable event", "product_id", productEvent.EventPayload.ProductID)
 		return h.handleProductUnavailable(ctx, productEvent)
 	default:
 		h.logger.Debug("Ignoring product event type", "event_type", productEvent.EventType)
@@ -145,7 +154,7 @@ func (h *OnProductValidated) handleProductValidated(ctx context.Context, event e
 		})
 	}
 
-	h.logger.Info("Item validated", "line_number", lineNumber, "cart_id", cartID)
+	h.logger.Info("Cart item validated", "line_number", lineNumber, "cart_id", cartID)
 	return nil
 }
 
