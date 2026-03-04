@@ -299,12 +299,3 @@ func (r *productRepository) SetMainImageFlag(ctx context.Context, productID int6
 
 	return nil
 }
-
-// unsetAllMainImages unsets the is_main flag for all images of a product
-// ADDED: Helper method for AddSingleImage
-func (s *AdminService) unsetAllMainImages(ctx context.Context, productID int64) error {
-	query := `UPDATE products.product_images SET is_main = false WHERE product_id = $1`
-	// Use DB() to get underlying sqlx.DB for ExecContext
-	_, err := s.infrastructure.Database.DB().ExecContext(ctx, query, productID)
-	return err
-}

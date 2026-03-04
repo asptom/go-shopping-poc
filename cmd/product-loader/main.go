@@ -155,8 +155,8 @@ func runProductLoader(ctx context.Context, cliConfig *CLIConfig, logger *slog.Lo
 	outboxWriter := writerProvider.GetWriter()
 	logger.Debug("Outbox writer initialized")
 
-	// Create admin infrastructure
-	infrastructure := &product.AdminInfrastructure{
+	// Create ingestion infrastructure
+	infrastructure := &product.IngestionInfrastructure{
 		Database:       platformDB,
 		ObjectStorage:  minioStorage,
 		OutboxWriter:   outboxWriter,
@@ -164,13 +164,13 @@ func runProductLoader(ctx context.Context, cliConfig *CLIConfig, logger *slog.Lo
 	}
 
 	// Create admin service
-	adminService := product.NewAdminService(logger, cfg, infrastructure)
-	logger.Debug("Admin service created")
+	ingestionService := product.NewIngestionService(logger, cfg, infrastructure)
+	logger.Debug("Ingestion service created")
 
 	// Create service wrapper for lifecycle management
 	loaderService := &ProductLoaderService{
 		BaseService: service.NewBaseService("product-loader"),
-		service:     adminService,
+		service:     ingestionService,
 		csvPath:     cliConfig.CSVPath,
 		batchID:     cliConfig.BatchID,
 		useCache:    cliConfig.UseCache,
@@ -279,7 +279,7 @@ func main() {
 // ProductLoaderService wraps the admin service for lifecycle management
 type ProductLoaderService struct {
 	*service.BaseService
-	service    *product.AdminService
+	service    *product.IngestionService
 	csvPath    string
 	batchID    string
 	useCache   bool

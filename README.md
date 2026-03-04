@@ -40,10 +40,11 @@ Contracts-first approach with type-safe event handling:
 
 ## Services
 
+- **Cart Service**: Shopping cart management with PostgreSQL persistence
 - **Customer Service**: Customer management with PostgreSQL persistence
+- **Order Service**: Order management with PostgreSQL persistence
 - **EventReader Service**: Example of event processing and handler orchestration
 - **Product Service**: Product catalog query
-- **Product Admin: Administrative services for products
 - **Product Loader**: Command-line tool for bulk product ingestion from CSV files
 - **WebSocket Service**: Example of real-time communication (future implementation)
 
