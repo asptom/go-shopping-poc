@@ -42,7 +42,7 @@ func (h *OrderHandler) GetOrder(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *OrderHandler) GetOrdersByCustomer(w http.ResponseWriter, r *http.Request) {
-	customerID := r.URL.Query().Get("customer_id")
+	customerID := chi.URLParam(r, "customerId")
 	if customerID == "" {
 		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Missing customer_id parameter")
 		return

@@ -121,6 +121,7 @@ type CartSnapshot struct {
 	Tax        float64           `json:"tax"`
 	Shipping   float64           `json:"shipping"`
 	TotalPrice float64           `json:"total_price"`
+	CustomerID *string           `json:"customer_id,omitempty"`
 	Contact    *SnapshotContact  `json:"contact,omitempty"`
 	CreditCard *SnapshotPayment  `json:"credit_card,omitempty"`
 	Addresses  []SnapshotAddress `json:"addresses,omitempty"`

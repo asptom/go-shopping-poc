@@ -103,9 +103,13 @@ func (s *CartService) CreateCart(ctx context.Context, customerID *string) (*Cart
 	if customerID != nil && *customerID != "" {
 		id, err := uuid.Parse(*customerID)
 		if err != nil {
+			s.logger.Warn("Invalid customer ID provided when creating cart", "customer_id", *customerID, "error", err.Error())
 			return nil, fmt.Errorf("invalid customer ID: %w", err)
 		}
 		cart.CustomerID = &id
+		s.logger.Debug("Creating cart with customer ID", "customer_id", *customerID)
+	} else {
+		s.logger.Debug("Creating cart without customer ID")
 	}
 
 	if err := s.repo.CreateCart(ctx, cart); err != nil {

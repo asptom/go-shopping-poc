@@ -221,6 +221,11 @@ func createCartSnapshot(cart *Cart) *events.CartSnapshot {
 		Addresses:  make([]events.SnapshotAddress, 0),
 	}
 
+	if cart.CustomerID != nil {
+		id := cart.CustomerID.String()
+		snapshot.CustomerID = &id
+	}
+
 	if cart.Contact != nil {
 		snapshot.Contact = &events.SnapshotContact{
 			Email:     cart.Contact.Email,

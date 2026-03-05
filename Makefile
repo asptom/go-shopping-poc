@@ -48,7 +48,7 @@ platform: k8s-namespaces certificates-install postgres-platform keycloak-platfor
 
 $(eval $(call help_entry,services,PRIMARY,Install all application services))
 .PHONY: services
-services: services-db-create services-db-migrate services-install
+services: services-db-create services-db-migrate services-install product-load
 
 $(eval $(call help_entry,install,PRIMARY,Install all platform services and all application services))
 .PHONY: install

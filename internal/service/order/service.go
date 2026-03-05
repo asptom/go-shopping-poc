@@ -117,6 +117,15 @@ func (s *OrderService) CreateOrderFromSnapshot(ctx context.Context, cartID strin
 		Items:         make([]OrderItem, len(snapshot.Items)),
 	}
 
+	if snapshot.CustomerID != nil {
+		customerUUID, err := uuid.Parse(*snapshot.CustomerID)
+		if err != nil {
+			s.logger.Warn("Invalid customer ID in snapshot", "customer_id", *snapshot.CustomerID)
+		} else {
+			order.CustomerID = &customerUUID
+		}
+	}
+
 	if snapshot.Contact != nil {
 		order.Contact = &Contact{
 			Email:     snapshot.Contact.Email,
