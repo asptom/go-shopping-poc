@@ -169,7 +169,7 @@ func (r *cartRepository) getCartByIDTx(ctx context.Context, tx database.Tx, cart
 
 func (r *cartRepository) loadCartRelationsTx(ctx context.Context, tx database.Tx, cart *Cart) error {
 	query := `
-		SELECT id, cart_id, line_number, product_id, product_name, unit_price, quantity, total_price
+		SELECT id, cart_id, line_number, product_id, product_name, unit_price, quantity, total_price, status, validation_id, backorder_reason
 		FROM carts.CartItem
 		WHERE cart_id = $1
 		ORDER BY line_number

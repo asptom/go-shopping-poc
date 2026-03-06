@@ -186,11 +186,13 @@ type ProductValidationPayload struct {
 }
 
 // NewProductValidatedEvent creates a product validation success event
-func NewProductValidatedEvent(productID, productName string, unitPrice float64, cartID, lineNumber string) *ProductEvent {
+func NewProductValidatedEvent(productID, productName string, unitPrice float64, cartID, lineNumber, validationID string) *ProductEvent {
 	details := map[string]string{
-		"cart_id":     cartID,
-		"line_number": lineNumber,
-		"unit_price":  fmt.Sprintf("%.2f", unitPrice),
+		"cart_id":       cartID,
+		"line_number":   lineNumber,
+		"unit_price":    fmt.Sprintf("%.2f", unitPrice),
+		"product_name":  productName,
+		"validation_id": validationID,
 	}
 
 	return &ProductEvent{
@@ -207,11 +209,12 @@ func NewProductValidatedEvent(productID, productName string, unitPrice float64, 
 }
 
 // NewProductUnavailableEvent creates a product validation failure event
-func NewProductUnavailableEvent(productID, reason string, cartID, lineNumber string) *ProductEvent {
+func NewProductUnavailableEvent(productID, reason string, cartID, lineNumber, validationID string) *ProductEvent {
 	details := map[string]string{
-		"cart_id":     cartID,
-		"line_number": lineNumber,
-		"reason":      reason,
+		"cart_id":       cartID,
+		"line_number":   lineNumber,
+		"reason":        reason,
+		"validation_id": validationID,
 	}
 
 	return &ProductEvent{

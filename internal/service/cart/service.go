@@ -173,11 +173,13 @@ func (s *CartService) AddItem(ctx context.Context, cartID string, productID stri
 		// If backorder, allow adding again (will create new validation attempt)
 	}
 
-	// Create item with pending status
+	// Create item with pending status with correlation ID for validation
+	validationID := uuid.New().String()
 	item := &CartItem{
-		ProductID: productID,
-		Quantity:  quantity,
-		Status:    "pending_validation",
+		ProductID:    productID,
+		Quantity:     quantity,
+		Status:       "pending_validation",
+		ValidationID: &validationID,
 		// LineNumber will be assigned by repository
 		// ProductName and UnitPrice will be updated after validation
 	}
@@ -202,7 +204,7 @@ func (s *CartService) AddItem(ctx context.Context, cartID string, productID stri
 
 	// Emit CartItemAdded event to outbox (transactional)
 	// This notifies other services (like product) that an item was added
-	cartItemEvent := events.NewCartItemAddedEvent(cartID, item.LineNumber, productID, quantity)
+	cartItemEvent := events.NewCartItemAddedEvent(cartID, item.LineNumber, productID, quantity, validationID)
 	if err := s.infrastructure.OutboxWriter.WriteEvent(ctx, tx, cartItemEvent); err != nil {
 		return nil, fmt.Errorf("failed to write cart item event: %w", err)
 	}

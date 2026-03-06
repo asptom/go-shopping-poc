@@ -97,9 +97,9 @@ func (h *OnCartItemAdded) publishValidationResult(ctx context.Context, payload e
 		if product != nil {
 			productName = product.Name
 		}
-		event = events.NewProductValidatedEvent(payload.ProductID, productName, unitPrice, payload.CartID, payload.LineNumber)
+		event = events.NewProductValidatedEvent(payload.ProductID, productName, unitPrice, payload.CartID, payload.LineNumber, payload.ValidationID)
 	} else {
-		event = events.NewProductUnavailableEvent(payload.ProductID, reason, payload.CartID, payload.LineNumber)
+		event = events.NewProductUnavailableEvent(payload.ProductID, reason, payload.CartID, payload.LineNumber, payload.ValidationID)
 	}
 
 	if err := infra.OutboxWriter.WriteEvent(ctx, tx, event); err != nil {

@@ -26,12 +26,13 @@ const (
 
 // CartItemPayload contains cart item event data
 type CartItemPayload struct {
-	CartID      string  `json:"cart_id"`
-	LineNumber  string  `json:"line_number"`
-	ProductID   string  `json:"product_id"`
-	Quantity    int     `json:"quantity"`
-	ProductName string  `json:"product_name,omitempty"`
-	UnitPrice   float64 `json:"unit_price,omitempty"`
+	CartID       string  `json:"cart_id"`
+	LineNumber   string  `json:"line_number"`
+	ProductID    string  `json:"product_id"`
+	Quantity     int     `json:"quantity"`
+	ProductName  string  `json:"product_name,omitempty"`
+	UnitPrice    float64 `json:"unit_price,omitempty"`
+	ValidationID string  `json:"validation_id,omitempty"`
 }
 
 // CartItemEvent represents cart item lifecycle events
@@ -60,16 +61,17 @@ func (e CartItemEvent) GetEntityID() string     { return e.Data.CartID }
 func (e CartItemEvent) GetResourceID() string   { return e.ID }
 
 // Constructor for CartItemAdded
-func NewCartItemAddedEvent(cartID, lineNumber, productID string, quantity int) *CartItemEvent {
+func NewCartItemAddedEvent(cartID, lineNumber, productID string, quantity int, validationID string) *CartItemEvent {
 	return &CartItemEvent{
 		ID:        uuid.New().String(),
 		EventType: CartItemAdded,
 		Timestamp: time.Now(),
 		Data: CartItemPayload{
-			CartID:     cartID,
-			LineNumber: lineNumber,
-			ProductID:  productID,
-			Quantity:   quantity,
+			CartID:       cartID,
+			LineNumber:   lineNumber,
+			ProductID:    productID,
+			Quantity:     quantity,
+			ValidationID: validationID,
 		},
 	}
 }
