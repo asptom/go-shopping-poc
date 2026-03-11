@@ -10,6 +10,8 @@ The project uses a **configuration-as-code** approach with:
 - Struct tags for mapping
 - Validation on startup
 
+For logging configuration lifecycle, prefer structured `slog` fields (`component`, `operation`) per `docs/standardization/logging-standard.md`.
+
 ## Configuration Loading
 
 ### Platform-Level Loader
@@ -153,10 +155,12 @@ func (c *Config) Validate() error {
 // cmd/customer/main.go
 
 func main() {
+    logger := slog.Default().With("component", "customer_main")
     // Load service configuration
     cfg, err := customer.LoadConfig()
     if err != nil {
-        log.Fatalf("Customer: Failed to load config: %v", err)
+        logger.Error("Load config failed", "operation", "load_config", "error", err.Error())
+        os.Exit(1)
     }
     
     // Use configuration
@@ -308,12 +312,14 @@ Fail fast on invalid configuration:
 
 ```go
 func main() {
+    logger := slog.Default().With("component", "customer_main")
     cfg, err := customer.LoadConfig()
     if err != nil {
-        log.Fatalf("[FATAL] Invalid configuration: %v", err)
+        logger.Error("Invalid configuration", "operation", "load_config", "error", err.Error())
+        os.Exit(1)
     }
-    
-    log.Printf("[INFO] Configuration loaded successfully")
+
+    logger.Info("Configuration loaded", "operation", "load_config")
     // Continue with validated config
 }
 ```
@@ -331,12 +337,13 @@ type ReloadableConfig struct {
 }
 
 func (rc *ReloadableConfig) Watch() {
+    logger := slog.Default().With("component", "config_reloader")
     rc.viper.WatchConfig()
     rc.viper.OnConfigChange(func(e fsnotify.Event) {
         var cfg Config
         if err := rc.viper.Unmarshal(&cfg); err == nil {
             rc.config.Store(&cfg)
-            log.Printf("[INFO] Configuration reloaded")
+            logger.Info("Configuration reloaded", "operation", "reload_config", "path", e.Name)
         }
     })
 }

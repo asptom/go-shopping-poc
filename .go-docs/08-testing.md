@@ -11,6 +11,16 @@ The project follows Go testing conventions with:
 - Black box testing (external test packages)
 - Parallel test execution
 
+## Standardization Verification
+
+In addition to package-level tests, run repository-wide enforcement checks:
+
+```bash
+scripts/ci/standardization_checks.sh
+```
+
+This includes formatting checks, `go vet`, `go test ./...`, architecture boundary guards, and logging drift guards.
+
 ## Test Organization
 
 ### File Naming

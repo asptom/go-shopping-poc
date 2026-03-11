@@ -24,26 +24,28 @@ func NewOnOrderCreated(sseHub *sse.Hub, logger *slog.Logger) *OnOrderCreated {
 	}
 	return &OnOrderCreated{
 		sseHub: sseHub,
-		logger: logger.With("handler", "on_order_created"),
+		logger: logger.With("component", "cart_on_order_created"),
 	}
 }
 
 func (h *OnOrderCreated) Handle(ctx context.Context, event events.Event) error {
-
 	orderEvent, ok := event.(events.OrderEvent)
 	if !ok {
 		h.logger.Error("Expected OrderEvent", "actual_type", fmt.Sprintf("%T", event))
 		return nil
 	}
-
-	h.logger.Debug("Event received",
-		"event_type", orderEvent.EventType,
+	log := h.logger.With(
+		"operation", "handle_order_created",
 		"event_id", orderEvent.ID,
+		"event_type", orderEvent.EventType,
+	)
+
+	log.Debug("Order event received",
 		"topic", orderEvent.Topic(),
 	)
 
 	if orderEvent.EventType != events.OrderCreated {
-		h.logger.Debug("Ignoring event type", "event_type", orderEvent.EventType)
+		log.Debug("Ignore event type")
 		return nil
 	}
 
@@ -52,7 +54,7 @@ func (h *OnOrderCreated) Handle(ctx context.Context, event events.Event) error {
 		orderEvent.Data.OrderID,
 		orderEvent.Data.CartID)
 
-	h.logger.Debug("Order created event",
+	log.Debug("Order created event",
 		"order_id", orderEvent.Data.OrderID,
 		"order_number", orderEvent.Data.OrderNumber,
 		"cart_id", orderEvent.Data.CartID,
@@ -67,26 +69,27 @@ func (h *OnOrderCreated) Handle(ctx context.Context, event events.Event) error {
 			"cartId":      orderEvent.Data.CartID,
 			"total":       orderEvent.Data.Total,
 		}
-		h.logger.Debug("Publishing order.created event", "cart_id", orderEvent.Data.CartID)
+		log.Debug("Publish SSE order event", "cart_id", orderEvent.Data.CartID)
 
 		h.sseHub.Publish(
 			orderEvent.Data.CartID,
 			"order.created",
 			sseData,
 		)
-		h.logger.Debug("Successfully published order.created event", "cart_id", orderEvent.Data.CartID)
+		log.Debug("Publish SSE order event complete", "cart_id", orderEvent.Data.CartID)
 	} else {
-		h.logger.Warn("sseHub is nil, cannot publish event", "cart_id", orderEvent.Data.CartID)
+		log.Warn("SSE hub unavailable", "cart_id", orderEvent.Data.CartID)
 	}
 
-	h.logger.Info("Sent order.created event to front-end", "order_id", orderEvent.Data.OrderID, "cart_id", orderEvent.Data.CartID)
+	log.Info("Order event sent to frontend", "order_id", orderEvent.Data.OrderID, "cart_id", orderEvent.Data.CartID)
 	return h.updateCartStatus(ctx, orderEvent.Data.CartID)
 }
 
 func (h *OnOrderCreated) updateCartStatus(ctx context.Context, cartID string) error {
-	h.logger.Debug("Processing OrderCreated event", "cart_id", cartID)
+	log := h.logger.With("operation", "update_cart_status", "cart_id", cartID)
+	log.Debug("Update cart status requested")
 	_ = ctx
-	h.logger.Debug("Updating cart status to completed", "cart_id", cartID)
+	log.Debug("Update cart status complete", "status", "completed")
 	return nil
 }
 

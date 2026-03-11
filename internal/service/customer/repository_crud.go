@@ -49,7 +49,7 @@ func (r *customerRepository) insertCustomerWithRelations(ctx context.Context, cu
 
 	customerID, err := uuid.Parse(customer.CustomerID)
 	if err != nil {
-		return fmt.Errorf("%w: invalid customer ID: %v", ErrInvalidUUID, err)
+		return fmt.Errorf("%w: invalid customer ID: %w", ErrInvalidUUID, err)
 	}
 
 	if len(customer.Addresses) > 0 {
@@ -97,7 +97,7 @@ func (r *customerRepository) insertCustomerRecordInTransaction(ctx context.Conte
 
 	_, err := tx.NamedExecContext(ctx, customerQuery, customer)
 	if err != nil {
-		return fmt.Errorf("%w: failed to execute insert query: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to execute insert query: %w", ErrDatabaseOperation, err)
 	}
 	return nil
 }
@@ -126,7 +126,7 @@ func (r *customerRepository) UpdateCustomer(ctx context.Context, customer *Custo
 
 	id, err := uuid.Parse(customer.CustomerID)
 	if err != nil {
-		return fmt.Errorf("%w: invalid customer ID %s: %v", ErrInvalidUUID, customer.CustomerID, err)
+		return fmt.Errorf("%w: invalid customer ID %s: %w", ErrInvalidUUID, customer.CustomerID, err)
 	}
 
 	return r.executeCustomerUpdate(ctx, customer, id)
@@ -142,7 +142,7 @@ func (r *customerRepository) validateCustomerForUpdate(customer *Customer) error
 func (r *customerRepository) executeCustomerUpdate(ctx context.Context, customer *Customer, id uuid.UUID) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("%w: failed to begin transaction: %v", ErrTransactionFailed, err)
+		return fmt.Errorf("%w: failed to begin transaction: %w", ErrTransactionFailed, err)
 	}
 	committed := false
 	defer func() {
@@ -164,7 +164,7 @@ func (r *customerRepository) executeCustomerUpdate(ctx context.Context, customer
 	}
 
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("%w: failed to commit transaction: %v", ErrTransactionFailed, err)
+		return fmt.Errorf("%w: failed to commit transaction: %w", ErrTransactionFailed, err)
 	}
 	committed = true
 
@@ -183,12 +183,12 @@ func (r *customerRepository) updateCustomerRecord(ctx context.Context, tx databa
 
 	result, err := tx.NamedExecContext(ctx, customerQuery, customer)
 	if err != nil {
-		return fmt.Errorf("%w: failed to update customer record: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to update customer record: %w", ErrDatabaseOperation, err)
 	}
 
 	rows, err := result.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("%w: failed to get rows affected: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to get rows affected: %w", ErrDatabaseOperation, err)
 	}
 	if rows == 0 {
 		return fmt.Errorf("%w: customer not found: %s", ErrCustomerNotFound, customer.CustomerID)
@@ -218,7 +218,7 @@ func (r *customerRepository) deleteExistingRelations(ctx context.Context, tx dat
 
 	for _, query := range queries {
 		if _, err := tx.ExecContext(ctx, query, customerID); err != nil {
-			return fmt.Errorf("%w: failed to delete existing relations: %v", ErrDatabaseOperation, err)
+			return fmt.Errorf("%w: failed to delete existing relations: %w", ErrDatabaseOperation, err)
 		}
 	}
 
@@ -254,7 +254,7 @@ func (r *customerRepository) insertAddresses(ctx context.Context, tx database.Tx
 		addresses[i].CustomerID = customerID
 		addresses[i].AddressID = uuid.New()
 		if _, err := tx.NamedExecContext(ctx, addressQuery, &addresses[i]); err != nil {
-			return fmt.Errorf("%w: failed to insert address: %v", ErrDatabaseOperation, err)
+			return fmt.Errorf("%w: failed to insert address: %w", ErrDatabaseOperation, err)
 		}
 	}
 
@@ -274,7 +274,7 @@ func (r *customerRepository) insertCreditCards(ctx context.Context, tx database.
 		cards[i].CustomerID = customerID
 		cards[i].CardID = uuid.New()
 		if _, err := tx.NamedExecContext(ctx, cardQuery, &cards[i]); err != nil {
-			return fmt.Errorf("%w: failed to insert credit card: %v", ErrDatabaseOperation, err)
+			return fmt.Errorf("%w: failed to insert credit card: %w", ErrDatabaseOperation, err)
 		}
 	}
 
@@ -375,7 +375,7 @@ func (r *customerRepository) PatchCustomer(ctx context.Context, customerID strin
 
 	id, err := uuid.Parse(customerID)
 	if err != nil {
-		return fmt.Errorf("%w: invalid customer ID %s: %v", ErrInvalidUUID, customerID, err)
+		return fmt.Errorf("%w: invalid customer ID %s: %w", ErrInvalidUUID, customerID, err)
 	}
 
 	return r.executePatchCustomer(ctx, &updated, id, newAddresses, newCreditCards)
@@ -384,7 +384,7 @@ func (r *customerRepository) PatchCustomer(ctx context.Context, customerID strin
 func (r *customerRepository) executePatchCustomer(ctx context.Context, customer *Customer, id uuid.UUID, newAddresses []Address, newCreditCards []CreditCard) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("%w: failed to begin transaction: %v", ErrTransactionFailed, err)
+		return fmt.Errorf("%w: failed to begin transaction: %w", ErrTransactionFailed, err)
 	}
 	committed := false
 	defer func() {
@@ -420,7 +420,7 @@ func (r *customerRepository) executePatchCustomer(ctx context.Context, customer 
 	}
 
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("%w: failed to commit transaction: %v", ErrTransactionFailed, err)
+		return fmt.Errorf("%w: failed to commit transaction: %w", ErrTransactionFailed, err)
 	}
 	committed = true
 
@@ -431,7 +431,7 @@ func (r *customerRepository) deleteAddresses(ctx context.Context, tx database.Tx
 	query := `DELETE FROM customers.Address WHERE customer_id = $1`
 	_, err := tx.ExecContext(ctx, query, customerID)
 	if err != nil {
-		return fmt.Errorf("%w: failed to delete addresses: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to delete addresses: %w", ErrDatabaseOperation, err)
 	}
 	return nil
 }
@@ -440,7 +440,7 @@ func (r *customerRepository) deleteCreditCards(ctx context.Context, tx database.
 	query := `DELETE FROM customers.CreditCard WHERE customer_id = $1`
 	_, err := tx.ExecContext(ctx, query, customerID)
 	if err != nil {
-		return fmt.Errorf("%w: failed to delete credit cards: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to delete credit cards: %w", ErrDatabaseOperation, err)
 	}
 	return nil
 }

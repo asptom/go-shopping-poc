@@ -67,16 +67,16 @@ func (c *Cart) calculateShipping() float64 {
 // CanCheckout validates cart is ready for checkout
 func (c *Cart) CanCheckout() error {
 	if c.CurrentStatus != "active" {
-		return errors.New("cart must be active to checkout")
+		return ErrCartMustBeActiveForCheckout
 	}
 	if len(c.Items) == 0 {
-		return errors.New("cart must have at least one item")
+		return ErrCartMustHaveItemsForCheckout
 	}
 	if c.Contact == nil {
-		return errors.New("contact information required")
+		return ErrCartContactRequiredForCheckout
 	}
 	if c.CreditCard == nil {
-		return errors.New("payment method required")
+		return ErrCartPaymentRequiredForCheckout
 	}
 	return nil
 }

@@ -12,11 +12,19 @@ func WithLogger(logger *slog.Logger) Option {
 	}
 }
 
+// WithHandlerOptions sets options applied to the SSE HTTP handler.
+func WithHandlerOptions(opts ...HandlerOption) Option {
+	return func(p *Provider) {
+		p.handlerOpts = append(p.handlerOpts, opts...)
+	}
+}
+
 // Provider provides SSE hub and handler instances
 type Provider struct {
-	hub     *Hub
-	handler *Handler
-	logger  *slog.Logger
+	hub         *Hub
+	handler     *Handler
+	logger      *slog.Logger
+	handlerOpts []HandlerOption
 }
 
 // NewProvider creates a new SSE provider
@@ -44,7 +52,7 @@ func NewProvider(opts ...Option) *Provider {
 	p.logger.Debug("SSE provider created")
 
 	hub := NewHub()
-	handler := NewHandler(hub)
+	handler := NewHandler(hub, p.handlerOpts...)
 
 	return &Provider{
 		hub:     hub,

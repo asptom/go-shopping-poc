@@ -5,9 +5,9 @@ import (
 	"sync"
 )
 
-// Hub manages SSE client subscriptions for a given cart ID
+// Hub manages SSE client subscriptions for a stream identifier.
 type Hub struct {
-	// Map of cartID -> set of clients subscribed to that cart
+	// Map of streamID -> set of clients subscribed to that stream.
 	subscribers map[string]map[*Client]bool
 	mu          sync.RWMutex
 	logger      *slog.Logger
@@ -17,71 +17,71 @@ type Hub struct {
 func NewHub() *Hub {
 	return &Hub{
 		subscribers: make(map[string]map[*Client]bool),
-		logger:      Logger(),
+		logger:      Logger().With("component", "sse_hub"),
 	}
 }
 
-// Subscribe adds a client to the subscription list for a cart
-func (h *Hub) Subscribe(cartID string, client *Client) {
+// Subscribe adds a client to the subscription list for a stream.
+func (h *Hub) Subscribe(streamID string, client *Client) {
+	log := h.logger.With("operation", "subscribe", "stream_id", streamID)
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	if h.subscribers[cartID] == nil {
-		h.subscribers[cartID] = make(map[*Client]bool)
+	if h.subscribers[streamID] == nil {
+		h.subscribers[streamID] = make(map[*Client]bool)
 	}
-	h.subscribers[cartID][client] = true
-	h.logger.Info("SSE: Client subscribed to cart", "cartID", cartID)
+	h.subscribers[streamID][client] = true
+	log.Info("SSE client subscribed")
 }
 
 // Unsubscribe removes a client from the subscription list
-func (h *Hub) Unsubscribe(cartID string, client *Client) {
+func (h *Hub) Unsubscribe(streamID string, client *Client) {
+	log := h.logger.With("operation", "unsubscribe", "stream_id", streamID)
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	if clients, ok := h.subscribers[cartID]; ok {
+	if clients, ok := h.subscribers[streamID]; ok {
 		if _, exists := clients[client]; exists {
 			delete(clients, client)
-			h.logger.Info("SSE: Client unsubscribed from cart", "cartID", cartID)
+			log.Info("SSE client unsubscribed")
 		}
 		if len(clients) == 0 {
-			delete(h.subscribers, cartID)
+			delete(h.subscribers, streamID)
 		}
 	}
 }
 
-// Publish sends an event to all subscribers of a cart
-func (h *Hub) Publish(cartID string, event string, data interface{}) {
-	h.logger.Debug("SSE: Publish called for cart", "cartID", cartID, "event", event)
+// Publish sends an event to all subscribers of a stream.
+func (h *Hub) Publish(streamID string, event string, data interface{}) {
+	log := h.logger.With("operation", "publish", "stream_id", streamID, "event_type", event)
+	log.Debug("SSE publish requested")
 
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
-	clients, ok := h.subscribers[cartID]
+	clients, ok := h.subscribers[streamID]
 	if !ok {
-		h.logger.Debug("SSE: No subscribers found for cart", "cartID", cartID, "event", event)
-		h.logger.Debug("SSE: Available carts with subscribers", "carts", h.getSubscriberCartIDs())
+		log.Debug("No stream subscribers")
 		return
 	}
 
-	h.logger.Debug("SSE: Found subscribers for cart", "cartID", cartID, "count", len(clients))
+	log.Debug("Stream subscribers found", "subscriber_count", len(clients))
 
 	sentCount := 0
 	for client := range clients {
-		h.logger.Debug("SSE: Attempting to send to client for cart", "cartID", cartID)
 		select {
 		case client.send <- Message{Event: event, Data: data}:
-			h.logger.Debug("SSE: Event successfully queued for cart", "event", event, "cartID", cartID)
 			sentCount++
 		default:
-			h.logger.Warn("SSE: Client buffer full for cart, removing client", "cartID", cartID)
+			log.Warn("SSE client buffer full", "status", "removed_client")
 			delete(clients, client)
 		}
 	}
-	h.logger.Debug("SSE: Publish complete - sent to %d/%d clients for cart %s", sentCount, len(clients), cartID)
+	log.Debug("SSE publish complete", "sent_count", sentCount, "subscriber_count", len(clients))
 }
 
-// getSubscriberCartIDs returns a list of cart IDs that have subscribers (for debugging)
-func (h *Hub) getSubscriberCartIDs() []string {
+// getSubscriberStreamIDs returns a list of stream IDs that have subscribers.
+func (h *Hub) getSubscriberStreamIDs() []string {
 	var ids []string
 	for id := range h.subscribers {
 		ids = append(ids, id)
@@ -89,12 +89,12 @@ func (h *Hub) getSubscriberCartIDs() []string {
 	return ids
 }
 
-// GetSubscriberCount returns the number of subscribers for a cart
-func (h *Hub) GetSubscriberCount(cartID string) int {
+// GetSubscriberCount returns the number of subscribers for a stream.
+func (h *Hub) GetSubscriberCount(streamID string) int {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
-	if clients, ok := h.subscribers[cartID]; ok {
+	if clients, ok := h.subscribers[streamID]; ok {
 		return len(clients)
 	}
 	return 0

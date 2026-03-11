@@ -21,7 +21,7 @@ func NewOnProductCreated(logger *slog.Logger) *OnProductCreated {
 		logger = slog.Default()
 	}
 	return &OnProductCreated{
-		logger: logger.With("handler", "on_product_created"),
+		logger: logger.With("component", "on_product_created"),
 	}
 }
 

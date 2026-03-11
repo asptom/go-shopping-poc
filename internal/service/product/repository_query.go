@@ -20,7 +20,7 @@ func (r *productRepository) ProductExists(ctx context.Context, productID int64) 
 
 	err := r.db.QueryRow(ctx, query, productID).Scan(&exists)
 	if err != nil {
-		return false, fmt.Errorf("%w: failed to check product existence: %v", ErrDatabaseOperation, err)
+		return false, fmt.Errorf("%w: failed to check product existence: %w", ErrDatabaseOperation, err)
 	}
 
 	return exists, nil
@@ -51,11 +51,11 @@ func (r *productRepository) GetProductByID(ctx context.Context, productID int64)
 		&product.CreatedAt, &product.UpdatedAt,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("%w: product %d not found", ErrProductNotFound, productID)
 		}
 		r.logger.Error("Error fetching product by ID", "product_id", productID, "error", err.Error())
-		return nil, fmt.Errorf("%w: failed to fetch product %d: %v", ErrDatabaseOperation, productID, err)
+		return nil, fmt.Errorf("%w: failed to fetch product %d: %w", ErrDatabaseOperation, productID, err)
 	}
 
 	images, err := r.GetProductImages(ctx, productID)
@@ -93,7 +93,7 @@ func (r *productRepository) GetProductsByCategory(ctx context.Context, category 
 
 	rows, err := r.db.Query(ctx, query, category, limit, offset)
 	if err != nil {
-		return nil, fmt.Errorf("%w: failed to query products by category: %v", ErrDatabaseOperation, err)
+		return nil, fmt.Errorf("%w: failed to query products by category: %w", ErrDatabaseOperation, err)
 	}
 	defer func() { _ = rows.Close() }()
 
@@ -109,13 +109,13 @@ func (r *productRepository) GetProductsByCategory(ctx context.Context, category 
 			&product.CreatedAt, &product.UpdatedAt,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("%w: failed to scan product row: %v", ErrDatabaseOperation, err)
+			return nil, fmt.Errorf("%w: failed to scan product row: %w", ErrDatabaseOperation, err)
 		}
 		products = append(products, &product)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("%w: error iterating product rows: %v", ErrDatabaseOperation, err)
+		return nil, fmt.Errorf("%w: error iterating product rows: %w", ErrDatabaseOperation, err)
 	}
 
 	return products, nil
@@ -147,7 +147,7 @@ func (r *productRepository) GetProductsByBrand(ctx context.Context, brand string
 
 	rows, err := r.db.Query(ctx, query, brand, limit, offset)
 	if err != nil {
-		return nil, fmt.Errorf("%w: failed to query products by brand: %v", ErrDatabaseOperation, err)
+		return nil, fmt.Errorf("%w: failed to query products by brand: %w", ErrDatabaseOperation, err)
 	}
 	defer func() { _ = rows.Close() }()
 
@@ -163,13 +163,13 @@ func (r *productRepository) GetProductsByBrand(ctx context.Context, brand string
 			&product.CreatedAt, &product.UpdatedAt,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("%w: failed to scan product row: %v", ErrDatabaseOperation, err)
+			return nil, fmt.Errorf("%w: failed to scan product row: %w", ErrDatabaseOperation, err)
 		}
 		products = append(products, &product)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("%w: error iterating product rows: %v", ErrDatabaseOperation, err)
+		return nil, fmt.Errorf("%w: error iterating product rows: %w", ErrDatabaseOperation, err)
 	}
 
 	return products, nil
@@ -202,7 +202,7 @@ func (r *productRepository) SearchProducts(ctx context.Context, query string, li
 	searchPattern := "%" + query + "%"
 	rows, err := r.db.Query(ctx, searchQuery, searchPattern, limit, offset)
 	if err != nil {
-		return nil, fmt.Errorf("%w: failed to search products: %v", ErrDatabaseOperation, err)
+		return nil, fmt.Errorf("%w: failed to search products: %w", ErrDatabaseOperation, err)
 	}
 	defer func() { _ = rows.Close() }()
 
@@ -218,13 +218,13 @@ func (r *productRepository) SearchProducts(ctx context.Context, query string, li
 			&product.CreatedAt, &product.UpdatedAt,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("%w: failed to scan product row: %v", ErrDatabaseOperation, err)
+			return nil, fmt.Errorf("%w: failed to scan product row: %w", ErrDatabaseOperation, err)
 		}
 		products = append(products, &product)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("%w: error iterating product rows: %v", ErrDatabaseOperation, err)
+		return nil, fmt.Errorf("%w: error iterating product rows: %w", ErrDatabaseOperation, err)
 	}
 
 	return products, nil
@@ -253,7 +253,7 @@ func (r *productRepository) GetProductsInStock(ctx context.Context, limit, offse
 
 	rows, err := r.db.Query(ctx, query, limit, offset)
 	if err != nil {
-		return nil, fmt.Errorf("%w: failed to query in-stock products: %v", ErrDatabaseOperation, err)
+		return nil, fmt.Errorf("%w: failed to query in-stock products: %w", ErrDatabaseOperation, err)
 	}
 	defer func() { _ = rows.Close() }()
 
@@ -269,13 +269,13 @@ func (r *productRepository) GetProductsInStock(ctx context.Context, limit, offse
 			&product.CreatedAt, &product.UpdatedAt,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("%w: failed to scan product row: %v", ErrDatabaseOperation, err)
+			return nil, fmt.Errorf("%w: failed to scan product row: %w", ErrDatabaseOperation, err)
 		}
 		products = append(products, &product)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("%w: error iterating product rows: %v", ErrDatabaseOperation, err)
+		return nil, fmt.Errorf("%w: error iterating product rows: %w", ErrDatabaseOperation, err)
 	}
 
 	return products, nil
@@ -303,7 +303,7 @@ func (r *productRepository) GetAllProducts(ctx context.Context, limit, offset in
 
 	rows, err := r.db.Query(ctx, query, limit, offset)
 	if err != nil {
-		return nil, fmt.Errorf("%w: failed to query products: %v", ErrDatabaseOperation, err)
+		return nil, fmt.Errorf("%w: failed to query products: %w", ErrDatabaseOperation, err)
 	}
 	defer func() { _ = rows.Close() }()
 
@@ -319,13 +319,13 @@ func (r *productRepository) GetAllProducts(ctx context.Context, limit, offset in
 			&product.CreatedAt, &product.UpdatedAt,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("%w: failed to scan product row: %v", ErrDatabaseOperation, err)
+			return nil, fmt.Errorf("%w: failed to scan product row: %w", ErrDatabaseOperation, err)
 		}
 		products = append(products, &product)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("%w: error iterating product rows: %v", ErrDatabaseOperation, err)
+		return nil, fmt.Errorf("%w: error iterating product rows: %w", ErrDatabaseOperation, err)
 	}
 
 	return products, nil
@@ -348,7 +348,7 @@ func (r *productRepository) GetProductImages(ctx context.Context, productID int6
 
 	rows, err := r.db.Query(ctx, query, productID)
 	if err != nil {
-		return nil, fmt.Errorf("%w: failed to query product images: %v", ErrDatabaseOperation, err)
+		return nil, fmt.Errorf("%w: failed to query product images: %w", ErrDatabaseOperation, err)
 	}
 	defer func() { _ = rows.Close() }()
 
@@ -361,13 +361,13 @@ func (r *productRepository) GetProductImages(ctx context.Context, productID int6
 			&image.IsMain, &image.ImageOrder, &image.FileSize, &image.ContentType, &image.CreatedAt,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("%w: failed to scan image row: %v", ErrDatabaseOperation, err)
+			return nil, fmt.Errorf("%w: failed to scan image row: %w", ErrDatabaseOperation, err)
 		}
 		images = append(images, image)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("%w: error iterating image rows: %v", ErrDatabaseOperation, err)
+		return nil, fmt.Errorf("%w: error iterating image rows: %w", ErrDatabaseOperation, err)
 	}
 
 	return images, nil
@@ -393,10 +393,10 @@ func (r *productRepository) GetProductImageByID(ctx context.Context, imageID int
 		&image.IsMain, &image.ImageOrder, &image.FileSize, &image.ContentType, &image.CreatedAt,
 	)
 	if err != nil {
-		if err.Error() == "sql: no rows in result set" {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("%w: image %d not found", ErrProductImageNotFound, imageID)
 		}
-		return nil, fmt.Errorf("%w: failed to query product image: %v", ErrDatabaseOperation, err)
+		return nil, fmt.Errorf("%w: failed to query product image: %w", ErrDatabaseOperation, err)
 	}
 
 	return &image, nil

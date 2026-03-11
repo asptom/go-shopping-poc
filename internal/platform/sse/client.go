@@ -2,10 +2,10 @@ package sse
 
 // Client represents a single SSE client connection
 type Client struct {
-	hub    *Hub
-	cartID string
-	send   chan Message
-	done   chan struct{}
+	hub      *Hub
+	streamID string
+	send     chan Message
+	done     chan struct{}
 }
 
 // Message represents an SSE message to be sent
@@ -14,13 +14,13 @@ type Message struct {
 	Data  interface{} `json:"data"`
 }
 
-// NewClient creates a new SSE client
-func NewClient(hub *Hub, cartID string) *Client {
+// NewClient creates a new SSE client.
+func NewClient(hub *Hub, streamID string) *Client {
 	return &Client{
-		hub:    hub,
-		cartID: cartID,
-		send:   make(chan Message, 256),
-		done:   make(chan struct{}),
+		hub:      hub,
+		streamID: streamID,
+		send:     make(chan Message, 256),
+		done:     make(chan struct{}),
 	}
 }
 

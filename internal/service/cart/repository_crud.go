@@ -46,7 +46,7 @@ func (r *cartRepository) CreateCart(ctx context.Context, cart *Cart) error {
 		cart.CartID, cart.CustomerID, cart.ContactID, cart.CreditCardID, cart.CurrentStatus,
 		cart.Currency, cart.NetPrice, cart.Tax, cart.Shipping, cart.TotalPrice, cart.CreatedAt, cart.UpdatedAt)
 	if err != nil {
-		return fmt.Errorf("%w: failed to insert cart: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to insert cart: %w", ErrDatabaseOperation, err)
 	}
 
 	if err := r.addStatusEntryTx(ctx, tx, cart.CartID.String(), "active"); err != nil {
@@ -64,7 +64,7 @@ func (r *cartRepository) CreateCart(ctx context.Context, cart *Cart) error {
 	}
 
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("%w: failed to commit transaction: %v", ErrTransactionFailed, err)
+		return fmt.Errorf("%w: failed to commit transaction: %w", ErrTransactionFailed, err)
 	}
 	committed = true
 
@@ -75,7 +75,7 @@ func (r *cartRepository) GetCartByID(ctx context.Context, cartID string) (*Cart,
 	id, err := uuid.Parse(cartID)
 	if err != nil {
 		r.logger.Error("Invalid cart ID format", "error", err.Error())
-		return nil, fmt.Errorf("%w: invalid cart ID: %v", ErrInvalidUUID, err)
+		return nil, fmt.Errorf("%w: invalid cart ID: %w", ErrInvalidUUID, err)
 	}
 
 	query := `
@@ -92,7 +92,7 @@ func (r *cartRepository) GetCartByID(ctx context.Context, cartID string) (*Cart,
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrCartNotFound
 		}
-		return nil, fmt.Errorf("%w: failed to get cart: %v", ErrDatabaseOperation, err)
+		return nil, fmt.Errorf("%w: failed to get cart: %w", ErrDatabaseOperation, err)
 	}
 
 	if err := r.loadCartRelations(ctx, &cart); err != nil {
@@ -123,12 +123,12 @@ func (r *cartRepository) UpdateCart(ctx context.Context, cart *Cart) error {
 		cart.CustomerID, cart.ContactID, cart.CreditCardID, cart.CurrentStatus,
 		cart.Currency, cart.NetPrice, cart.Tax, cart.Shipping, cart.TotalPrice, cart.CartID)
 	if err != nil {
-		return fmt.Errorf("%w: failed to update cart: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to update cart: %w", ErrDatabaseOperation, err)
 	}
 
 	rows, err := result.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("%w: failed to get rows affected: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to get rows affected: %w", ErrDatabaseOperation, err)
 	}
 	if rows == 0 {
 		return ErrCartNotFound
@@ -140,7 +140,7 @@ func (r *cartRepository) UpdateCart(ctx context.Context, cart *Cart) error {
 func (r *cartRepository) DeleteCart(ctx context.Context, cartID string) error {
 	id, err := uuid.Parse(cartID)
 	if err != nil {
-		return fmt.Errorf("%w: invalid cart ID: %v", ErrInvalidUUID, err)
+		return fmt.Errorf("%w: invalid cart ID: %w", ErrInvalidUUID, err)
 	}
 
 	tx, err := r.db.BeginTx(ctx, nil)
@@ -162,7 +162,7 @@ func (r *cartRepository) DeleteCart(ctx context.Context, cartID string) error {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrCartNotFound
 		}
-		return fmt.Errorf("%w: failed to get cart: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to get cart: %w", ErrDatabaseOperation, err)
 	}
 
 	var customerIDStr *string
@@ -178,19 +178,19 @@ func (r *cartRepository) DeleteCart(ctx context.Context, cartID string) error {
 	query = `DELETE FROM carts.Cart WHERE cart_id = $1`
 	result, err := tx.ExecContext(ctx, query, id)
 	if err != nil {
-		return fmt.Errorf("%w: failed to delete cart: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to delete cart: %w", ErrDatabaseOperation, err)
 	}
 
 	rows, err := result.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("%w: failed to get rows affected: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to get rows affected: %w", ErrDatabaseOperation, err)
 	}
 	if rows == 0 {
 		return ErrCartNotFound
 	}
 
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("%w: failed to commit transaction: %v", ErrTransactionFailed, err)
+		return fmt.Errorf("%w: failed to commit transaction: %w", ErrTransactionFailed, err)
 	}
 	committed = true
 
@@ -200,7 +200,7 @@ func (r *cartRepository) DeleteCart(ctx context.Context, cartID string) error {
 func (r *cartRepository) GetActiveCartByCustomerID(ctx context.Context, customerID string) (*Cart, error) {
 	id, err := uuid.Parse(customerID)
 	if err != nil {
-		return nil, fmt.Errorf("%w: invalid customer ID: %v", ErrInvalidUUID, err)
+		return nil, fmt.Errorf("%w: invalid customer ID: %w", ErrInvalidUUID, err)
 	}
 
 	query := `
@@ -216,7 +216,7 @@ func (r *cartRepository) GetActiveCartByCustomerID(ctx context.Context, customer
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrCartNotFound
 		}
-		return nil, fmt.Errorf("%w: failed to get cart: %v", ErrDatabaseOperation, err)
+		return nil, fmt.Errorf("%w: failed to get cart: %w", ErrDatabaseOperation, err)
 	}
 
 	if err := r.loadCartRelations(ctx, &cart); err != nil {

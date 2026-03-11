@@ -102,7 +102,14 @@ func main() {
 	corsHandler := corsProvider.GetCORSHandler()
 
 	logger.Debug("Creating SSE provider")
-	sseProvider := sse.NewProvider(sse.WithLogger(logger))
+	sseProvider := sse.NewProvider(
+		sse.WithLogger(logger),
+		sse.WithHandlerOptions(
+			sse.WithMissingIDMessage("Missing cart ID"),
+			sse.WithConnectedIDField("cartId"),
+			sse.WithLogIDKey("cart_id"),
+		),
+	)
 
 	logger.Debug("Creating cart infrastructure")
 	infrastructure := cart.NewCartInfrastructure(

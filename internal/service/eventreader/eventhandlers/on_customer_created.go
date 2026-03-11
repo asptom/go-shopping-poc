@@ -21,7 +21,7 @@ func NewOnCustomerCreated(logger *slog.Logger) *OnCustomerCreated {
 		logger = slog.Default()
 	}
 	return &OnCustomerCreated{
-		logger: logger.With("handler", "on_customer_created"),
+		logger: logger.With("component", "on_customer_created"),
 	}
 }
 

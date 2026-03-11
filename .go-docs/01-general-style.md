@@ -15,8 +15,14 @@ Always run `gofmt` on your code. The project follows standard Go formatting with
 
 **Before committing:**
 ```bash
-gofmt -w .
-goimports -w .
+scripts/ci/standardization_checks.sh
+```
+
+If you need to run tools manually:
+
+```bash
+gofmt -w <files>
+goimports -w <files>
 ```
 
 ### Import Organization
@@ -50,6 +56,24 @@ import (
 5. External dependencies
 
 Use `goimports` to enforce this automatically.
+
+## Logging Conventions
+
+Use structured `slog` logging with stable keys and concise messages.
+
+```go
+logger := slog.Default().With("component", "customer_service")
+log := logger.With("operation", "create_customer", "customer_id", customerID)
+
+log.Info("Create customer requested")
+log.Error("Create customer failed", "error", err.Error())
+```
+
+Rules:
+1. Use `component` names in `snake_case`.
+2. Use `operation` at boundary/failure points.
+3. Prefer stable message text and put variability in fields.
+4. Avoid sensitive fields (`email`, `card_number`, `card_cvv`, `token`, `secret`) in logs.
 
 ## Naming Conventions
 

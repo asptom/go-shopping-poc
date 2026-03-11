@@ -19,7 +19,7 @@ func (r *productRepository) BulkInsertProducts(ctx context.Context, products []*
 
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("%w: failed to begin transaction: %v", ErrTransactionFailed, err)
+		return fmt.Errorf("%w: failed to begin transaction: %w", ErrTransactionFailed, err)
 	}
 	committed := false
 	defer func() {
@@ -40,7 +40,7 @@ func (r *productRepository) BulkInsertProducts(ctx context.Context, products []*
 	}
 
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("%w: failed to commit bulk insert: %v", ErrTransactionFailed, err)
+		return fmt.Errorf("%w: failed to commit bulk insert: %w", ErrTransactionFailed, err)
 	}
 	committed = true
 
@@ -57,7 +57,7 @@ func (r *productRepository) BulkInsertProductImages(ctx context.Context, images 
 
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("%w: failed to begin transaction: %v", ErrTransactionFailed, err)
+		return fmt.Errorf("%w: failed to begin transaction: %w", ErrTransactionFailed, err)
 	}
 	committed := false
 	defer func() {
@@ -77,7 +77,7 @@ func (r *productRepository) BulkInsertProductImages(ctx context.Context, images 
 	}
 
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("%w: failed to commit bulk insert: %v", ErrTransactionFailed, err)
+		return fmt.Errorf("%w: failed to commit bulk insert: %w", ErrTransactionFailed, err)
 	}
 	committed = true
 

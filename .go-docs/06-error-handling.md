@@ -142,11 +142,11 @@ customer, err := repo.GetCustomerByID(ctx, id)
 if err != nil {
     if errors.Is(err, ErrCustomerNotFound) {
         // Handle not found
-        http.Error(w, "Customer not found", http.StatusNotFound)
+        httperr.NotFound(w, "Customer not found")
         return
     }
     // Handle other errors
-    http.Error(w, "Internal error", http.StatusInternalServerError)
+    httperr.Internal(w, "Internal error")
     return
 }
 ```
@@ -197,34 +197,11 @@ fmt.Errorf("something went wrong")
 ### Structured Error Response
 
 ```go
-// internal/platform/errors/errors.go
-
-type ErrorResponse struct {
-    Error   string `json:"error"`
-    Message string `json:"message,omitempty"`
-    Code    string `json:"code,omitempty"`
-}
-
-// Error type constants
-const (
-    ErrorTypeInvalidRequest = "invalid_request"
-    ErrorTypeValidation     = "validation_error"
-    ErrorTypeInternal       = "internal_error"
-    ErrorTypeNotFound       = "not_found"
-    ErrorTypeUnauthorized   = "unauthorized"
-    ErrorTypeForbidden      = "forbidden"
-)
-
-// SendError sends a structured JSON error response
-func SendError(w http.ResponseWriter, statusCode int, errorType, message string) {
-    w.Header().Set("Content-Type", "application/json")
-    w.WriteHeader(statusCode)
-    response := ErrorResponse{
-        Error:   errorType,
-        Message: message,
-    }
-    _ = json.NewEncoder(w).Encode(response)
-}
+// internal/platform/httperr
+httperr.InvalidRequest(w, "Invalid request body")
+httperr.Validation(w, "Email already exists")
+httperr.NotFound(w, "Customer not found")
+httperr.Internal(w, "Failed to retrieve customer")
 ```
 
 **Usage in handlers:**
@@ -235,18 +212,21 @@ func (h *CustomerHandler) GetCustomer(w http.ResponseWriter, r *http.Request) {
     customer, err := h.service.GetCustomer(r.Context(), id)
     if err != nil {
         if errors.Is(err, ErrCustomerNotFound) {
-            errors.SendError(w, http.StatusNotFound, errors.ErrorTypeNotFound, "Customer not found")
+            httperr.NotFound(w, "Customer not found")
             return
         }
-        errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to retrieve customer")
+        httperr.Internal(w, "Failed to retrieve customer")
         return
     }
-    
-    json.NewEncoder(w).Encode(customer)
+
+    if err := httpx.WriteJSON(w, http.StatusOK, customer); err != nil {
+        httperr.Internal(w, "Encode customer response failed")
+        return
+    }
 }
 ```
 
-**Reference:** `internal/platform/errors/errors.go`
+**Reference:** `internal/platform/httperr`, `internal/platform/httpx`
 
 ## Repository Error Handling
 
@@ -285,7 +265,7 @@ func (r *customerRepository) CreateWithEvent(ctx context.Context, customer *Cust
         if !committed {
             if rbErr := tx.Rollback(); rbErr != nil {
                 // Log rollback error but don't override original error
-                log.Printf("[ERROR] Transaction rollback failed: %v", rbErr)
+                logger.Error("Transaction rollback failed", "operation", "create_with_event", "error", rbErr.Error())
             }
         }
     }()
@@ -353,16 +333,17 @@ func (s *CustomerService) GetCustomer(ctx context.Context, id string) (*Customer
 
 ```go
 func (h *OnCustomerCreated) Handle(ctx context.Context, event events.Event) error {
+    log := h.logger.With("operation", "handle_customer_created")
     // Type check - non-retryable (don't retry bad events)
     customerEvent, ok := event.(events.CustomerEvent)
     if !ok {
-        log.Printf("[WARN] Unexpected event type: %T", event)
+        log.Warn("Unexpected event type", "actual_type", fmt.Sprintf("%T", event))
         return nil  // Acknowledge but don't retry
     }
     
     // Event type filtering
     if customerEvent.EventType != events.CustomerCreated {
-        log.Printf("[DEBUG] Ignoring event type: %s", customerEvent.EventType)
+        log.Debug("Ignore event type", "event_type", customerEvent.EventType)
         return nil
     }
     
@@ -385,28 +366,17 @@ func (h *OnCustomerCreated) Handle(ctx context.Context, event events.Event) erro
 ### Log Levels
 
 ```go
-// Fatal errors
-log.Fatalf("[FATAL] Failed to start service: %v", err)
-
-// Errors
-log.Printf("[ERROR] Failed to process order: %v", err)
-
-// Warnings
-log.Printf("[WARN] Skipping invalid event: %v", err)
-
-// Debug
-log.Printf("[DEBUG] Retrying operation, attempt %d: %v", attempt, err)
+logger.Error("Start service failed", "operation", "startup", "error", err.Error())
+logger.Error("Process order failed", "operation", "process_order", "order_id", orderID, "error", err.Error())
+logger.Warn("Skip invalid event", "operation", "handle_event", "event_type", eventType, "error", err.Error())
+logger.Debug("Retry publish event", "operation", "publish_event", "attempt", attempt, "error", err.Error())
 ```
 
 ### Structured Logging (Recommended)
 
 ```go
-// Using structured fields
-log.Printf("[ERROR] operation=%s customer_id=%s error=%v", 
-    "CreateCustomer", 
-    customerID, 
-    err,
-)
+logger.With("component", "customer_service").
+    Error("Create customer failed", "operation", "create_customer", "customer_id", customerID, "error", err.Error())
 ```
 
 ## Panic Recovery
@@ -418,7 +388,7 @@ log.Printf("[ERROR] operation=%s customer_id=%s error=%v",
 func main() {
     defer func() {
         if r := recover(); r != nil {
-            log.Printf("[FATAL] Panic recovered: %v\n%s", r, debug.Stack())
+            logger.Error("Panic recovered", "operation", "main", "panic", r, "stack", string(debug.Stack()))
             os.Exit(1)
         }
     }()
@@ -434,8 +404,8 @@ func RecoveryMiddleware(next http.Handler) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
         defer func() {
             if r := recover(); r != nil {
-                log.Printf("[ERROR] Panic in handler: %v\n%s", r, debug.Stack())
-                http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+                logger.Error("Panic in handler", "operation", "http_recovery", "panic", r, "stack", string(debug.Stack()))
+                httperr.Internal(w, "Internal Server Error")
             }
         }()
         
@@ -489,5 +459,5 @@ return &ServiceError{Service: "name", Op: "operation", Err: err}
 return fmt.Errorf("failed to %s %s: %w", action, target, err)
 
 // Structured HTTP error
-errors.SendError(w, http.StatusNotFound, errors.ErrorTypeNotFound, "Not found")
+httperr.NotFound(w, "Not found")
 ```

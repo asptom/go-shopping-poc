@@ -1,14 +1,12 @@
 package customer
 
 import (
-	"encoding/json"
 	"net/http"
 	"net/mail"
 	"net/url"
 
-	"github.com/go-chi/chi/v5"
-
-	"go-shopping-poc/internal/platform/errors"
+	"go-shopping-poc/internal/platform/httperr"
+	"go-shopping-poc/internal/platform/httpx"
 )
 
 type CustomerHandler struct {
@@ -21,166 +19,157 @@ func NewCustomerHandler(service *CustomerService) *CustomerHandler {
 
 func (h *CustomerHandler) CreateCustomer(w http.ResponseWriter, r *http.Request) {
 	var customer Customer
-	if err := json.NewDecoder(r.Body).Decode(&customer); err != nil {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Invalid JSON in request body")
+	if err := httpx.DecodeJSON(r, &customer); err != nil {
+		httperr.InvalidRequest(w, "Invalid JSON in request body")
 		return
 	}
 
 	// Validate required fields
 	if customer.Username == "" || customer.Email == "" {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeValidation, "username and email are required")
+		httperr.Validation(w, "username and email are required")
 		return
 	}
 
 	if err := h.service.CreateCustomer(r.Context(), &customer); err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to create customer")
+		httperr.Internal(w, "Failed to create customer")
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	if err := json.NewEncoder(w).Encode(customer); err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to encode response")
+	if err := httpx.WriteJSON(w, http.StatusCreated, customer); err != nil {
+		httperr.Internal(w, "Failed to encode response")
 		return
 	}
 }
 
 func (h *CustomerHandler) UpdateCustomer(w http.ResponseWriter, r *http.Request) {
 	var customer Customer
-	if err := json.NewDecoder(r.Body).Decode(&customer); err != nil {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Invalid JSON in request body")
+	if err := httpx.DecodeJSON(r, &customer); err != nil {
+		httperr.InvalidRequest(w, "Invalid JSON in request body")
 		return
 	}
 
 	// PUT requires complete customer record - validate required fields
 	if customer.CustomerID == "" || customer.Username == "" || customer.Email == "" {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeValidation, "PUT requires complete customer record with customer_id, username, and email")
+		httperr.Validation(w, "PUT requires complete customer record with customer_id, username, and email")
 		return
 	}
 
 	if err := h.service.UpdateCustomer(r.Context(), &customer); err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to update customer")
+		httperr.Internal(w, "Failed to update customer")
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(customer); err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to encode response")
+	if err := httpx.WriteJSON(w, http.StatusOK, customer); err != nil {
+		httperr.Internal(w, "Failed to encode response")
 		return
 	}
 }
 
 func (h *CustomerHandler) PatchCustomer(w http.ResponseWriter, r *http.Request) {
 	var patchData PatchCustomerRequest
-	if err := json.NewDecoder(r.Body).Decode(&patchData); err != nil {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Invalid JSON in request body")
+	if err := httpx.DecodeJSON(r, &patchData); err != nil {
+		httperr.InvalidRequest(w, "Invalid JSON in request body")
 		return
 	}
 
-	// Extract customer_id from path
-	customerID := chi.URLParam(r, "id")
-	if customerID == "" {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Missing customer_id in path")
+	customerID, ok := requiredPathParam(w, r, "id", "Missing customer_id in path")
+	if !ok {
 		return
 	}
 
 	if err := h.service.PatchCustomer(r.Context(), customerID, &patchData); err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to patch customer")
+		httperr.Internal(w, "Failed to patch customer")
 		return
 	}
 
 	// Return updated customer
 	updated, err := h.service.GetCustomerByID(r.Context(), customerID)
 	if err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to retrieve updated customer")
+		httperr.Internal(w, "Failed to retrieve updated customer")
 		return
 	}
 	if updated == nil {
-		errors.SendError(w, http.StatusNotFound, errors.ErrorTypeNotFound, "Customer not found after update")
+		httperr.NotFound(w, "Customer not found after update")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(updated); err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to encode response")
+	if err := httpx.WriteJSON(w, http.StatusOK, updated); err != nil {
+		httperr.Internal(w, "Failed to encode response")
 		return
 	}
 }
 
 // Example: email passed as query parameter ?email=...
 func (h *CustomerHandler) GetCustomerByEmail(w http.ResponseWriter, r *http.Request) {
-	email := r.URL.Query().Get("email")
-	if email == "" {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Missing email parameter")
+	email, ok := requiredQueryParam(w, r, "email", "Missing email parameter")
+	if !ok {
 		return
 	}
 	// validate
 	if _, err := mail.ParseAddress(email); err != nil {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeValidation, "Invalid email address")
+		httperr.Validation(w, "Invalid email address")
 		return
 	}
 
 	cust, err := h.service.GetCustomerByEmail(r.Context(), email)
 	if err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Customer lookup failed")
+		httperr.Internal(w, "Customer lookup failed")
 		return
 	}
 	if cust == nil {
 		// No customer found -> return 204 No Content
-		w.WriteHeader(http.StatusNoContent)
+		httpx.WriteNoContent(w)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(cust); err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to encode response")
+	if err := httpx.WriteJSON(w, http.StatusOK, cust); err != nil {
+		httperr.Internal(w, "Failed to encode response")
 		return
 	}
 }
 
 // Example: email passed as path segment /customers/{email}
 func (h *CustomerHandler) GetCustomerByEmailPath(w http.ResponseWriter, r *http.Request) {
-	raw := chi.URLParam(r, "email")
+	raw, ok := requiredPathParam(w, r, "email", "Missing email in path")
+	if !ok {
+		return
+	}
 	// path segments should use PathUnescape
 	email, err := url.PathUnescape(raw)
 	if err != nil {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Invalid path encoding")
+		httperr.InvalidRequest(w, "Invalid path encoding")
 		return
 	}
 	if _, err := mail.ParseAddress(email); err != nil {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeValidation, "Invalid email address")
+		httperr.Validation(w, "Invalid email address")
 		return
 	}
 	cust, err := h.service.GetCustomerByEmail(r.Context(), email)
 	if err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Customer lookup failed")
+		httperr.Internal(w, "Customer lookup failed")
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
 	if cust == nil {
-		errors.SendError(w, http.StatusNotFound, errors.ErrorTypeNotFound, "Customer not found")
+		httperr.NotFound(w, "Customer not found")
 		return
 	}
-	if err := json.NewEncoder(w).Encode(cust); err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to encode response")
+	if err := httpx.WriteJSON(w, http.StatusOK, cust); err != nil {
+		httperr.Internal(w, "Failed to encode response")
 		return
 	}
 }
 
 // AddAddress - POST /customers/{id}/addresses
 func (h *CustomerHandler) AddAddress(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
-	if id == "" {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Missing customer id")
+	id, ok := requiredPathParam(w, r, "id", "Missing customer id")
+	if !ok {
 		return
 	}
 	var addr Address
-	if err := json.NewDecoder(r.Body).Decode(&addr); err != nil {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Invalid JSON in request body")
+	if err := httpx.DecodeJSON(r, &addr); err != nil {
+		httperr.InvalidRequest(w, "Invalid JSON in request body")
 		return
 	}
 	if _, err := h.service.AddAddress(r.Context(), id, &addr); err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to add address")
+		httperr.Internal(w, "Failed to add address")
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
@@ -188,53 +177,50 @@ func (h *CustomerHandler) AddAddress(w http.ResponseWriter, r *http.Request) {
 
 // UpdateAddress - PUT /customers/addresses/{addressId}
 func (h *CustomerHandler) UpdateAddress(w http.ResponseWriter, r *http.Request) {
-	addressID := chi.URLParam(r, "addressId")
-	if addressID == "" {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Missing address id")
+	addressID, ok := requiredPathParam(w, r, "addressId", "Missing address id")
+	if !ok {
 		return
 	}
 
 	var addr Address
-	if err := json.NewDecoder(r.Body).Decode(&addr); err != nil {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Invalid JSON in request body")
+	if err := httpx.DecodeJSON(r, &addr); err != nil {
+		httperr.InvalidRequest(w, "Invalid JSON in request body")
 		return
 	}
 
 	if err := h.service.UpdateAddress(r.Context(), addressID, &addr); err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to update address")
+		httperr.Internal(w, "Failed to update address")
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+	httpx.WriteNoContent(w)
 }
 
 // DeleteAddress - DELETE /customers/addresses/{addressId}
 func (h *CustomerHandler) DeleteAddress(w http.ResponseWriter, r *http.Request) {
-	addressID := chi.URLParam(r, "addressId")
-	if addressID == "" {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Missing address id")
+	addressID, ok := requiredPathParam(w, r, "addressId", "Missing address id")
+	if !ok {
 		return
 	}
 	if err := h.service.DeleteAddress(r.Context(), addressID); err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to delete address")
+		httperr.Internal(w, "Failed to delete address")
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+	httpx.WriteNoContent(w)
 }
 
 // AddCreditCard - POST /customers/{id}/credit-cards
 func (h *CustomerHandler) AddCreditCard(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
-	if id == "" {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Missing customer id")
+	id, ok := requiredPathParam(w, r, "id", "Missing customer id")
+	if !ok {
 		return
 	}
 	var card CreditCard
-	if err := json.NewDecoder(r.Body).Decode(&card); err != nil {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Invalid JSON in request body")
+	if err := httpx.DecodeJSON(r, &card); err != nil {
+		httperr.InvalidRequest(w, "Invalid JSON in request body")
 		return
 	}
 	if _, err := h.service.AddCreditCard(r.Context(), id, &card); err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to add credit card")
+		httperr.Internal(w, "Failed to add credit card")
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
@@ -242,132 +228,141 @@ func (h *CustomerHandler) AddCreditCard(w http.ResponseWriter, r *http.Request) 
 
 // UpdateCreditCard - PUT /customers/credit-cards/{cardId}
 func (h *CustomerHandler) UpdateCreditCard(w http.ResponseWriter, r *http.Request) {
-	cardId := chi.URLParam(r, "cardId")
-	if cardId == "" {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Missing card id")
+	cardID, ok := requiredPathParam(w, r, "cardId", "Missing card id")
+	if !ok {
 		return
 	}
 	var card CreditCard
-	if err := json.NewDecoder(r.Body).Decode(&card); err != nil {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Invalid JSON in request body")
+	if err := httpx.DecodeJSON(r, &card); err != nil {
+		httperr.InvalidRequest(w, "Invalid JSON in request body")
 		return
 	}
-	if err := h.service.UpdateCreditCard(r.Context(), cardId, &card); err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to update credit card")
+	if err := h.service.UpdateCreditCard(r.Context(), cardID, &card); err != nil {
+		httperr.Internal(w, "Failed to update credit card")
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+	httpx.WriteNoContent(w)
 }
 
 // DeleteCreditCard - DELETE /customers/credit-cards/{cardId}
 func (h *CustomerHandler) DeleteCreditCard(w http.ResponseWriter, r *http.Request) {
-	cardId := chi.URLParam(r, "cardId")
-	if cardId == "" {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Missing card id")
+	cardID, ok := requiredPathParam(w, r, "cardId", "Missing card id")
+	if !ok {
 		return
 	}
-	if err := h.service.DeleteCreditCard(r.Context(), cardId); err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to delete credit card")
+	if err := h.service.DeleteCreditCard(r.Context(), cardID); err != nil {
+		httperr.Internal(w, "Failed to delete credit card")
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+	httpx.WriteNoContent(w)
 }
 
 // SetDefaultShippingAddress - PUT /customers/{id}/default-shipping-address/{addressId}
 func (h *CustomerHandler) SetDefaultShippingAddress(w http.ResponseWriter, r *http.Request) {
-	customerID := chi.URLParam(r, "id")
-	if customerID == "" {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Missing customer id")
+	customerID, ok := requiredPathParam(w, r, "id", "Missing customer id")
+	if !ok {
 		return
 	}
-	addressID := chi.URLParam(r, "addressId")
-	if addressID == "" {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Missing address id")
+	addressID, ok := requiredPathParam(w, r, "addressId", "Missing address id")
+	if !ok {
 		return
 	}
 	if err := h.service.SetDefaultShippingAddress(r.Context(), customerID, addressID); err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to set default shipping address")
+		httperr.Internal(w, "Failed to set default shipping address")
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+	httpx.WriteNoContent(w)
 }
 
 // SetDefaultBillingAddress - PUT /customers/{id}/default-billing-address/{addressId}
 func (h *CustomerHandler) SetDefaultBillingAddress(w http.ResponseWriter, r *http.Request) {
-	customerID := chi.URLParam(r, "id")
-	if customerID == "" {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Missing customer id")
+	customerID, ok := requiredPathParam(w, r, "id", "Missing customer id")
+	if !ok {
 		return
 	}
-	addressID := chi.URLParam(r, "addressId")
-	if addressID == "" {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Missing address id")
+	addressID, ok := requiredPathParam(w, r, "addressId", "Missing address id")
+	if !ok {
 		return
 	}
 	if err := h.service.SetDefaultBillingAddress(r.Context(), customerID, addressID); err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to set default billing address")
+		httperr.Internal(w, "Failed to set default billing address")
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+	httpx.WriteNoContent(w)
 }
 
 // SetDefaultCreditCard - PUT /customers/{id}/default-credit-card/{cardId}
 func (h *CustomerHandler) SetDefaultCreditCard(w http.ResponseWriter, r *http.Request) {
-	customerID := chi.URLParam(r, "id")
-	if customerID == "" {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Missing customer id")
+	customerID, ok := requiredPathParam(w, r, "id", "Missing customer id")
+	if !ok {
 		return
 	}
-	cardID := chi.URLParam(r, "cardId")
-	if cardID == "" {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Missing card id")
+	cardID, ok := requiredPathParam(w, r, "cardId", "Missing card id")
+	if !ok {
 		return
 	}
 	if err := h.service.SetDefaultCreditCard(r.Context(), customerID, cardID); err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to set default credit card")
+		httperr.Internal(w, "Failed to set default credit card")
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+	httpx.WriteNoContent(w)
 }
 
 // ClearDefaultShippingAddress - DELETE /customers/{id}/default-shipping-address
 func (h *CustomerHandler) ClearDefaultShippingAddress(w http.ResponseWriter, r *http.Request) {
-	customerID := chi.URLParam(r, "id")
-	if customerID == "" {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Missing customer id")
+	customerID, ok := requiredPathParam(w, r, "id", "Missing customer id")
+	if !ok {
 		return
 	}
 	if err := h.service.ClearDefaultShippingAddress(r.Context(), customerID); err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to clear default shipping address")
+		httperr.Internal(w, "Failed to clear default shipping address")
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+	httpx.WriteNoContent(w)
 }
 
 // ClearDefaultBillingAddress - DELETE /customers/{id}/default-billing-address
 func (h *CustomerHandler) ClearDefaultBillingAddress(w http.ResponseWriter, r *http.Request) {
-	customerID := chi.URLParam(r, "id")
-	if customerID == "" {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Missing customer id")
+	customerID, ok := requiredPathParam(w, r, "id", "Missing customer id")
+	if !ok {
 		return
 	}
 	if err := h.service.ClearDefaultBillingAddress(r.Context(), customerID); err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to clear default billing address")
+		httperr.Internal(w, "Failed to clear default billing address")
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+	httpx.WriteNoContent(w)
 }
 
 // ClearDefaultCreditCard - DELETE /customers/{id}/default-credit-card
 func (h *CustomerHandler) ClearDefaultCreditCard(w http.ResponseWriter, r *http.Request) {
-	customerID := chi.URLParam(r, "id")
-	if customerID == "" {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Missing customer id")
+	customerID, ok := requiredPathParam(w, r, "id", "Missing customer id")
+	if !ok {
 		return
 	}
 	if err := h.service.ClearDefaultCreditCard(r.Context(), customerID); err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to clear default credit card")
+		httperr.Internal(w, "Failed to clear default credit card")
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+	httpx.WriteNoContent(w)
+}
+
+func requiredPathParam(w http.ResponseWriter, r *http.Request, key, missingMessage string) (string, bool) {
+	value, err := httpx.RequirePathParam(r, key)
+	if err != nil {
+		httperr.InvalidRequest(w, missingMessage)
+		return "", false
+	}
+
+	return value, true
+}
+
+func requiredQueryParam(w http.ResponseWriter, r *http.Request, key, missingMessage string) (string, bool) {
+	value, err := httpx.RequireQueryParam(r, key)
+	if err != nil {
+		httperr.InvalidRequest(w, missingMessage)
+		return "", false
+	}
+
+	return value, true
 }

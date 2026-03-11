@@ -6,6 +6,12 @@ This document describes the service layer patterns used for business logic orche
 
 The **Service Layer** implements business logic and orchestrates between repositories, event buses, and other infrastructure. It represents the "WHAT" of the system - what operations the system performs.
 
+## Standardization Alignment
+
+- Use `slog` with stable `component` and `operation` fields.
+- Avoid logging sensitive data in service logs (for example raw email/card/token fields).
+- HTTP handler integration should use `internal/platform/httpx` and `internal/platform/httperr` for transport concerns.
+
 ## Service Structure
 
 ### Service Components
@@ -474,6 +480,11 @@ Services are used by HTTP handlers:
 ```go
 // internal/service/customer/handler.go
 
+import (
+    "go-shopping-poc/internal/platform/httperr"
+    "go-shopping-poc/internal/platform/httpx"
+)
+
 type CustomerHandler struct {
     service *CustomerService
 }
@@ -485,8 +496,8 @@ func NewCustomerHandler(service *CustomerService) *CustomerHandler {
 func (h *CustomerHandler) CreateCustomer(w http.ResponseWriter, r *http.Request) {
     // Parse request
     var req CreateCustomerRequest
-    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-        http.Error(w, "Invalid request body", http.StatusBadRequest)
+    if err := httpx.DecodeJSON(r, &req); err != nil {
+        httperr.InvalidRequest(w, "Invalid request body")
         return
     }
     
@@ -495,16 +506,18 @@ func (h *CustomerHandler) CreateCustomer(w http.ResponseWriter, r *http.Request)
     if err := h.service.CreateCustomer(r.Context(), customer); err != nil {
         // Handle specific errors
         if errors.Is(err, ErrDuplicateEmail) {
-            http.Error(w, "Email already exists", http.StatusConflict)
+            httperr.Validation(w, "Email already exists")
             return
         }
-        http.Error(w, "Internal error", http.StatusInternalServerError)
+        httperr.Internal(w, "Internal error")
         return
     }
-    
+
     // Return response
-    w.WriteHeader(http.StatusCreated)
-    json.NewEncoder(w).Encode(customer)
+    if err := httpx.WriteJSON(w, http.StatusCreated, customer); err != nil {
+        httperr.Internal(w, "Failed to encode response")
+        return
+    }
 }
 ```
 

@@ -30,7 +30,7 @@ func (r *customerRepository) insertStatusHistory(ctx context.Context, tx databas
 			status.ChangedAt = time.Now()
 		}
 		if _, err := tx.NamedExecContext(ctx, statusQuery, status); err != nil {
-			return fmt.Errorf("%w: failed to insert status history: %v", ErrDatabaseOperation, err)
+			return fmt.Errorf("%w: failed to insert status history: %w", ErrDatabaseOperation, err)
 		}
 	}
 

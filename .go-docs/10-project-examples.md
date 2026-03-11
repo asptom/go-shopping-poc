@@ -246,20 +246,27 @@ package eventhandlers
 
 import (
     "context"
-    "log"
+    "fmt"
+    "log/slog"
     
     "go-shopping-poc/internal/contracts/events"
     "go-shopping-poc/internal/platform/event/bus"
     "go-shopping-poc/internal/platform/event/handler"
 )
 
-type OnCustomerCreated struct{}
+type OnCustomerCreated struct {
+    logger *slog.Logger
+}
 
-func NewOnCustomerCreated() *OnCustomerCreated {
-    return &OnCustomerCreated{}
+func NewOnCustomerCreated(logger *slog.Logger) *OnCustomerCreated {
+    if logger == nil {
+        logger = slog.Default()
+    }
+    return &OnCustomerCreated{logger: logger.With("component", "eventreader_on_customer_created")}
 }
 
 func (h *OnCustomerCreated) Handle(ctx context.Context, event events.Event) error {
+    log := h.logger.With("operation", "handle_customer_created")
     // Type assertion
     var customerEvent events.CustomerEvent
     switch e := event.(type) {
@@ -268,13 +275,13 @@ func (h *OnCustomerCreated) Handle(ctx context.Context, event events.Event) erro
     case *events.CustomerEvent:
         customerEvent = *e
     default:
-        log.Printf("[ERROR] Expected CustomerEvent, got %T", event)
+        log.Error("Expected CustomerEvent", "actual_type", fmt.Sprintf("%T", event))
         return nil  // Don't retry
     }
     
     // Event type filtering
     if customerEvent.EventType != events.CustomerCreated {
-        log.Printf("[DEBUG] Ignoring event type: %s", customerEvent.EventType)
+        log.Debug("Ignore event type", "event_type", customerEvent.EventType)
         return nil
     }
     
@@ -287,7 +294,7 @@ func (h *OnCustomerCreated) processCustomerCreated(
     event events.CustomerEvent,
 ) error {
     // Business logic here
-    log.Printf("[INFO] Processing customer created: %s", event.EventPayload.CustomerID)
+    h.logger.Info("Customer created event processed", "operation", "process_customer_created", "customer_id", event.EventPayload.CustomerID)
     return nil
 }
 
@@ -437,7 +444,7 @@ package main
 
 import (
     "context"
-    "log"
+    "log/slog"
     "net/http"
     "os"
     "os/signal"
@@ -454,29 +461,35 @@ import (
 )
 
 func main() {
+    logger := slog.Default().With("component", "customer_main")
+
     defer func() {
         if r := recover(); r != nil {
-            log.Fatalf("[FATAL] Panic recovered: %v", r)
+            logger.Error("Panic recovered", "operation", "main", "panic", r)
+            os.Exit(1)
         }
     }()
     
     // Load configuration
     cfg, err := customer.LoadConfig()
     if err != nil {
-        log.Fatalf("[FATAL] Failed to load config: %v", err)
+        logger.Error("Load config failed", "operation", "load_config", "error", err.Error())
+        os.Exit(1)
     }
     
     // Create infrastructure providers
     dbProvider, err := database.NewDatabaseProvider(cfg.DatabaseURL)
     if err != nil {
-        log.Fatalf("[FATAL] Failed to create database provider: %v", err)
+        logger.Error("Create database provider failed", "operation", "build_database_provider", "error", err.Error())
+        os.Exit(1)
     }
     db := dbProvider.GetDatabase()
     defer db.Close()
     
     eventBusProvider, err := event.NewEventBusProvider(eventBusConfig)
     if err != nil {
-        log.Fatalf("[FATAL] Failed to create event bus provider: %v", err)
+        logger.Error("Create event bus provider failed", "operation", "build_event_bus_provider", "error", err.Error())
+        os.Exit(1)
     }
     eventBus := eventBusProvider.GetEventBus()
     
@@ -489,7 +502,8 @@ func main() {
     
     corsProvider, err := cors.NewCORSProvider()
     if err != nil {
-        log.Fatalf("[FATAL] Failed to create CORS provider: %v", err)
+        logger.Error("Create CORS provider failed", "operation", "build_cors_provider", "error", err.Error())
+        os.Exit(1)
     }
     corsHandler := corsProvider.GetCORSHandler()
     
@@ -499,7 +513,7 @@ func main() {
         outboxPublisher, corsHandler,
     )
     svc := customer.NewCustomerService(infrastructure, cfg)
-    handler := customer.NewCustomerHandler(svc)
+    handler := customer.NewCustomerHandler(svc, logger)
     
     // Setup HTTP server
     router := chi.NewRouter()
@@ -517,9 +531,9 @@ func main() {
     
     // Start server in goroutine
     go func() {
-        log.Printf("[INFO] Starting customer service on port %s", cfg.ServicePort)
+        logger.Info("Start customer service", "operation", "start_http_server", "port", cfg.ServicePort)
         if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-            log.Fatalf("[FATAL] Server error: %v", err)
+            logger.Error("HTTP server failed", "operation", "start_http_server", "error", err.Error())
         }
     }()
     
@@ -528,13 +542,13 @@ func main() {
     signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
     <-sigChan
     
-    log.Println("[INFO] Shutting down...")
+    logger.Info("Start service shutdown", "operation", "shutdown")
     
     shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
     defer cancel()
     
     if err := server.Shutdown(shutdownCtx); err != nil {
-        log.Printf("[ERROR] Shutdown error: %v", err)
+        logger.Error("Shutdown failed", "operation", "shutdown", "error", err.Error())
     }
 }
 ```
@@ -551,27 +565,35 @@ See: `internal/service/customer/handler.go`
 package customer
 
 import (
-    "encoding/json"
     "errors"
+    "log/slog"
     "net/http"
     
     "github.com/go-chi/chi/v5"
     
-    "go-shopping-poc/internal/platform/errors"
+    "go-shopping-poc/internal/platform/httperr"
+    "go-shopping-poc/internal/platform/httpx"
 )
 
 type CustomerHandler struct {
     service *CustomerService
+    logger  *slog.Logger
 }
 
-func NewCustomerHandler(service *CustomerService) *CustomerHandler {
-    return &CustomerHandler{service: service}
+func NewCustomerHandler(service *CustomerService, logger *slog.Logger) *CustomerHandler {
+    if logger == nil {
+        logger = slog.Default()
+    }
+    return &CustomerHandler{service: service, logger: logger.With("component", "customer_handler")}
 }
 
 func (h *CustomerHandler) CreateCustomer(w http.ResponseWriter, r *http.Request) {
+    log := h.logger.With("operation", "create_customer", "request_id", r.Header.Get("X-Request-ID"))
+
     var req CreateCustomerRequest
-    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-        errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Invalid request body")
+    if err := httpx.DecodeJSON(r, &req); err != nil {
+        log.Warn("Decode request failed", "error", err.Error())
+        httperr.InvalidRequest(w, "Invalid request body")
         return
     }
     
@@ -582,32 +604,41 @@ func (h *CustomerHandler) CreateCustomer(w http.ResponseWriter, r *http.Request)
     
     if err := h.service.CreateCustomer(r.Context(), customer); err != nil {
         if errors.Is(err, ErrDuplicateEmail) {
-            errors.SendError(w, http.StatusConflict, errors.ErrorTypeValidation, "Email already exists")
+            httperr.Validation(w, "Email already exists")
             return
         }
-        errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to create customer")
+        log.Error("Create customer failed", "error", err.Error())
+        httperr.Internal(w, "Failed to create customer")
         return
     }
-    
-    w.WriteHeader(http.StatusCreated)
-    json.NewEncoder(w).Encode(customer)
+
+    if err := httpx.WriteJSON(w, http.StatusCreated, customer); err != nil {
+        log.Error("Encode create response failed", "error", err.Error())
+        httperr.Internal(w, "Failed to encode response")
+        return
+    }
 }
 
 func (h *CustomerHandler) GetCustomer(w http.ResponseWriter, r *http.Request) {
+    log := h.logger.With("operation", "get_customer", "request_id", r.Header.Get("X-Request-ID"))
     id := chi.URLParam(r, "id")
     
     customer, err := h.service.GetCustomer(r.Context(), id)
     if err != nil {
         if errors.Is(err, ErrCustomerNotFound) {
-            errors.SendError(w, http.StatusNotFound, errors.ErrorTypeNotFound, "Customer not found")
+            httperr.NotFound(w, "Customer not found")
             return
         }
-        errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to retrieve customer")
+        log.Error("Get customer failed", "customer_id", id, "error", err.Error())
+        httperr.Internal(w, "Failed to retrieve customer")
         return
     }
-    
-    w.Header().Set("Content-Type", "application/json")
-    json.NewEncoder(w).Encode(customer)
+
+    if err := httpx.WriteJSON(w, http.StatusOK, customer); err != nil {
+        log.Error("Encode get response failed", "customer_id", id, "error", err.Error())
+        httperr.Internal(w, "Failed to encode response")
+        return
+    }
 }
 ```
 

@@ -17,7 +17,7 @@ func (r *customerRepository) GetCustomerByID(ctx context.Context, customerID str
 
 	id, err := uuid.Parse(customerID)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s: %v", ErrInvalidUUID, customerID, err)
+		return nil, fmt.Errorf("%w: %s: %w", ErrInvalidUUID, customerID, err)
 	}
 
 	query := `select * from customers.customer where customers.customer.customer_id = $1`
@@ -27,7 +27,7 @@ func (r *customerRepository) GetCustomerByID(ctx context.Context, customerID str
 			return nil, nil
 		}
 		r.logger.Error("Error fetching customer by ID", "error", err.Error())
-		return nil, fmt.Errorf("%w: failed to fetch customer %s: %v", ErrDatabaseOperation, customerID, err)
+		return nil, fmt.Errorf("%w: failed to fetch customer %s: %w", ErrDatabaseOperation, customerID, err)
 	}
 
 	if err := r.LoadCustomerRelations(ctx, &customer); err != nil {
@@ -48,7 +48,7 @@ func (r *customerRepository) GetCustomerByEmail(ctx context.Context, email strin
 			return nil, nil
 		}
 		r.logger.Error("Error fetching customer by email", "error", err.Error())
-		return nil, fmt.Errorf("%w: failed to fetch customer by email %s: %v", ErrDatabaseOperation, email, err)
+		return nil, fmt.Errorf("%w: failed to fetch customer by email %s: %w", ErrDatabaseOperation, email, err)
 	}
 
 	if err := r.LoadCustomerRelations(ctx, &customer); err != nil {
@@ -63,7 +63,7 @@ func (r *customerRepository) getAddressesByCustomerID(ctx context.Context, custo
 	query := `SELECT * FROM customers.Address WHERE customer_id = $1`
 	var addresses []Address
 	if err := r.db.SelectContext(ctx, &addresses, query, customerID); err != nil {
-		return nil, fmt.Errorf("%w: failed to fetch addresses for customer %s: %v", ErrDatabaseOperation, customerID, err)
+		return nil, fmt.Errorf("%w: failed to fetch addresses for customer %s: %w", ErrDatabaseOperation, customerID, err)
 	}
 	return addresses, nil
 }
@@ -73,7 +73,7 @@ func (r *customerRepository) getCreditCardsByCustomerID(ctx context.Context, cus
 	query := `SELECT * FROM customers.CreditCard WHERE customer_id = $1`
 	var creditCards []CreditCard
 	if err := r.db.SelectContext(ctx, &creditCards, query, customerID); err != nil {
-		return nil, fmt.Errorf("%w: failed to fetch credit cards for customer %s: %v", ErrDatabaseOperation, customerID, err)
+		return nil, fmt.Errorf("%w: failed to fetch credit cards for customer %s: %w", ErrDatabaseOperation, customerID, err)
 	}
 	return creditCards, nil
 }
@@ -83,7 +83,7 @@ func (r *customerRepository) getStatusHistoryByCustomerID(ctx context.Context, c
 	query := `SELECT * FROM customers.CustomerStatusHistory WHERE customer_id = $1`
 	var statusHistory []CustomerStatus
 	if err := r.db.SelectContext(ctx, &statusHistory, query, customerID); err != nil {
-		return nil, fmt.Errorf("%w: failed to fetch status history for customer %s: %v", ErrDatabaseOperation, customerID, err)
+		return nil, fmt.Errorf("%w: failed to fetch status history for customer %s: %w", ErrDatabaseOperation, customerID, err)
 	}
 	return statusHistory, nil
 }

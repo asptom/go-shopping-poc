@@ -36,7 +36,7 @@ func (r *orderRepository) CreateOrder(ctx context.Context, order *Order) error {
 	var orderNumber string
 	err = tx.QueryRow(ctx, "SELECT orders.generate_order_number()").Scan(&orderNumber)
 	if err != nil {
-		return fmt.Errorf("%w: failed to generate order number: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to generate order number: %w", ErrDatabaseOperation, err)
 	}
 	order.OrderNumber = orderNumber
 
@@ -69,7 +69,7 @@ func (r *orderRepository) CreateOrder(ctx context.Context, order *Order) error {
 		order.Currency, order.NetPrice, order.Tax, order.Shipping, order.TotalPrice, order.CurrentStatus,
 		order.CreatedAt, order.UpdatedAt)
 	if err != nil {
-		return fmt.Errorf("%w: failed to insert order: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to insert order: %w", ErrDatabaseOperation, err)
 	}
 
 	for i := range order.Items {
@@ -101,7 +101,7 @@ func (r *orderRepository) CreateOrder(ctx context.Context, order *Order) error {
 	}
 
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("%w: failed to commit transaction: %v", ErrTransactionFailed, err)
+		return fmt.Errorf("%w: failed to commit transaction: %w", ErrTransactionFailed, err)
 	}
 	committed = true
 
@@ -124,7 +124,7 @@ func (r *orderRepository) insertContactTx(ctx context.Context, tx database.Tx, o
 		order.OrderID, order.Contact.Email, order.Contact.FirstName, order.Contact.LastName, order.Contact.Phone,
 	).Scan(&contactID)
 	if err != nil {
-		return 0, fmt.Errorf("%w: failed to insert contact: %v", ErrDatabaseOperation, err)
+		return 0, fmt.Errorf("%w: failed to insert contact: %w", ErrDatabaseOperation, err)
 	}
 
 	return contactID, nil
@@ -147,7 +147,7 @@ func (r *orderRepository) insertCreditCardTx(ctx context.Context, tx database.Tx
 		order.CreditCard.CardHolderName, order.CreditCard.CardExpires, order.CreditCard.CardCVV,
 	).Scan(&cardID)
 	if err != nil {
-		return 0, fmt.Errorf("%w: failed to insert credit card: %v", ErrDatabaseOperation, err)
+		return 0, fmt.Errorf("%w: failed to insert credit card: %w", ErrDatabaseOperation, err)
 	}
 
 	return cardID, nil
@@ -164,7 +164,7 @@ func (r *orderRepository) insertOrderItemTx(ctx context.Context, tx database.Tx,
 		item.UnitPrice, item.Quantity, item.TotalPrice, item.ItemStatus, item.ItemStatusDate,
 	)
 	if err != nil {
-		return fmt.Errorf("%w: failed to insert order item: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to insert order item: %w", ErrDatabaseOperation, err)
 	}
 
 	return nil
@@ -181,7 +181,7 @@ func (r *orderRepository) insertAddressTx(ctx context.Context, tx database.Tx, a
 		address.Address1, address.Address2, address.City, address.State, address.Zip,
 	)
 	if err != nil {
-		return fmt.Errorf("%w: failed to insert address: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to insert address: %w", ErrDatabaseOperation, err)
 	}
 
 	return nil
@@ -190,7 +190,7 @@ func (r *orderRepository) insertAddressTx(ctx context.Context, tx database.Tx, a
 func (r *orderRepository) GetOrderByID(ctx context.Context, orderID string) (*Order, error) {
 	id, err := uuid.Parse(orderID)
 	if err != nil {
-		return nil, fmt.Errorf("%w: invalid order ID: %v", ErrInvalidUUID, err)
+		return nil, fmt.Errorf("%w: invalid order ID: %w", ErrInvalidUUID, err)
 	}
 
 	query := `
@@ -207,7 +207,7 @@ func (r *orderRepository) GetOrderByID(ctx context.Context, orderID string) (*Or
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrOrderNotFound
 		}
-		return nil, fmt.Errorf("%w: failed to get order: %v", ErrDatabaseOperation, err)
+		return nil, fmt.Errorf("%w: failed to get order: %w", ErrDatabaseOperation, err)
 	}
 
 	if err := r.loadOrderRelations(ctx, &order); err != nil {
@@ -220,7 +220,7 @@ func (r *orderRepository) GetOrderByID(ctx context.Context, orderID string) (*Or
 func (r *orderRepository) GetOrdersByCustomerID(ctx context.Context, customerID string) ([]Order, error) {
 	id, err := uuid.Parse(customerID)
 	if err != nil {
-		return nil, fmt.Errorf("%w: invalid customer ID: %v", ErrInvalidUUID, err)
+		return nil, fmt.Errorf("%w: invalid customer ID: %w", ErrInvalidUUID, err)
 	}
 
 	query := `
@@ -235,7 +235,7 @@ func (r *orderRepository) GetOrdersByCustomerID(ctx context.Context, customerID 
 	var orders []Order
 	err = r.db.SelectContext(ctx, &orders, query, id)
 	if err != nil {
-		return nil, fmt.Errorf("%w: failed to get orders: %v", ErrDatabaseOperation, err)
+		return nil, fmt.Errorf("%w: failed to get orders: %w", ErrDatabaseOperation, err)
 	}
 
 	for i := range orders {
@@ -250,7 +250,7 @@ func (r *orderRepository) GetOrdersByCustomerID(ctx context.Context, customerID 
 func (r *orderRepository) GetOrdersByCartID(ctx context.Context, cartID string) ([]Order, error) {
 	id, err := uuid.Parse(cartID)
 	if err != nil {
-		return nil, fmt.Errorf("%w: invalid cart ID: %v", ErrInvalidUUID, err)
+		return nil, fmt.Errorf("%w: invalid cart ID: %w", ErrInvalidUUID, err)
 	}
 
 	query := `
@@ -265,7 +265,7 @@ func (r *orderRepository) GetOrdersByCartID(ctx context.Context, cartID string) 
 	var orders []Order
 	err = r.db.SelectContext(ctx, &orders, query, id)
 	if err != nil {
-		return nil, fmt.Errorf("%w: failed to get orders: %v", ErrDatabaseOperation, err)
+		return nil, fmt.Errorf("%w: failed to get orders: %w", ErrDatabaseOperation, err)
 	}
 
 	for i := range orders {
@@ -284,7 +284,7 @@ func (r *orderRepository) UpdateOrderStatus(ctx context.Context, orderID string,
 	}
 
 	if err := order.SetStatus(newStatus); err != nil {
-		return fmt.Errorf("%w: %v", ErrInvalidStatusTransition, err)
+		return fmt.Errorf("%w: %w", ErrInvalidStatusTransition, err)
 	}
 
 	tx, err := r.db.BeginTx(ctx, nil)
@@ -307,7 +307,7 @@ func (r *orderRepository) UpdateOrderStatus(ctx context.Context, orderID string,
 	`
 	_, err = tx.ExecContext(ctx, query, newStatus, order.OrderID)
 	if err != nil {
-		return fmt.Errorf("%w: failed to update order status: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to update order status: %w", ErrDatabaseOperation, err)
 	}
 
 	if err := r.addStatusEntryTx(ctx, tx, orderID, newStatus, notes); err != nil {
@@ -327,7 +327,7 @@ func (r *orderRepository) UpdateOrderStatus(ctx context.Context, orderID string,
 	}
 
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("%w: failed to commit transaction: %v", ErrTransactionFailed, err)
+		return fmt.Errorf("%w: failed to commit transaction: %w", ErrTransactionFailed, err)
 	}
 	committed = true
 
@@ -374,7 +374,7 @@ func (r *orderRepository) getContactByID(ctx context.Context, contactID int64) (
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrOrderNotFound
 		}
-		return nil, fmt.Errorf("%w: failed to get contact: %v", ErrDatabaseOperation, err)
+		return nil, fmt.Errorf("%w: failed to get contact: %w", ErrDatabaseOperation, err)
 	}
 
 	return &contact, nil
@@ -389,7 +389,7 @@ func (r *orderRepository) getCreditCardByID(ctx context.Context, cardID int64) (
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrOrderNotFound
 		}
-		return nil, fmt.Errorf("%w: failed to get credit card: %v", ErrDatabaseOperation, err)
+		return nil, fmt.Errorf("%w: failed to get credit card: %w", ErrDatabaseOperation, err)
 	}
 
 	return &card, nil
@@ -405,7 +405,7 @@ func (r *orderRepository) getAddressesByOrderID(ctx context.Context, orderID uui
 	var addresses []Address
 	err := r.db.SelectContext(ctx, &addresses, query, orderID)
 	if err != nil {
-		return nil, fmt.Errorf("%w: failed to get addresses: %v", ErrDatabaseOperation, err)
+		return nil, fmt.Errorf("%w: failed to get addresses: %w", ErrDatabaseOperation, err)
 	}
 
 	return addresses, nil
@@ -422,7 +422,7 @@ func (r *orderRepository) getOrderItemsByOrderID(ctx context.Context, orderID uu
 	var items []OrderItem
 	err := r.db.SelectContext(ctx, &items, query, orderID)
 	if err != nil {
-		return nil, fmt.Errorf("%w: failed to get order items: %v", ErrDatabaseOperation, err)
+		return nil, fmt.Errorf("%w: failed to get order items: %w", ErrDatabaseOperation, err)
 	}
 
 	return items, nil
@@ -431,7 +431,7 @@ func (r *orderRepository) getOrderItemsByOrderID(ctx context.Context, orderID uu
 func (r *orderRepository) GetStatusHistory(ctx context.Context, orderID string) ([]OrderStatus, error) {
 	orderUUID, err := uuid.Parse(orderID)
 	if err != nil {
-		return nil, fmt.Errorf("%w: invalid order ID: %v", ErrInvalidUUID, err)
+		return nil, fmt.Errorf("%w: invalid order ID: %w", ErrInvalidUUID, err)
 	}
 
 	var history []OrderStatus
@@ -442,7 +442,7 @@ func (r *orderRepository) GetStatusHistory(ctx context.Context, orderID string) 
 		ORDER BY status_date_time DESC
 	`, orderUUID)
 	if err != nil {
-		return nil, fmt.Errorf("%w: failed to get status history: %v", ErrDatabaseOperation, err)
+		return nil, fmt.Errorf("%w: failed to get status history: %w", ErrDatabaseOperation, err)
 	}
 
 	return history, nil
@@ -451,7 +451,7 @@ func (r *orderRepository) GetStatusHistory(ctx context.Context, orderID string) 
 func (r *orderRepository) AddStatusEntry(ctx context.Context, orderID string, status string, notes string) error {
 	orderUUID, err := uuid.Parse(orderID)
 	if err != nil {
-		return fmt.Errorf("%w: invalid order ID: %v", ErrInvalidUUID, err)
+		return fmt.Errorf("%w: invalid order ID: %w", ErrInvalidUUID, err)
 	}
 
 	_, err = r.db.Exec(ctx, `
@@ -459,7 +459,7 @@ func (r *orderRepository) AddStatusEntry(ctx context.Context, orderID string, st
 		VALUES ($1, $2, CURRENT_TIMESTAMP, $3)
 	`, orderUUID, status, notes)
 	if err != nil {
-		return fmt.Errorf("%w: failed to add status entry: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to add status entry: %w", ErrDatabaseOperation, err)
 	}
 
 	return nil
@@ -468,7 +468,7 @@ func (r *orderRepository) AddStatusEntry(ctx context.Context, orderID string, st
 func (r *orderRepository) addStatusEntryTx(ctx context.Context, tx database.Tx, orderID string, status string, notes string) error {
 	orderUUID, err := uuid.Parse(orderID)
 	if err != nil {
-		return fmt.Errorf("%w: invalid order ID: %v", ErrInvalidUUID, err)
+		return fmt.Errorf("%w: invalid order ID: %w", ErrInvalidUUID, err)
 	}
 
 	_, err = tx.Exec(ctx, `
@@ -476,7 +476,7 @@ func (r *orderRepository) addStatusEntryTx(ctx context.Context, tx database.Tx, 
 		VALUES ($1, $2, CURRENT_TIMESTAMP, $3)
 	`, orderUUID, status, notes)
 	if err != nil {
-		return fmt.Errorf("%w: failed to add status entry: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to add status entry: %w", ErrDatabaseOperation, err)
 	}
 
 	return nil

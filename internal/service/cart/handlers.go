@@ -1,13 +1,12 @@
 package cart
 
 import (
-	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 
-	"go-shopping-poc/internal/platform/errors"
-
-	"github.com/go-chi/chi/v5"
+	"go-shopping-poc/internal/platform/httperr"
+	"go-shopping-poc/internal/platform/httpx"
 )
 
 type CreateCartRequest struct {
@@ -55,83 +54,80 @@ type CartHandler struct {
 }
 
 func NewCartHandler(logger *slog.Logger, service *CartService) *CartHandler {
-	return &CartHandler{logger: logger.With("component", "CartHandler"), service: service}
+	return &CartHandler{logger: logger.With("component", "cart_handler"), service: service}
 }
 
 func (h *CartHandler) CreateCart(w http.ResponseWriter, r *http.Request) {
 	var req CreateCartRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Invalid JSON")
+	if err := httpx.DecodeJSON(r, &req); err != nil {
+		httperr.InvalidRequest(w, "Invalid JSON")
 		return
 	}
 
 	cart, err := h.service.CreateCart(r.Context(), req.CustomerID)
 	if err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to create cart")
+		httperr.Internal(w, "Failed to create cart")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(cart)
+	if err := httpx.WriteJSON(w, http.StatusCreated, cart); err != nil {
+		h.logger.Error("Failed to write create cart response", "error", err.Error())
+	}
 }
 
 func (h *CartHandler) GetCart(w http.ResponseWriter, r *http.Request) {
-	cartID := chi.URLParam(r, "id")
-	if cartID == "" {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Missing cart ID")
+	cartID, ok := requiredPathParam(w, r, "id", "Missing cart ID")
+	if !ok {
 		return
 	}
 
 	cart, err := h.service.GetCart(r.Context(), cartID)
 	if err != nil {
-		if err == ErrCartNotFound {
-			errors.SendError(w, http.StatusNotFound, errors.ErrorTypeNotFound, "Cart not found")
+		if errors.Is(err, ErrCartNotFound) {
+			httperr.NotFound(w, "Cart not found")
 			return
 		}
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to get cart")
+		httperr.Internal(w, "Failed to get cart")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(cart)
+	if err := httpx.WriteJSON(w, http.StatusOK, cart); err != nil {
+		h.logger.Error("Failed to write get cart response", "error", err.Error())
+	}
 }
 
 func (h *CartHandler) DeleteCart(w http.ResponseWriter, r *http.Request) {
-	cartID := chi.URLParam(r, "id")
-	if cartID == "" {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Missing cart ID")
+	cartID, ok := requiredPathParam(w, r, "id", "Missing cart ID")
+	if !ok {
 		return
 	}
 
 	if err := h.service.DeleteCart(r.Context(), cartID); err != nil {
-		if err == ErrCartNotFound {
-			errors.SendError(w, http.StatusNotFound, errors.ErrorTypeNotFound, "Cart not found")
+		if errors.Is(err, ErrCartNotFound) {
+			httperr.NotFound(w, "Cart not found")
 			return
 		}
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to delete cart")
+		httperr.Internal(w, "Failed to delete cart")
 		return
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	httpx.WriteNoContent(w)
 }
 
 func (h *CartHandler) AddItem(w http.ResponseWriter, r *http.Request) {
-
-	cartID := chi.URLParam(r, "id")
-	if cartID == "" {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Missing cart ID")
+	cartID, ok := requiredPathParam(w, r, "id", "Missing cart ID")
+	if !ok {
 		return
 	}
 
 	var req AddItemRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Invalid JSON")
+	if err := httpx.DecodeJSON(r, &req); err != nil {
+		httperr.InvalidRequest(w, "Invalid JSON")
 		return
 	}
 
 	if req.ProductID == "" || req.Quantity <= 0 {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeValidation, "Invalid product_id or quantity")
+		httperr.Validation(w, "Invalid product_id or quantity")
 		return
 	}
 
@@ -142,81 +138,75 @@ func (h *CartHandler) AddItem(w http.ResponseWriter, r *http.Request) {
 	)
 	item, err := h.service.AddItem(r.Context(), cartID, req.ProductID, req.Quantity)
 	if err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to add item")
+		httperr.Internal(w, "Failed to add item")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(item)
+	if err := httpx.WriteJSON(w, http.StatusCreated, item); err != nil {
+		h.logger.Error("Failed to write add item response", "error", err.Error())
+	}
 }
 
 func (h *CartHandler) UpdateItem(w http.ResponseWriter, r *http.Request) {
-	cartID := chi.URLParam(r, "id")
-	lineNumber := chi.URLParam(r, "line")
-
-	if cartID == "" || lineNumber == "" {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Missing cart ID or line number")
+	cartID, ok := requiredPathParam(w, r, "id", "Missing cart ID or line number")
+	if !ok {
+		return
+	}
+	lineNumber, ok := requiredPathParam(w, r, "line", "Missing cart ID or line number")
+	if !ok {
 		return
 	}
 
 	var req UpdateItemRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Invalid JSON")
+	if err := httpx.DecodeJSON(r, &req); err != nil {
+		httperr.InvalidRequest(w, "Invalid JSON")
 		return
 	}
 
 	if req.Quantity <= 0 {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeValidation, "Quantity must be positive")
+		httperr.Validation(w, "Quantity must be positive")
 		return
 	}
 
 	if err := h.service.UpdateItemQuantity(r.Context(), cartID, lineNumber, req.Quantity); err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to update item")
+		httperr.Internal(w, "Failed to update item")
 		return
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	httpx.WriteNoContent(w)
 }
 
 func (h *CartHandler) RemoveItem(w http.ResponseWriter, r *http.Request) {
-	cartID := chi.URLParam(r, "id")
-	lineNumber := chi.URLParam(r, "line")
-
-	if cartID == "" || lineNumber == "" {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Missing cart ID or line number")
+	cartID, ok := requiredPathParam(w, r, "id", "Missing cart ID or line number")
+	if !ok {
+		return
+	}
+	lineNumber, ok := requiredPathParam(w, r, "line", "Missing cart ID or line number")
+	if !ok {
 		return
 	}
 
 	if err := h.service.RemoveItem(r.Context(), cartID, lineNumber); err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to remove item")
+		httperr.Internal(w, "Failed to remove item")
 		return
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	httpx.WriteNoContent(w)
 }
 
 func (h *CartHandler) SetContact(w http.ResponseWriter, r *http.Request) {
-	cartID := chi.URLParam(r, "id")
-	if cartID == "" {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Missing cart ID")
+	cartID, ok := requiredPathParam(w, r, "id", "Missing cart ID")
+	if !ok {
 		return
 	}
 
 	var req SetContactRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Invalid JSON")
+	if err := httpx.DecodeJSON(r, &req); err != nil {
+		httperr.InvalidRequest(w, "Invalid JSON")
 		return
 	}
 
-	// contactCartId, err := uuid.Parse(cartID)
-	// if err != nil {
-	// 	errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Invalid cart ID format")
-	// 	return
-	// }
-
 	contact := &Contact{
-		// CartID:    contactCartId,
 		Email:     req.Email,
 		FirstName: req.FirstName,
 		LastName:  req.LastName,
@@ -224,23 +214,22 @@ func (h *CartHandler) SetContact(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.service.SetContact(r.Context(), cartID, contact); err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to set contact")
+		httperr.Internal(w, "Failed to set contact")
 		return
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	httpx.WriteNoContent(w)
 }
 
 func (h *CartHandler) AddAddress(w http.ResponseWriter, r *http.Request) {
-	cartID := chi.URLParam(r, "id")
-	if cartID == "" {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Missing cart ID")
+	cartID, ok := requiredPathParam(w, r, "id", "Missing cart ID")
+	if !ok {
 		return
 	}
 
 	var req AddAddressRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Invalid JSON")
+	if err := httpx.DecodeJSON(r, &req); err != nil {
+		httperr.InvalidRequest(w, "Invalid JSON")
 		return
 	}
 
@@ -256,27 +245,25 @@ func (h *CartHandler) AddAddress(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.service.AddAddress(r.Context(), cartID, address); err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to add address")
+		httperr.Internal(w, "Failed to add address")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(address)
+	if err := httpx.WriteJSON(w, http.StatusCreated, address); err != nil {
+		h.logger.Error("Failed to write add address response", "error", err.Error())
+	}
 }
 
 func (h *CartHandler) SetPayment(w http.ResponseWriter, r *http.Request) {
-	// h.logger.Debug("Starting SetPayment handler", "cart_id", chi.URLParam(r, "id"))
-	cartID := chi.URLParam(r, "id")
-	if cartID == "" {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Missing cart ID")
+	cartID, ok := requiredPathParam(w, r, "id", "Missing cart ID")
+	if !ok {
 		return
 	}
 
 	var req SetPaymentRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := httpx.DecodeJSON(r, &req); err != nil {
 		h.logger.Debug("Failed to decode SetPayment request", "cart_id", cartID, "error", err)
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Invalid JSON")
+		httperr.InvalidRequest(w, "Invalid JSON")
 		return
 	}
 
@@ -290,43 +277,64 @@ func (h *CartHandler) SetPayment(w http.ResponseWriter, r *http.Request) {
 
 	if err := h.service.SetCreditCard(r.Context(), cartID, card); err != nil {
 		h.logger.Debug("Failed to set payment for cart", "cart_id", cartID, "error", err)
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to set payment")
+		httperr.Internal(w, "Failed to set payment")
 		return
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	httpx.WriteNoContent(w)
 }
 
 func (h *CartHandler) Checkout(w http.ResponseWriter, r *http.Request) {
-	cartID := chi.URLParam(r, "id")
-	if cartID == "" {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Missing cart ID")
+	cartID, ok := requiredPathParam(w, r, "id", "Missing cart ID")
+	if !ok {
 		return
 	}
 
 	cart, err := h.service.Checkout(r.Context(), cartID)
 	if err != nil {
-		if err.Error() == "cart not ready for checkout: cart must be active to checkout" {
-			errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeValidation, err.Error())
+		if h.handleCheckoutValidationError(w, err) {
 			return
 		}
-		if err.Error() == "cart not ready for checkout: cart must have at least one item" {
-			errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeValidation, "Cart is empty")
-			return
-		}
-		if err.Error() == "cart not ready for checkout: contact information required" {
-			errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeValidation, "Contact information required")
-			return
-		}
-		if err.Error() == "cart not ready for checkout: payment method required" {
-			errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeValidation, "Payment method required")
-			return
-		}
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Checkout failed")
+		httperr.Internal(w, "Checkout failed")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(cart)
+	if err := httpx.WriteJSON(w, http.StatusOK, cart); err != nil {
+		h.logger.Error("Failed to write checkout response", "error", err.Error())
+	}
+}
+
+func (h *CartHandler) handleCheckoutValidationError(w http.ResponseWriter, err error) bool {
+	if errors.Is(err, ErrCartMustBeActiveForCheckout) {
+		httperr.Validation(w, "cart not ready for checkout: cart must be active to checkout")
+		return true
+	}
+	if errors.Is(err, ErrCartMustHaveItemsForCheckout) {
+		httperr.Validation(w, "Cart is empty")
+		return true
+	}
+	if errors.Is(err, ErrCartContactRequiredForCheckout) {
+		httperr.Validation(w, "Contact information required")
+		return true
+	}
+	if errors.Is(err, ErrCartPaymentRequiredForCheckout) {
+		httperr.Validation(w, "Payment method required")
+		return true
+	}
+
+	return false
+}
+
+func requiredPathParam(w http.ResponseWriter, r *http.Request, key, missingMessage string) (string, bool) {
+	value, err := httpx.RequirePathParam(r, key)
+	if err != nil {
+		if errors.Is(err, httpx.ErrMissingPathParam) {
+			httperr.InvalidRequest(w, missingMessage)
+			return "", false
+		}
+		httperr.InvalidRequest(w, missingMessage)
+		return "", false
+	}
+
+	return value, true
 }

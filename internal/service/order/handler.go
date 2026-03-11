@@ -1,12 +1,11 @@
 package order
 
 import (
-	"encoding/json"
+	"errors"
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
-
-	"go-shopping-poc/internal/platform/errors"
+	"go-shopping-poc/internal/platform/httperr"
+	"go-shopping-poc/internal/platform/httpx"
 )
 
 type OrderHandler struct {
@@ -18,106 +17,110 @@ func NewOrderHandler(service *OrderService) *OrderHandler {
 }
 
 func (h *OrderHandler) GetOrder(w http.ResponseWriter, r *http.Request) {
-	orderID := chi.URLParam(r, "id")
-	if orderID == "" {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Missing order ID")
+	orderID, ok := requiredPathParam(w, r, "id", "Missing order ID")
+	if !ok {
 		return
 	}
 
 	order, err := h.service.GetOrder(r.Context(), orderID)
 	if err != nil {
-		if err == ErrOrderNotFound {
-			errors.SendError(w, http.StatusNotFound, errors.ErrorTypeNotFound, "Order not found")
+		if errors.Is(err, ErrOrderNotFound) {
+			httperr.NotFound(w, "Order not found")
 			return
 		}
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to get order")
+		httperr.Internal(w, "Failed to get order")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(order); err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to encode response")
+	if err := httpx.WriteJSON(w, http.StatusOK, order); err != nil {
+		httperr.Internal(w, "Failed to encode response")
 		return
 	}
 }
 
 func (h *OrderHandler) GetOrdersByCustomer(w http.ResponseWriter, r *http.Request) {
-	customerID := chi.URLParam(r, "customerId")
-	if customerID == "" {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Missing customer_id parameter")
+	customerID, ok := requiredPathParam(w, r, "customerId", "Missing customer_id parameter")
+	if !ok {
 		return
 	}
 
 	orders, err := h.service.GetOrdersByCustomer(r.Context(), customerID)
 	if err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to get orders")
+		httperr.Internal(w, "Failed to get orders")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(orders); err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to encode response")
+	if err := httpx.WriteJSON(w, http.StatusOK, orders); err != nil {
+		httperr.Internal(w, "Failed to encode response")
 		return
 	}
 }
 
 func (h *OrderHandler) CancelOrder(w http.ResponseWriter, r *http.Request) {
-	orderID := chi.URLParam(r, "id")
-	if orderID == "" {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Missing order ID")
+	orderID, ok := requiredPathParam(w, r, "id", "Missing order ID")
+	if !ok {
 		return
 	}
 
 	err := h.service.CancelOrder(r.Context(), orderID)
 	if err != nil {
-		if err == ErrOrderNotFound {
-			errors.SendError(w, http.StatusNotFound, errors.ErrorTypeNotFound, "Order not found")
+		if errors.Is(err, ErrOrderNotFound) {
+			httperr.NotFound(w, "Order not found")
 			return
 		}
-		if err == ErrOrderCannotBeCancelled {
-			errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeValidation, err.Error())
+		if errors.Is(err, ErrOrderCannotBeCancelled) {
+			httperr.Validation(w, err.Error())
 			return
 		}
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to cancel order")
+		httperr.Internal(w, "Failed to cancel order")
 		return
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	httpx.WriteNoContent(w)
 }
 
 func (h *OrderHandler) UpdateOrderStatus(w http.ResponseWriter, r *http.Request) {
-	orderID := chi.URLParam(r, "id")
-	if orderID == "" {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Missing order ID")
+	orderID, ok := requiredPathParam(w, r, "id", "Missing order ID")
+	if !ok {
 		return
 	}
 
 	var req UpdateStatusRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Invalid JSON in request body")
+	if err := httpx.DecodeJSON(r, &req); err != nil {
+		httperr.InvalidRequest(w, "Invalid JSON in request body")
 		return
 	}
 
 	if req.Status == "" {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeValidation, "status is required")
+		httperr.Validation(w, "status is required")
 		return
 	}
 
 	err := h.service.UpdateOrderStatus(r.Context(), orderID, req.Status)
 	if err != nil {
-		if err == ErrOrderNotFound {
-			errors.SendError(w, http.StatusNotFound, errors.ErrorTypeNotFound, "Order not found")
+		if errors.Is(err, ErrOrderNotFound) {
+			httperr.NotFound(w, "Order not found")
 			return
 		}
-		if err == ErrInvalidStatusTransition {
-			errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeValidation, err.Error())
+		if errors.Is(err, ErrInvalidStatusTransition) {
+			httperr.Validation(w, err.Error())
 			return
 		}
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to update order status")
+		httperr.Internal(w, "Failed to update order status")
 		return
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	httpx.WriteNoContent(w)
+}
+
+func requiredPathParam(w http.ResponseWriter, r *http.Request, key, missingMessage string) (string, bool) {
+	value, err := httpx.RequirePathParam(r, key)
+	if err != nil {
+		httperr.InvalidRequest(w, missingMessage)
+		return "", false
+	}
+
+	return value, true
 }
 
 type UpdateStatusRequest struct {

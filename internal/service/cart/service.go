@@ -416,7 +416,7 @@ func (s *CartService) Checkout(ctx context.Context, cartID string) (*Cart, error
 	// Check for pending validation items - cannot checkout until all items are validated
 	for _, item := range cart.Items {
 		if item.IsPendingValidation() {
-			return nil, errors.New("cannot checkout: some items are still being validated, please wait")
+			return nil, ErrCartItemsPendingValidation
 		}
 	}
 

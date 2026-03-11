@@ -1,17 +1,16 @@
 package product
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
-	"github.com/go-chi/chi/v5"
-
-	"go-shopping-poc/internal/platform/errors"
+	"go-shopping-poc/internal/platform/httperr"
+	"go-shopping-poc/internal/platform/httpx"
 	"go-shopping-poc/internal/platform/storage/minio"
 )
 
@@ -42,7 +41,7 @@ func (h *CatalogHandler) GetAllProducts(w http.ResponseWriter, r *http.Request) 
 
 	products, err := h.service.GetAllProducts(r.Context(), limit, offset)
 	if err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to retrieve products")
+		httperr.Internal(w, "Failed to retrieve products")
 		return
 	}
 
@@ -53,55 +52,51 @@ func (h *CatalogHandler) GetAllProducts(w http.ResponseWriter, r *http.Request) 
 		"count":    len(products),
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to encode response")
+	if err := httpx.WriteJSON(w, http.StatusOK, response); err != nil {
+		httperr.Internal(w, "Failed to encode response")
 		return
 	}
 }
 
 // GetProduct handles GET /api/v1/products/{id} - retrieves a product by ID
 func (h *CatalogHandler) GetProduct(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	if idStr == "" {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Missing product ID in path")
+	idStr, ok := requiredPathParam(w, r, "id", "Missing product ID in path")
+	if !ok {
 		return
 	}
 
 	productID, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeValidation, "Invalid product ID format")
+		httperr.Validation(w, "Invalid product ID format")
 		return
 	}
 
 	if productID <= 0 {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeValidation, "Product ID must be positive")
+		httperr.Validation(w, "Product ID must be positive")
 		return
 	}
 
 	product, err := h.service.GetProductByID(r.Context(), productID)
 	if err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to retrieve product")
+		httperr.Internal(w, "Failed to retrieve product")
 		return
 	}
 
 	if product == nil {
-		errors.SendError(w, http.StatusNotFound, errors.ErrorTypeNotFound, "Product not found")
+		httperr.NotFound(w, "Product not found")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(product); err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to encode response")
+	if err := httpx.WriteJSON(w, http.StatusOK, product); err != nil {
+		httperr.Internal(w, "Failed to encode response")
 		return
 	}
 }
 
 // GetProductsByCategory handles GET /api/v1/products/category/{category} - retrieves products by category
 func (h *CatalogHandler) GetProductsByCategory(w http.ResponseWriter, r *http.Request) {
-	category := chi.URLParam(r, "category")
-	if category == "" {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Missing category in path")
+	category, ok := requiredPathParam(w, r, "category", "Missing category in path")
+	if !ok {
 		return
 	}
 
@@ -109,7 +104,7 @@ func (h *CatalogHandler) GetProductsByCategory(w http.ResponseWriter, r *http.Re
 
 	products, err := h.service.GetProductsByCategory(r.Context(), category, limit, offset)
 	if err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to retrieve products by category")
+		httperr.Internal(w, "Failed to retrieve products by category")
 		return
 	}
 
@@ -121,18 +116,16 @@ func (h *CatalogHandler) GetProductsByCategory(w http.ResponseWriter, r *http.Re
 		"count":    len(products),
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to encode response")
+	if err := httpx.WriteJSON(w, http.StatusOK, response); err != nil {
+		httperr.Internal(w, "Failed to encode response")
 		return
 	}
 }
 
 // GetProductsByBrand handles GET /api/v1/products/brand/{brand} - retrieves products by brand
 func (h *CatalogHandler) GetProductsByBrand(w http.ResponseWriter, r *http.Request) {
-	brand := chi.URLParam(r, "brand")
-	if brand == "" {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Missing brand in path")
+	brand, ok := requiredPathParam(w, r, "brand", "Missing brand in path")
+	if !ok {
 		return
 	}
 
@@ -140,7 +133,7 @@ func (h *CatalogHandler) GetProductsByBrand(w http.ResponseWriter, r *http.Reque
 
 	products, err := h.service.GetProductsByBrand(r.Context(), brand, limit, offset)
 	if err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to retrieve products by brand")
+		httperr.Internal(w, "Failed to retrieve products by brand")
 		return
 	}
 
@@ -152,18 +145,16 @@ func (h *CatalogHandler) GetProductsByBrand(w http.ResponseWriter, r *http.Reque
 		"count":    len(products),
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to encode response")
+	if err := httpx.WriteJSON(w, http.StatusOK, response); err != nil {
+		httperr.Internal(w, "Failed to encode response")
 		return
 	}
 }
 
 // SearchProducts handles GET /api/v1/products/search - searches products by query
 func (h *CatalogHandler) SearchProducts(w http.ResponseWriter, r *http.Request) {
-	query := r.URL.Query().Get("q")
-	if query == "" {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Missing search query parameter 'q'")
+	query, ok := requiredQueryParam(w, r, "q", "Missing search query parameter 'q'")
+	if !ok {
 		return
 	}
 
@@ -171,7 +162,7 @@ func (h *CatalogHandler) SearchProducts(w http.ResponseWriter, r *http.Request) 
 
 	products, err := h.service.SearchProducts(r.Context(), query, limit, offset)
 	if err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to search products")
+		httperr.Internal(w, "Failed to search products")
 		return
 	}
 
@@ -183,9 +174,8 @@ func (h *CatalogHandler) SearchProducts(w http.ResponseWriter, r *http.Request) 
 		"count":    len(products),
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to encode response")
+	if err := httpx.WriteJSON(w, http.StatusOK, response); err != nil {
+		httperr.Internal(w, "Failed to encode response")
 		return
 	}
 }
@@ -196,7 +186,7 @@ func (h *CatalogHandler) GetProductsInStock(w http.ResponseWriter, r *http.Reque
 
 	products, err := h.service.GetProductsInStock(r.Context(), limit, offset)
 	if err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to retrieve in-stock products")
+		httperr.Internal(w, "Failed to retrieve in-stock products")
 		return
 	}
 
@@ -207,46 +197,44 @@ func (h *CatalogHandler) GetProductsInStock(w http.ResponseWriter, r *http.Reque
 		"count":    len(products),
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to encode response")
+	if err := httpx.WriteJSON(w, http.StatusOK, response); err != nil {
+		httperr.Internal(w, "Failed to encode response")
 		return
 	}
 }
 
 // GetProductImages handles GET /api/v1/products/{id}/images - lists all images
 func (h *CatalogHandler) GetProductImages(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	if idStr == "" {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Missing product ID in path")
+	idStr, ok := requiredPathParam(w, r, "id", "Missing product ID in path")
+	if !ok {
 		return
 	}
 
 	productID, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeValidation, "Invalid product ID format")
+		httperr.Validation(w, "Invalid product ID format")
 		return
 	}
 
 	if productID <= 0 {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeValidation, "Product ID must be positive")
+		httperr.Validation(w, "Product ID must be positive")
 		return
 	}
 
 	// Get product with images loaded
 	product, err := h.service.GetProductByID(r.Context(), productID)
 	if err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to retrieve product")
+		httperr.Internal(w, "Failed to retrieve product")
 		return
 	}
 
 	if product == nil {
-		errors.SendError(w, http.StatusNotFound, errors.ErrorTypeNotFound, "Product not found")
+		httperr.NotFound(w, "Product not found")
 		return
 	}
 
 	if len(product.Images) == 0 {
-		errors.SendError(w, http.StatusNotFound, errors.ErrorTypeNotFound, "No images found for product")
+		httperr.NotFound(w, "No images found for product")
 		return
 	}
 
@@ -256,41 +244,39 @@ func (h *CatalogHandler) GetProductImages(w http.ResponseWriter, r *http.Request
 		"count":      len(product.Images),
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to encode response")
+	if err := httpx.WriteJSON(w, http.StatusOK, response); err != nil {
+		httperr.Internal(w, "Failed to encode response")
 		return
 	}
 }
 
 // GetProductMainImage handles GET /api/v1/products/{id}/main-image - returns main image
 func (h *CatalogHandler) GetProductMainImage(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	if idStr == "" {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Missing product ID in path")
+	idStr, ok := requiredPathParam(w, r, "id", "Missing product ID in path")
+	if !ok {
 		return
 	}
 
 	productID, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeValidation, "Invalid product ID format")
+		httperr.Validation(w, "Invalid product ID format")
 		return
 	}
 
 	if productID <= 0 {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeValidation, "Product ID must be positive")
+		httperr.Validation(w, "Product ID must be positive")
 		return
 	}
 
 	// Get product to access images via the loaded relationship
 	product, err := h.service.GetProductByID(r.Context(), productID)
 	if err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to retrieve product")
+		httperr.Internal(w, "Failed to retrieve product")
 		return
 	}
 
 	if product == nil {
-		errors.SendError(w, http.StatusNotFound, errors.ErrorTypeNotFound, "Product not found")
+		httperr.NotFound(w, "Product not found")
 		return
 	}
 
@@ -304,13 +290,12 @@ func (h *CatalogHandler) GetProductMainImage(w http.ResponseWriter, r *http.Requ
 	}
 
 	if mainImage == nil {
-		errors.SendError(w, http.StatusNotFound, errors.ErrorTypeNotFound, "No main image found for product")
+		httperr.NotFound(w, "No main image found for product")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(mainImage); err != nil {
-		errors.SendError(w, http.StatusInternalServerError, errors.ErrorTypeInternal, "Failed to encode response")
+	if err := httpx.WriteJSON(w, http.StatusOK, mainImage); err != nil {
+		httperr.Internal(w, "Failed to encode response")
 		return
 	}
 }
@@ -318,44 +303,48 @@ func (h *CatalogHandler) GetProductMainImage(w http.ResponseWriter, r *http.Requ
 // GetDirectImage handles GET /api/v1/products/{id}/images/{imageName:.+} - streams image directly from Minio
 // Example: /api/v1/products/40121298/images/image_0.jpg -> object name: products/40121298/image_0.jpg
 func (h *CatalogHandler) GetDirectImage(w http.ResponseWriter, r *http.Request) {
-	h.logger.Debug("GetDirectImage handler invoked", "method", r.Method, "url", r.URL.String(), "path", r.URL.Path)
+	startedAt := time.Now()
+	requestID := requestIDFromRequest(r)
+	log := h.logger.With("operation", "get_direct_image", "request_id", requestID)
+	log.Debug("Direct image request received", "method", r.Method, "path", r.URL.Path)
 
 	// Extract product ID and image name from URL parameters
-	productIDStr := chi.URLParam(r, "id")
-	imageName := chi.URLParam(r, "imageName")
-
-	h.logger.Debug("GetDirectImage URL params", "product_id", productIDStr, "image_name", imageName)
-
-	if productIDStr == "" || imageName == "" {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeInvalidRequest, "Missing product ID or image name in path")
+	productIDStr, ok := requiredPathParam(w, r, "id", "Missing product ID or image name in path")
+	if !ok {
 		return
 	}
+	imageName, ok := requiredPathParam(w, r, "imageName", "Missing product ID or image name in path")
+	if !ok {
+		return
+	}
+
+	log.Debug("Direct image params parsed", "product_id", productIDStr, "image_name", imageName)
 
 	// Validate product ID is numeric
 	productID, err := strconv.ParseInt(productIDStr, 10, 64)
 	if err != nil || productID <= 0 {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeValidation, "Invalid product ID format")
+		httperr.Validation(w, "Invalid product ID format")
 		return
 	}
 
 	// Security: Validate image name format (prevent path traversal)
 	if strings.Contains(imageName, "..") || strings.HasPrefix(imageName, "/") {
-		errors.SendError(w, http.StatusBadRequest, errors.ErrorTypeValidation, "Invalid image name")
+		httperr.Validation(w, "Invalid image name")
 		return
 	}
 
 	// Construct Minio object name: products/{productID}/{imageName}
 	objectName := fmt.Sprintf("products/%d/%s", productID, imageName)
-	h.logger.Debug("GetDirectImage constructed objectName", "object_name", objectName)
+	log.Debug("Direct image object resolved", "object_name", objectName)
 
 	// Log bucket and object details
-	h.logger.Debug("GetDirectImage attempting to get object", "bucket", h.bucket, "object_name", objectName)
+	log.Debug("Direct image fetch started", "bucket", h.bucket, "object_name", objectName)
 
 	// Get object from Minio
 	object, err := h.objectStorage.GetObject(r.Context(), h.bucket, objectName)
 	if err != nil {
-		h.logger.Error("GetDirectImage failed to get object from Minio", "error", err.Error())
-		errors.SendError(w, http.StatusNotFound, errors.ErrorTypeNotFound, "Image not found")
+		log.Error("Direct image fetch failed", "error", err.Error())
+		httperr.NotFound(w, "Image not found")
 		return
 	}
 	defer object.Close()
@@ -376,9 +365,31 @@ func (h *CatalogHandler) GetDirectImage(w http.ResponseWriter, r *http.Request) 
 
 	// Stream object to response
 	if _, err := io.Copy(w, object); err != nil {
-		h.logger.Error("Failed to stream image", "error", err.Error())
+		log.Error("Direct image stream failed", "error", err.Error())
 		return
 	}
+
+	log.Info("Direct image streamed", "product_id", productID, "image_name", imageName, "duration_ms", time.Since(startedAt).Milliseconds())
+}
+
+func requiredPathParam(w http.ResponseWriter, r *http.Request, key, missingMessage string) (string, bool) {
+	value, err := httpx.RequirePathParam(r, key)
+	if err != nil {
+		httperr.InvalidRequest(w, missingMessage)
+		return "", false
+	}
+
+	return value, true
+}
+
+func requiredQueryParam(w http.ResponseWriter, r *http.Request, key, missingMessage string) (string, bool) {
+	value, err := httpx.RequireQueryParam(r, key)
+	if err != nil {
+		httperr.InvalidRequest(w, missingMessage)
+		return "", false
+	}
+
+	return value, true
 }
 
 // parsePagination extracts and validates pagination parameters from request
@@ -402,4 +413,15 @@ func parsePagination(r *http.Request) (limit, offset int) {
 	}
 
 	return limit, offset
+}
+
+func requestIDFromRequest(r *http.Request) string {
+	if requestID := r.Header.Get("X-Request-ID"); requestID != "" {
+		return requestID
+	}
+	if requestID := r.Header.Get("X-Request-Id"); requestID != "" {
+		return requestID
+	}
+
+	return ""
 }

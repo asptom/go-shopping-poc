@@ -29,14 +29,15 @@ func NewOnProductValidated(repo cart.CartRepository, sseHub *sse.Hub, logger *sl
 	return &OnProductValidated{
 		repo:   repo,
 		sseHub: sseHub,
-		logger: logger.With("handler", "on_product_validated"),
+		logger: logger.With("component", "cart_on_product_validated"),
 	}
 }
 
 // Handle processes product validation events
 func (h *OnProductValidated) Handle(ctx context.Context, event events.Event) error {
+	log := h.logger.With("operation", "handle_product_event")
 
-	h.logger.Debug("Event received",
+	log.Debug("Product event received",
 		"event_type", event.Type(),
 		"event_id", event.GetEntityID(),
 		"topic", event.Topic(),
@@ -44,20 +45,20 @@ func (h *OnProductValidated) Handle(ctx context.Context, event events.Event) err
 
 	productEvent, ok := event.(events.ProductEvent)
 	if !ok {
-		h.logger.Error("Expected ProductEvent", "actual_type", fmt.Sprintf("%T", event))
+		log.Error("Expected ProductEvent", "actual_type", fmt.Sprintf("%T", event))
 		return nil
 	}
 
 	// Handle both validated and unavailable events
 	switch productEvent.EventType {
 	case events.ProductValidated:
-		h.logger.Debug("Processing ProductValidated event", "product_id", productEvent.EventPayload.ProductID)
+		log.Debug("Process product validated event", "product_id", productEvent.EventPayload.ProductID)
 		return h.handleProductValidated(ctx, productEvent)
 	case events.ProductUnavailable:
-		h.logger.Debug("Processing ProductUnavailable event", "product_id", productEvent.EventPayload.ProductID)
+		log.Debug("Process product unavailable event", "product_id", productEvent.EventPayload.ProductID)
 		return h.handleProductUnavailable(ctx, productEvent)
 	default:
-		h.logger.Debug("Ignoring product event type", "event_type", productEvent.EventType)
+		log.Debug("Ignore product event type", "event_type", productEvent.EventType)
 		return nil
 	}
 }
@@ -67,9 +68,15 @@ func (h *OnProductValidated) handleProductValidated(ctx context.Context, event e
 	cartID := details["cart_id"]
 	lineNumber := details["line_number"]
 	productID := event.EventPayload.ProductID
+	log := h.logger.With(
+		"operation", "handle_product_validated",
+		"event_type", event.EventType,
+		"event_id", event.ID,
+		"product_id", productID,
+	)
 
 	if cartID == "" || lineNumber == "" {
-		h.logger.Error("Missing cart_id or line_number in ProductValidated event")
+		log.Error("Missing product validation routing fields")
 		return nil
 	}
 
@@ -79,7 +86,7 @@ func (h *OnProductValidated) handleProductValidated(ctx context.Context, event e
 	// Get cart and item
 	cartObj, err := h.repo.GetCartByID(ctx, cartID)
 	if err != nil {
-		h.logger.Error("Failed to get cart", "cart_id", cartID, "error", err.Error())
+		log.Error("Get cart failed", "cart_id", cartID, "error", err.Error())
 		return err
 	}
 
@@ -93,7 +100,7 @@ func (h *OnProductValidated) handleProductValidated(ctx context.Context, event e
 	}
 
 	if targetItem == nil {
-		h.logger.Debug("Item not found in cart - may have been removed", "line_number", lineNumber, "cart_id", cartID)
+		log.Debug("Item not found in cart", "line_number", lineNumber, "cart_id", cartID)
 		return nil
 	}
 
@@ -112,13 +119,13 @@ func (h *OnProductValidated) handleProductValidated(ctx context.Context, event e
 	}
 
 	if err := targetItem.ConfirmItem(productName, unitPrice); err != nil {
-		h.logger.Error("Failed to confirm item", "line_number", lineNumber, "error", err.Error())
+		log.Error("Confirm cart item failed", "line_number", lineNumber, "error", err.Error())
 		return err
 	}
 
 	// Update item in database
 	if err := h.repo.UpdateItemStatus(ctx, targetItem); err != nil {
-		h.logger.Error("Failed to update item status", "line_number", lineNumber, "error", err.Error())
+		log.Error("Update item status failed", "line_number", lineNumber, "error", err.Error())
 		return err
 	}
 
@@ -131,7 +138,7 @@ func (h *OnProductValidated) handleProductValidated(ctx context.Context, event e
 	}
 	cartObj.CalculateTotals()
 	if err := h.repo.UpdateCart(ctx, cartObj); err != nil {
-		h.logger.Error("Failed to update cart totals", "cart_id", cartID, "error", err.Error())
+		log.Error("Update cart totals failed", "cart_id", cartID, "error", err.Error())
 		return err
 	}
 
@@ -154,7 +161,7 @@ func (h *OnProductValidated) handleProductValidated(ctx context.Context, event e
 		})
 	}
 
-	h.logger.Info("Cart item validated", "line_number", lineNumber, "cart_id", cartID)
+	log.Info("Cart item validated", "line_number", lineNumber, "cart_id", cartID)
 	return nil
 }
 
@@ -164,9 +171,15 @@ func (h *OnProductValidated) handleProductUnavailable(ctx context.Context, event
 	lineNumber := details["line_number"]
 	productID := event.EventPayload.ProductID
 	reason := details["reason"]
+	log := h.logger.With(
+		"operation", "handle_product_unavailable",
+		"event_type", event.EventType,
+		"event_id", event.ID,
+		"product_id", productID,
+	)
 
 	if cartID == "" || lineNumber == "" {
-		h.logger.Error("Missing cart_id or line_number in ProductUnavailable event")
+		log.Error("Missing product unavailable routing fields")
 		return nil
 	}
 
@@ -176,7 +189,7 @@ func (h *OnProductValidated) handleProductUnavailable(ctx context.Context, event
 	// Get cart and item
 	cartObj, err := h.repo.GetCartByID(ctx, cartID)
 	if err != nil {
-		h.logger.Error("Failed to get cart", "cart_id", cartID, "error", err.Error())
+		log.Error("Get cart failed", "cart_id", cartID, "error", err.Error())
 		return err
 	}
 
@@ -190,19 +203,19 @@ func (h *OnProductValidated) handleProductUnavailable(ctx context.Context, event
 	}
 
 	if targetItem == nil {
-		h.logger.Debug("Item not found in cart - may have been removed", "line_number", lineNumber, "cart_id", cartID)
+		log.Debug("Item not found in cart", "line_number", lineNumber, "cart_id", cartID)
 		return nil
 	}
 
 	// Mark as backorder
 	if err := targetItem.MarkAsBackorder(reason); err != nil {
-		h.logger.Error("Failed to mark item as backorder", "line_number", lineNumber, "error", err.Error())
+		log.Error("Mark item as backorder failed", "line_number", lineNumber, "error", err.Error())
 		return err
 	}
 
 	// Update item in database
 	if err := h.repo.UpdateItemStatus(ctx, targetItem); err != nil {
-		h.logger.Error("Failed to update item status", "line_number", lineNumber, "error", err.Error())
+		log.Error("Update item status failed", "line_number", lineNumber, "error", err.Error())
 		return err
 	}
 
@@ -215,7 +228,7 @@ func (h *OnProductValidated) handleProductUnavailable(ctx context.Context, event
 	}
 	cartObj.CalculateTotals()
 	if err := h.repo.UpdateCart(ctx, cartObj); err != nil {
-		h.logger.Error("Failed to update cart totals", "cart_id", cartID, "error", err.Error())
+		log.Error("Update cart totals failed", "cart_id", cartID, "error", err.Error())
 		return err
 	}
 
@@ -229,7 +242,7 @@ func (h *OnProductValidated) handleProductUnavailable(ctx context.Context, event
 		})
 	}
 
-	h.logger.Info("Item marked as backorder", "line_number", lineNumber, "cart_id", cartID, "reason", reason)
+	log.Info("Cart item backorder set", "line_number", lineNumber, "cart_id", cartID, "reason", reason)
 	return nil
 }
 

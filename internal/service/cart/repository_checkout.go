@@ -16,7 +16,7 @@ import (
 func (r *cartRepository) CheckoutCart(ctx context.Context, cartID string) (*Cart, error) {
 	cartUUID, err := uuid.Parse(cartID)
 	if err != nil {
-		return nil, fmt.Errorf("%w: invalid cart ID: %v", ErrInvalidUUID, err)
+		return nil, fmt.Errorf("%w: invalid cart ID: %w", ErrInvalidUUID, err)
 	}
 
 	tx, err := r.db.BeginTx(ctx, nil)
@@ -41,7 +41,7 @@ func (r *cartRepository) CheckoutCart(ctx context.Context, cartID string) (*Cart
 	}
 
 	if err := cart.CanCheckout(); err != nil {
-		return nil, fmt.Errorf("cart not ready for checkout: %w", err)
+		return nil, fmt.Errorf("%w: %w", ErrCartNotReadyForCheckout, err)
 	}
 
 	if err := cart.SetStatus("checked_out"); err != nil {
@@ -62,7 +62,7 @@ func (r *cartRepository) CheckoutCart(ctx context.Context, cartID string) (*Cart
 		cart.CurrentStatus, cart.NetPrice, cart.Tax,
 		cart.Shipping, cart.TotalPrice, cart.CartID)
 	if err != nil {
-		return nil, fmt.Errorf("%w: failed to update cart: %v", ErrDatabaseOperation, err)
+		return nil, fmt.Errorf("%w: failed to update cart: %w", ErrDatabaseOperation, err)
 	}
 
 	if err := r.addStatusEntryTx(ctx, tx, cartID, "checked_out"); err != nil {
@@ -82,7 +82,7 @@ func (r *cartRepository) CheckoutCart(ctx context.Context, cartID string) (*Cart
 	}
 
 	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("%w: failed to commit transaction: %v", ErrTransactionFailed, err)
+		return nil, fmt.Errorf("%w: failed to commit transaction: %w", ErrTransactionFailed, err)
 	}
 	committed = true
 
@@ -92,7 +92,7 @@ func (r *cartRepository) CheckoutCart(ctx context.Context, cartID string) (*Cart
 func (r *cartRepository) GetStatusHistory(ctx context.Context, cartID string) ([]CartStatus, error) {
 	cartUUID, err := uuid.Parse(cartID)
 	if err != nil {
-		return nil, fmt.Errorf("%w: invalid cart ID: %v", ErrInvalidUUID, err)
+		return nil, fmt.Errorf("%w: invalid cart ID: %w", ErrInvalidUUID, err)
 	}
 
 	var history []CartStatus
@@ -103,7 +103,7 @@ func (r *cartRepository) GetStatusHistory(ctx context.Context, cartID string) ([
 		ORDER BY status_date_time DESC
 	`, cartUUID)
 	if err != nil {
-		return nil, fmt.Errorf("%w: failed to get status history: %v", ErrDatabaseOperation, err)
+		return nil, fmt.Errorf("%w: failed to get status history: %w", ErrDatabaseOperation, err)
 	}
 
 	return history, nil
@@ -112,7 +112,7 @@ func (r *cartRepository) GetStatusHistory(ctx context.Context, cartID string) ([
 func (r *cartRepository) AddStatusEntry(ctx context.Context, cartID string, status string) error {
 	cartUUID, err := uuid.Parse(cartID)
 	if err != nil {
-		return fmt.Errorf("%w: invalid cart ID: %v", ErrInvalidUUID, err)
+		return fmt.Errorf("%w: invalid cart ID: %w", ErrInvalidUUID, err)
 	}
 
 	_, err = r.db.Exec(ctx, `
@@ -120,7 +120,7 @@ func (r *cartRepository) AddStatusEntry(ctx context.Context, cartID string, stat
 		VALUES ($1, $2, CURRENT_TIMESTAMP)
 	`, cartUUID, status)
 	if err != nil {
-		return fmt.Errorf("%w: failed to add status entry: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to add status entry: %w", ErrDatabaseOperation, err)
 	}
 
 	return nil
@@ -129,7 +129,7 @@ func (r *cartRepository) AddStatusEntry(ctx context.Context, cartID string, stat
 func (r *cartRepository) addStatusEntryTx(ctx context.Context, tx database.Tx, cartID string, status string) error {
 	cartUUID, err := uuid.Parse(cartID)
 	if err != nil {
-		return fmt.Errorf("%w: invalid cart ID: %v", ErrInvalidUUID, err)
+		return fmt.Errorf("%w: invalid cart ID: %w", ErrInvalidUUID, err)
 	}
 
 	_, err = tx.Exec(ctx, `
@@ -137,7 +137,7 @@ func (r *cartRepository) addStatusEntryTx(ctx context.Context, tx database.Tx, c
 		VALUES ($1, $2, CURRENT_TIMESTAMP)
 	`, cartUUID, status)
 	if err != nil {
-		return fmt.Errorf("%w: failed to add status entry: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to add status entry: %w", ErrDatabaseOperation, err)
 	}
 
 	return nil
@@ -161,7 +161,7 @@ func (r *cartRepository) getCartByIDTx(ctx context.Context, tx database.Tx, cart
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrCartNotFound
 		}
-		return nil, fmt.Errorf("%w: failed to get cart: %v", ErrDatabaseOperation, err)
+		return nil, fmt.Errorf("%w: failed to get cart: %w", ErrDatabaseOperation, err)
 	}
 
 	return &cart, nil

@@ -17,7 +17,7 @@ func (r *cartRepository) SetCreditCard(ctx context.Context, cartID string, card 
 	cartUUID, err := uuid.Parse(cartID)
 	if err != nil {
 		r.logger.Error("Failed to parse cart ID for setting credit card", "cart_id", cartID, "error", err.Error())
-		return fmt.Errorf("%w: invalid cart ID: %v", ErrInvalidUUID, err)
+		return fmt.Errorf("%w: invalid cart ID: %w", ErrInvalidUUID, err)
 	}
 
 	tx, err := r.db.BeginTx(ctx, nil)
@@ -44,17 +44,17 @@ func (r *cartRepository) SetCreditCard(ctx context.Context, cartID string, card 
 	`, cartUUID, card.CardType, card.CardNumber, card.CardHolderName, card.CardExpires, card.CardCVV).Scan(&card.ID)
 	if err != nil {
 		r.logger.Error("Failed to insert credit card", "cart_id", cartID, "error", err.Error())
-		return fmt.Errorf("%w: failed to insert credit card: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to insert credit card: %w", ErrDatabaseOperation, err)
 	}
 
 	_, err = tx.Exec(ctx, `UPDATE carts.Cart SET credit_card_id = $1 WHERE cart_id = $2`, card.ID, cartUUID)
 	if err != nil {
 		r.logger.Error("Failed to update cart with credit card", "cart_id", cartID, "error", err.Error())
-		return fmt.Errorf("%w: failed to update cart credit card: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to update cart credit card: %w", ErrDatabaseOperation, err)
 	}
 
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("%w: failed to commit transaction: %v", ErrTransactionFailed, err)
+		return fmt.Errorf("%w: failed to commit transaction: %w", ErrTransactionFailed, err)
 	}
 	committed = true
 
@@ -64,7 +64,7 @@ func (r *cartRepository) SetCreditCard(ctx context.Context, cartID string, card 
 func (r *cartRepository) GetCreditCard(ctx context.Context, cartID string) (*CreditCard, error) {
 	cartUUID, err := uuid.Parse(cartID)
 	if err != nil {
-		return nil, fmt.Errorf("%w: invalid cart ID: %v", ErrInvalidUUID, err)
+		return nil, fmt.Errorf("%w: invalid cart ID: %w", ErrInvalidUUID, err)
 	}
 
 	var card CreditCard
@@ -77,7 +77,7 @@ func (r *cartRepository) GetCreditCard(ctx context.Context, cartID string) (*Cre
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrCreditCardNotFound
 		}
-		return nil, fmt.Errorf("%w: failed to get credit card: %v", ErrDatabaseOperation, err)
+		return nil, fmt.Errorf("%w: failed to get credit card: %w", ErrDatabaseOperation, err)
 	}
 
 	return &card, nil
@@ -86,7 +86,7 @@ func (r *cartRepository) GetCreditCard(ctx context.Context, cartID string) (*Cre
 func (r *cartRepository) RemoveCreditCard(ctx context.Context, cartID string) error {
 	cartUUID, err := uuid.Parse(cartID)
 	if err != nil {
-		return fmt.Errorf("%w: invalid cart ID: %v", ErrInvalidUUID, err)
+		return fmt.Errorf("%w: invalid cart ID: %w", ErrInvalidUUID, err)
 	}
 
 	tx, err := r.db.BeginTx(ctx, nil)
@@ -103,16 +103,16 @@ func (r *cartRepository) RemoveCreditCard(ctx context.Context, cartID string) er
 
 	_, err = tx.Exec(ctx, `UPDATE carts.Cart SET credit_card_id = NULL WHERE cart_id = $1`, cartUUID)
 	if err != nil {
-		return fmt.Errorf("%w: failed to update cart: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to update cart: %w", ErrDatabaseOperation, err)
 	}
 
 	_, err = tx.Exec(ctx, `DELETE FROM carts.CreditCard WHERE cart_id = $1`, cartUUID)
 	if err != nil {
-		return fmt.Errorf("%w: failed to delete credit card: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to delete credit card: %w", ErrDatabaseOperation, err)
 	}
 
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("%w: failed to commit transaction: %v", ErrTransactionFailed, err)
+		return fmt.Errorf("%w: failed to commit transaction: %w", ErrTransactionFailed, err)
 	}
 	committed = true
 

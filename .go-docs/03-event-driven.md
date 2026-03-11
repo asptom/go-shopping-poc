@@ -11,6 +11,14 @@ The project uses an **event-driven architecture** where services communicate asy
 3. **Typed Handlers** - Generic event processing
 4. **Outbox Pattern** - Transactional event publishing
 
+## Standardization Alignment
+
+Use these rules in addition to examples below:
+
+- Prefer structured `slog` logs over ad-hoc text logging in handlers and publishers.
+- Event handlers should use stable `component` names in `snake_case` and include `operation`, `event_id`, and `event_type` where relevant.
+- Repository transaction and outbox flow must follow `docs/standardization/repository-transaction-standard.md`.
+
 ## Event Contracts
 
 Events are defined in `internal/contracts/events/` as pure data structures.
@@ -177,10 +185,15 @@ type HandlerFactory[T events.Event] interface {
 
 ```go
 // internal/service/eventreader/eventhandlers/on_customer_created.go
-type OnCustomerCreated struct{}
+type OnCustomerCreated struct {
+    logger *slog.Logger
+}
 
-func NewOnCustomerCreated() *OnCustomerCreated {
-    return &OnCustomerCreated{}
+func NewOnCustomerCreated(logger *slog.Logger) *OnCustomerCreated {
+    if logger == nil {
+        logger = slog.Default()
+    }
+    return &OnCustomerCreated{logger: logger.With("component", "eventreader_on_customer_created")}
 }
 
 func (h *OnCustomerCreated) Handle(ctx context.Context, event events.Event) error {
@@ -192,13 +205,13 @@ func (h *OnCustomerCreated) Handle(ctx context.Context, event events.Event) erro
     case *events.CustomerEvent:
         customerEvent = *e
     default:
-        log.Printf("[ERROR] Expected CustomerEvent, got %T", event)
+        h.logger.Error("Expected CustomerEvent", "operation", "handle_customer_event", "actual_type", fmt.Sprintf("%T", event))
         return nil
     }
 
     // Filter by event type
     if customerEvent.EventType != events.CustomerCreated {
-        log.Printf("[DEBUG] Ignoring non-CustomerCreated event: %s", customerEvent.EventType)
+        h.logger.Debug("Ignore event type", "operation", "handle_customer_event", "event_type", customerEvent.EventType)
         return nil
     }
 
@@ -396,6 +409,7 @@ The publisher runs as a background process:
 type Publisher struct {
     db     database.Database
     bus    bus.Bus
+    logger *slog.Logger
     ticker *time.Ticker
     quit   chan struct{}
 }
@@ -405,11 +419,12 @@ func (p *Publisher) Start() {
 }
 
 func (p *Publisher) run() {
+    log := p.logger.With("operation", "run_publisher")
     for {
         select {
         case <-p.ticker.C:
             if err := p.publishPending(); err != nil {
-                log.Printf("[ERROR] Failed to publish pending events: %v", err)
+                log.Error("Publish pending events failed", "error", err.Error())
             }
         case <-p.quit:
             return
@@ -451,9 +466,10 @@ Event handlers should be resilient:
 
 ```go
 func (h *OnCustomerCreated) Handle(ctx context.Context, event events.Event) error {
+    log := h.logger.With("operation", "handle_customer_created_event")
     // Log and continue on type mismatch (don't retry)
     if !isExpectedType(event) {
-        log.Printf("[WARN] Unexpected event type: %T", event)
+        log.Warn("Unexpected event type", "actual_type", fmt.Sprintf("%T", event))
         return nil  // Acknowledge but don't process
     }
 

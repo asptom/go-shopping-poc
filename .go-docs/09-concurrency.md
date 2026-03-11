@@ -10,6 +10,8 @@ Go's concurrency model is based on goroutines (lightweight threads) and channels
 - Timeout and cancellation
 - Graceful shutdown
 
+For concurrent workflows, use structured `slog` logging with stable keys (`component`, `operation`, `duration_ms`, `error`) instead of ad-hoc text logging.
+
 ## Core Principles
 
 ### 1. Always Use Context
@@ -70,13 +72,14 @@ Use context for operation cancellation:
 
 ```go
 func (s *EventReaderService) Start(ctx context.Context) error {
+    log := s.logger.With("operation", "start_event_reader")
     for {
         select {
         case <-ctx.Done():
             return ctx.Err()  // Graceful exit
         case msg := <-messages:
             if err := s.process(msg); err != nil {
-                log.Printf("[ERROR] Failed to process: %v", err)
+                log.Error("Process message failed", "error", err.Error())
             }
         }
     }
@@ -229,7 +232,7 @@ func (p *Publisher) run(ctx context.Context) {
             return
         case <-ticker.C:
             if err := p.publishPending(); err != nil {
-                log.Printf("[ERROR] Failed to publish: %v", err)
+                logger.Error("Publish pending failed", "operation", "publish_pending", "error", err.Error())
             }
         case <-p.quit:
             return
@@ -246,6 +249,7 @@ Handle OS signals for graceful shutdown:
 
 ```go
 func main() {
+    logger := slog.Default().With("component", "service_main")
     // Setup signal handling
     sigChan := make(chan os.Signal, 1)
     signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
@@ -256,20 +260,20 @@ func main() {
     
     go func() {
         if err := service.Start(ctx); err != nil {
-            log.Printf("[ERROR] Service error: %v", err)
+            logger.Error("Service stopped unexpectedly", "operation", "start_service", "error", err.Error())
         }
     }()
     
     // Wait for shutdown signal
     sig := <-sigChan
-    log.Printf("[INFO] Received signal: %v", sig)
+    logger.Info("Shutdown signal received", "operation", "handle_signal", "signal", sig.String())
     
     // Graceful shutdown
     shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
     defer shutdownCancel()
     
     if err := service.Stop(shutdownCtx); err != nil {
-        log.Printf("[ERROR] Shutdown error: %v", err)
+        logger.Error("Service shutdown failed", "operation", "stop_service", "error", err.Error())
     }
 }
 ```

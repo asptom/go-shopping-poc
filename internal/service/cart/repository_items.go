@@ -18,7 +18,7 @@ func (r *cartRepository) AddItem(ctx context.Context, cartID string, item *CartI
 	)
 	cartUUID, err := uuid.Parse(cartID)
 	if err != nil {
-		return fmt.Errorf("%w: invalid cart ID: %v", ErrInvalidUUID, err)
+		return fmt.Errorf("%w: invalid cart ID: %w", ErrInvalidUUID, err)
 	}
 
 	tx, err := r.db.BeginTx(ctx, nil)
@@ -38,7 +38,7 @@ func (r *cartRepository) AddItem(ctx context.Context, cartID string, item *CartI
 	err = r.db.QueryRow(ctx, `SELECT nextval('carts.cart_sequence')`).Scan(&nextLine)
 	if err != nil {
 		r.logger.Error("Failed to get next line number", "cart_id", cartID, "error", err.Error())
-		return fmt.Errorf("%w: failed to generate line number: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to generate line number: %w", ErrDatabaseOperation, err)
 	}
 	item.LineNumber = fmt.Sprintf("%03d", nextLine)
 	item.CartID = cartUUID
@@ -56,12 +56,12 @@ func (r *cartRepository) AddItem(ctx context.Context, cartID string, item *CartI
 		item.CartID, item.LineNumber, item.ProductID, item.ProductName, item.UnitPrice, item.Quantity, item.TotalPrice)
 	if err != nil {
 		r.logger.Error("Failed to insert item into database", "cart_id", cartID, "error", err.Error())
-		return fmt.Errorf("%w: failed to insert item: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to insert item: %w", ErrDatabaseOperation, err)
 	}
 
 	if err := tx.Commit(); err != nil {
 		r.logger.Error("Failed to commit transaction for adding item", "cart_id", cartID, "error", err.Error())
-		return fmt.Errorf("%w: failed to commit transaction: %v", ErrTransactionFailed, err)
+		return fmt.Errorf("%w: failed to commit transaction: %w", ErrTransactionFailed, err)
 	}
 	committed = true
 
@@ -71,7 +71,7 @@ func (r *cartRepository) AddItem(ctx context.Context, cartID string, item *CartI
 func (r *cartRepository) UpdateItemQuantity(ctx context.Context, cartID string, lineNumber string, quantity int) error {
 	cartUUID, err := uuid.Parse(cartID)
 	if err != nil {
-		return fmt.Errorf("%w: invalid cart ID: %v", ErrInvalidUUID, err)
+		return fmt.Errorf("%w: invalid cart ID: %w", ErrInvalidUUID, err)
 	}
 
 	if quantity <= 0 {
@@ -87,7 +87,7 @@ func (r *cartRepository) UpdateItemQuantity(ctx context.Context, cartID string, 
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrCartItemNotFound
 		}
-		return fmt.Errorf("%w: failed to get item: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to get item: %w", ErrDatabaseOperation, err)
 	}
 
 	newTotal := float64(quantity) * item.UnitPrice
@@ -98,7 +98,7 @@ func (r *cartRepository) UpdateItemQuantity(ctx context.Context, cartID string, 
 		WHERE cart_id = $3 AND line_number = $4
 	`, quantity, newTotal, cartUUID, lineNumber)
 	if err != nil {
-		return fmt.Errorf("%w: failed to update item: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to update item: %w", ErrDatabaseOperation, err)
 	}
 
 	return nil
@@ -107,12 +107,12 @@ func (r *cartRepository) UpdateItemQuantity(ctx context.Context, cartID string, 
 func (r *cartRepository) RemoveItem(ctx context.Context, cartID string, lineNumber string) error {
 	cartUUID, err := uuid.Parse(cartID)
 	if err != nil {
-		return fmt.Errorf("%w: invalid cart ID: %v", ErrInvalidUUID, err)
+		return fmt.Errorf("%w: invalid cart ID: %w", ErrInvalidUUID, err)
 	}
 
 	_, err = r.db.Exec(ctx, `DELETE FROM carts.CartItem WHERE cart_id = $1 AND line_number = $2`, cartUUID, lineNumber)
 	if err != nil {
-		return fmt.Errorf("%w: failed to delete item: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to delete item: %w", ErrDatabaseOperation, err)
 	}
 
 	return nil
@@ -121,7 +121,7 @@ func (r *cartRepository) RemoveItem(ctx context.Context, cartID string, lineNumb
 func (r *cartRepository) GetCartItems(ctx context.Context, cartID string) ([]CartItem, error) {
 	cartUUID, err := uuid.Parse(cartID)
 	if err != nil {
-		return nil, fmt.Errorf("%w: invalid cart ID: %v", ErrInvalidUUID, err)
+		return nil, fmt.Errorf("%w: invalid cart ID: %w", ErrInvalidUUID, err)
 	}
 
 	var items []CartItem
@@ -132,7 +132,7 @@ func (r *cartRepository) GetCartItems(ctx context.Context, cartID string) ([]Car
 		ORDER BY line_number
 	`, cartUUID)
 	if err != nil {
-		return nil, fmt.Errorf("%w: failed to get items: %v", ErrDatabaseOperation, err)
+		return nil, fmt.Errorf("%w: failed to get items: %w", ErrDatabaseOperation, err)
 	}
 
 	return items, nil
@@ -147,14 +147,14 @@ func (r *cartRepository) AddItemTx(ctx context.Context, tx database.Tx, cartID s
 	)
 	cartUUID, err := uuid.Parse(cartID)
 	if err != nil {
-		return fmt.Errorf("%w: invalid cart ID: %v", ErrInvalidUUID, err)
+		return fmt.Errorf("%w: invalid cart ID: %w", ErrInvalidUUID, err)
 	}
 
 	var nextLine int
 	err = tx.QueryRow(ctx, `SELECT nextval('carts.cart_sequence')`).Scan(&nextLine)
 	if err != nil {
 		r.logger.Error("Failed to get next line number", "cart_id", cartID, "error", err.Error())
-		return fmt.Errorf("%w: failed to generate line number: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to generate line number: %w", ErrDatabaseOperation, err)
 	}
 	item.LineNumber = fmt.Sprintf("%03d", nextLine)
 	item.CartID = cartUUID
@@ -172,7 +172,7 @@ func (r *cartRepository) AddItemTx(ctx context.Context, tx database.Tx, cartID s
 		item.CartID, item.LineNumber, item.ProductID, item.ProductName, item.UnitPrice, item.Quantity, item.TotalPrice, item.Status, item.ValidationID)
 	if err != nil {
 		r.logger.Error("Failed to insert item into database (transactional)", "cart_id", cartID, "error", err.Error())
-		return fmt.Errorf("%w: failed to insert item: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to insert item: %w", ErrDatabaseOperation, err)
 	}
 
 	return nil
@@ -191,7 +191,7 @@ func (r *cartRepository) GetItemByValidationID(ctx context.Context, validationID
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrCartItemNotFound
 		}
-		return nil, fmt.Errorf("%w: failed to get item by validation ID: %v", ErrDatabaseOperation, err)
+		return nil, fmt.Errorf("%w: failed to get item by validation ID: %w", ErrDatabaseOperation, err)
 	}
 
 	return &item, nil
@@ -201,7 +201,7 @@ func (r *cartRepository) GetItemByValidationID(ctx context.Context, validationID
 func (r *cartRepository) GetItemByProductID(ctx context.Context, cartID, productID string) (*CartItem, error) {
 	cartUUID, err := uuid.Parse(cartID)
 	if err != nil {
-		return nil, fmt.Errorf("%w: invalid cart ID: %v", ErrInvalidUUID, err)
+		return nil, fmt.Errorf("%w: invalid cart ID: %w", ErrInvalidUUID, err)
 	}
 
 	var item CartItem
@@ -215,7 +215,7 @@ func (r *cartRepository) GetItemByProductID(ctx context.Context, cartID, product
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrCartItemNotFound
 		}
-		return nil, fmt.Errorf("%w: failed to get item by product ID: %v", ErrDatabaseOperation, err)
+		return nil, fmt.Errorf("%w: failed to get item by product ID: %w", ErrDatabaseOperation, err)
 	}
 
 	return &item, nil
@@ -230,7 +230,7 @@ func (r *cartRepository) UpdateItemStatus(ctx context.Context, item *CartItem) e
 	`, item.ProductName, item.UnitPrice, item.TotalPrice, item.Status, item.BackorderReason, item.ID)
 
 	if err != nil {
-		return fmt.Errorf("%w: failed to update item status: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to update item status: %w", ErrDatabaseOperation, err)
 	}
 
 	return nil

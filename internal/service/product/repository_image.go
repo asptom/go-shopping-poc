@@ -28,7 +28,7 @@ func (r *productRepository) AddProductImage(ctx context.Context, image *ProductI
 
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("%w: failed to begin transaction: %v", ErrTransactionFailed, err)
+		return fmt.Errorf("%w: failed to begin transaction: %w", ErrTransactionFailed, err)
 	}
 	committed := false
 	defer func() {
@@ -53,7 +53,7 @@ func (r *productRepository) AddProductImage(ctx context.Context, image *ProductI
 		if isDuplicateError(err) {
 			return fmt.Errorf("%w: minio object name already exists for product", ErrDuplicateImage)
 		}
-		return fmt.Errorf("%w: failed to add product image: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to add product image: %w", ErrDatabaseOperation, err)
 	}
 
 	// Publish product created event to outbox
@@ -65,11 +65,11 @@ func (r *productRepository) AddProductImage(ctx context.Context, image *ProductI
 	})
 
 	if err := r.outboxWriter.WriteEvent(ctx, tx, evt); err != nil {
-		return fmt.Errorf("%w: failed to write product image added event: %v", ErrEventWriteFailed, err)
+		return fmt.Errorf("%w: failed to write product image added event: %w", ErrEventWriteFailed, err)
 	}
 
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("%w: failed to commit transaction: %v", ErrTransactionFailed, err)
+		return fmt.Errorf("%w: failed to commit transaction: %w", ErrTransactionFailed, err)
 	}
 	committed = true
 
@@ -98,7 +98,7 @@ func (r *productRepository) insertProductImages(ctx context.Context, tx database
 			image.ImageOrder, image.FileSize, image.ContentType, time.Now(),
 		)
 		if err != nil {
-			return fmt.Errorf("%w: failed to insert product image: %v", ErrDatabaseOperation, err)
+			return fmt.Errorf("%w: failed to insert product image: %w", ErrDatabaseOperation, err)
 		}
 	}
 	return nil
@@ -120,7 +120,7 @@ func (r *productRepository) insertProductImageRecord(ctx context.Context, tx dat
 		image.ImageOrder, image.FileSize, image.ContentType, time.Now(),
 	)
 	if err != nil {
-		return fmt.Errorf("%w: failed to insert product image: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to insert product image: %w", ErrDatabaseOperation, err)
 	}
 	return nil
 }
@@ -131,7 +131,7 @@ func (r *productRepository) UpdateProductImage(ctx context.Context, image *Produ
 
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("%w: failed to begin transaction: %v", ErrTransactionFailed, err)
+		return fmt.Errorf("%w: failed to begin transaction: %w", ErrTransactionFailed, err)
 	}
 	committed := false
 	defer func() {
@@ -159,12 +159,12 @@ func (r *productRepository) UpdateProductImage(ctx context.Context, image *Produ
 		image.ImageOrder, image.FileSize, image.ContentType,
 	)
 	if err != nil {
-		return fmt.Errorf("%w: failed to update product image: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to update product image: %w", ErrDatabaseOperation, err)
 	}
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("%w: failed to get rows affected: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to get rows affected: %w", ErrDatabaseOperation, err)
 	}
 	if rowsAffected == 0 {
 		return fmt.Errorf("%w: product image %d not found", ErrProductImageNotFound, image.ID)
@@ -179,11 +179,11 @@ func (r *productRepository) UpdateProductImage(ctx context.Context, image *Produ
 	})
 
 	if err := r.outboxWriter.WriteEvent(ctx, tx, evt); err != nil {
-		return fmt.Errorf("%w: failed to write product image updated event: %v", ErrEventWriteFailed, err)
+		return fmt.Errorf("%w: failed to write product image updated event: %w", ErrEventWriteFailed, err)
 	}
 
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("%w: failed to commit transaction: %v", ErrTransactionFailed, err)
+		return fmt.Errorf("%w: failed to commit transaction: %w", ErrTransactionFailed, err)
 	}
 	committed = true
 
@@ -196,7 +196,7 @@ func (r *productRepository) DeleteProductImage(ctx context.Context, image *Produ
 
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("%w: failed to begin transaction: %v", ErrTransactionFailed, err)
+		return fmt.Errorf("%w: failed to begin transaction: %w", ErrTransactionFailed, err)
 	}
 	committed := false
 	defer func() {
@@ -212,12 +212,12 @@ func (r *productRepository) DeleteProductImage(ctx context.Context, image *Produ
 	query := `DELETE FROM products.product_images WHERE id = $1`
 	result, err := tx.ExecContext(ctx, query, image.ID)
 	if err != nil {
-		return fmt.Errorf("%w: failed to delete product image: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to delete product image: %w", ErrDatabaseOperation, err)
 	}
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("%w: failed to get rows affected: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to get rows affected: %w", ErrDatabaseOperation, err)
 	}
 	if rowsAffected == 0 {
 		return fmt.Errorf("%w: product image %d not found", ErrProductImageNotFound, image.ID)
@@ -231,11 +231,11 @@ func (r *productRepository) DeleteProductImage(ctx context.Context, image *Produ
 	})
 
 	if err := r.outboxWriter.WriteEvent(ctx, tx, evt); err != nil {
-		return fmt.Errorf("%w: failed to write product image deleted event: %v", ErrEventWriteFailed, err)
+		return fmt.Errorf("%w: failed to write product image deleted event: %w", ErrEventWriteFailed, err)
 	}
 
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("%w: failed to commit transaction: %v", ErrTransactionFailed, err)
+		return fmt.Errorf("%w: failed to commit transaction: %w", ErrTransactionFailed, err)
 	}
 	committed = true
 
@@ -252,7 +252,7 @@ func (r *productRepository) SetMainImageFlag(ctx context.Context, productID int6
 
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("%w: failed to begin transaction: %v", ErrTransactionFailed, err)
+		return fmt.Errorf("%w: failed to begin transaction: %w", ErrTransactionFailed, err)
 	}
 	committed := false
 	defer func() {
@@ -265,19 +265,19 @@ func (r *productRepository) SetMainImageFlag(ctx context.Context, productID int6
 	unsetQuery := `UPDATE products.product_images SET is_main = false WHERE product_id = $1`
 	_, err = tx.Exec(ctx, unsetQuery, productID)
 	if err != nil {
-		return fmt.Errorf("%w: failed to unset main images: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to unset main images: %w", ErrDatabaseOperation, err)
 	}
 
 	// Set the specified image as main
 	setQuery := `UPDATE products.product_images SET is_main = true WHERE id = $1 AND product_id = $2`
 	result, err := tx.Exec(ctx, setQuery, imageID, productID)
 	if err != nil {
-		return fmt.Errorf("%w: failed to set main image flag: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to set main image flag: %w", ErrDatabaseOperation, err)
 	}
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("%w: failed to get rows affected: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to get rows affected: %w", ErrDatabaseOperation, err)
 	}
 	if rowsAffected == 0 {
 		return fmt.Errorf("%w: image %d not found for product %d", ErrProductImageNotFound, imageID, productID)
@@ -289,11 +289,11 @@ func (r *productRepository) SetMainImageFlag(ctx context.Context, productID int6
 	})
 
 	if err := r.outboxWriter.WriteEvent(ctx, tx, evt); err != nil {
-		return fmt.Errorf("%w: failed to write product image updated event: %v", ErrEventWriteFailed, err)
+		return fmt.Errorf("%w: failed to write product image updated event: %w", ErrEventWriteFailed, err)
 	}
 
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("%w: failed to commit transaction: %v", ErrTransactionFailed, err)
+		return fmt.Errorf("%w: failed to commit transaction: %w", ErrTransactionFailed, err)
 	}
 	committed = true
 

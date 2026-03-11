@@ -29,6 +29,8 @@ The project follows **Clean Architecture** (also known as Hexagonal Architecture
 │   │
 │   ├── platform/                # Shared infrastructure
 │   │   ├── service/             # Service base implementations
+│   │   ├── httpx/               # HTTP transport helpers (decode/encode/params)
+│   │   ├── httperr/             # Transport error envelope helpers
 │   │   ├── event/               # Event bus abstraction
 │   │   │   ├── bus/            # Transport interface
 │   │   │   │   ├── interface.go
@@ -37,7 +39,9 @@ The project follows **Clean Architecture** (also known as Hexagonal Architecture
 │   │   ├── database/            # Database abstraction
 │   │   ├── outbox/              # Outbox pattern
 │   │   ├── config/              # Configuration loading
+│   │   ├── sse/                 # Generic SSE primitives
 │   │   ├── errors/              # Error utilities
+│   │   ├── logging/             # Logging context helpers
 │   │   └── providers/           # Provider constructors
 │   │
 │   └── service/                 # Business logic
@@ -213,6 +217,17 @@ Service → Platform → Contracts
 - Platform cannot import Service
 - Contracts cannot import Platform or Service
 - Services should not directly import other services (use events)
+
+Enforcement: `scripts/ci/standardization_checks.sh` and `.github/workflows/standardization-ci.yml` run architecture guards (`internal/platform/*` cannot import `internal/service/*`).
+
+## Standardized HTTP and Logging Contracts
+
+- Use `internal/platform/httpx` for decode/encode/path/query mechanics.
+- Use `internal/platform/httperr` for structured transport error responses.
+- Keep domain mapping decisions in service handlers (status/message compatibility remains domain-owned).
+- Use `slog` with `component` + `operation` and standard keys from `docs/standardization/logging-standard.md`.
+
+Canonical starter patterns are in `docs/standardization/templates/http-handler-template.md` and `docs/standardization/templates/domain-service-template.md`.
 
 ### Interface Segregation
 

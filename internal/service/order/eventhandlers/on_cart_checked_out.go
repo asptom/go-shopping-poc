@@ -22,7 +22,7 @@ func NewOnCartCheckedOut(service *order.OrderService, logger *slog.Logger) *OnCa
 	}
 	return &OnCartCheckedOut{
 		service: service,
-		logger:  logger.With("handler", "on_cart_checked_out"),
+		logger:  logger.With("component", "order_on_cart_checked_out"),
 	}
 }
 
@@ -37,9 +37,15 @@ func (h *OnCartCheckedOut) Handle(ctx context.Context, event events.Event) error
 		h.logger.Error("Expected CartEvent", "actual_type", fmt.Sprintf("%T", event))
 		return nil
 	}
+	log := h.logger.With(
+		"operation", "handle_cart_checked_out",
+		"event_id", cartEvent.ID,
+		"event_type", cartEvent.EventType,
+		"cart_id", cartEvent.EventPayload.CartID,
+	)
 
 	if cartEvent.EventType != events.CartCheckedOut {
-		h.logger.Debug("Ignoring non-CartCheckedOut event", "event_type", cartEvent.EventType)
+		log.Debug("Ignore event type")
 		return nil
 	}
 
@@ -52,27 +58,32 @@ func (h *OnCartCheckedOut) Handle(ctx context.Context, event events.Event) error
 
 	utils.LogEventCompletion(ctx, string(cartEvent.EventType),
 		cartEvent.EventPayload.CartID, err)
-	h.logger.Info("Finished processing CartCheckedOut event", "cart_id", cartEvent.EventPayload.CartID, "error", fmt.Sprintf("%v", err))
+	if err != nil {
+		log.Error("Cart checked out processing failed", "error", err.Error())
+		return err
+	}
+	log.Info("Cart checked out processed")
 	return err
 }
 
 func (h *OnCartCheckedOut) createOrderFromCart(ctx context.Context, cartEvent events.CartEvent) error {
 	cartID := cartEvent.EventPayload.CartID
-	h.logger.Debug("Creating order from cart", "cart_id", cartID)
+	log := h.logger.With("operation", "create_order_from_cart", "cart_id", cartID)
+	log.Debug("Create order from cart")
 
 	snapshot := cartEvent.EventPayload.CartSnapshot
 	if snapshot == nil {
-		h.logger.Error("Cart snapshot is missing", "cart_id", cartID)
+		log.Error("Cart snapshot missing")
 		return fmt.Errorf("cart snapshot is required to create order")
 	}
 
 	order, err := h.service.CreateOrderFromSnapshot(ctx, cartID, snapshot)
 	if err != nil {
-		h.logger.Error("Failed to create order from cart", "cart_id", cartID, "error", err.Error())
+		log.Error("Create order from cart failed", "error", err.Error())
 		return err
 	}
 
-	h.logger.Info("Successfully created order", "order_number", order.OrderNumber, "cart_id", cartID)
+	log.Info("Order created from cart", "order_number", order.OrderNumber)
 	return nil
 }
 

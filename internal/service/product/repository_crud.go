@@ -41,7 +41,7 @@ func (r *productRepository) InsertProduct(ctx context.Context, product *Product)
 func (r *productRepository) insertProductWithImages(ctx context.Context, product *Product) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("%w: failed to begin transaction: %v", ErrTransactionFailed, err)
+		return fmt.Errorf("%w: failed to begin transaction: %w", ErrTransactionFailed, err)
 	}
 	committed := false
 	defer func() {
@@ -69,11 +69,11 @@ func (r *productRepository) insertProductWithImages(ctx context.Context, product
 	})
 
 	if err := r.outboxWriter.WriteEvent(ctx, tx, evt); err != nil {
-		return fmt.Errorf("%w: failed to write product created event: %v", ErrEventWriteFailed, err)
+		return fmt.Errorf("%w: failed to write product created event: %w", ErrEventWriteFailed, err)
 	}
 
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("%w: failed to commit transaction: %v", ErrTransactionFailed, err)
+		return fmt.Errorf("%w: failed to commit transaction: %w", ErrTransactionFailed, err)
 	}
 	committed = true
 
@@ -101,7 +101,7 @@ func (r *productRepository) insertProductRecord(ctx context.Context, tx database
 		product.CreatedAt, product.UpdatedAt,
 	)
 	if err != nil {
-		return fmt.Errorf("%w: failed to insert product record: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to insert product record: %w", ErrDatabaseOperation, err)
 	}
 	return nil
 }
@@ -148,12 +148,12 @@ func (r *productRepository) UpdateProduct(ctx context.Context, product *Product)
 		product.UpdatedAt,
 	)
 	if err != nil {
-		return fmt.Errorf("%w: failed to update product: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to update product: %w", ErrDatabaseOperation, err)
 	}
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("%w: failed to get rows affected: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to get rows affected: %w", ErrDatabaseOperation, err)
 	}
 	if rowsAffected == 0 {
 		return fmt.Errorf("%w: product %d not found", ErrProductNotFound, product.ID)
@@ -166,11 +166,11 @@ func (r *productRepository) UpdateProduct(ctx context.Context, product *Product)
 	})
 
 	if err := r.outboxWriter.WriteEvent(ctx, tx, evt); err != nil {
-		return fmt.Errorf("%w: failed to write product updated event: %v", ErrEventWriteFailed, err)
+		return fmt.Errorf("%w: failed to write product updated event: %w", ErrEventWriteFailed, err)
 	}
 
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("%w: failed to commit transaction: %v", ErrTransactionFailed, err)
+		return fmt.Errorf("%w: failed to commit transaction: %w", ErrTransactionFailed, err)
 	}
 	committed = true
 
@@ -187,7 +187,7 @@ func (r *productRepository) DeleteProduct(ctx context.Context, productID int64) 
 
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("%w: failed to begin transaction: %v", ErrTransactionFailed, err)
+		return fmt.Errorf("%w: failed to begin transaction: %w", ErrTransactionFailed, err)
 	}
 	committed := false
 	defer func() {
@@ -199,12 +199,12 @@ func (r *productRepository) DeleteProduct(ctx context.Context, productID int64) 
 	query := `DELETE FROM products.products WHERE id = $1`
 	result, err := tx.ExecContext(ctx, query, productID)
 	if err != nil {
-		return fmt.Errorf("%w: failed to delete product: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to delete product: %w", ErrDatabaseOperation, err)
 	}
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("%w: failed to get rows affected: %v", ErrDatabaseOperation, err)
+		return fmt.Errorf("%w: failed to get rows affected: %w", ErrDatabaseOperation, err)
 	}
 	if rowsAffected == 0 {
 		return fmt.Errorf("%w: product %d not found", ErrProductNotFound, productID)
@@ -214,11 +214,11 @@ func (r *productRepository) DeleteProduct(ctx context.Context, productID int64) 
 	evt := events.NewProductDeletedEvent(fmt.Sprintf("%d", productID), map[string]string{})
 
 	if err := r.outboxWriter.WriteEvent(ctx, tx, evt); err != nil {
-		return fmt.Errorf("%w: failed to write product deleted event: %v", ErrEventWriteFailed, err)
+		return fmt.Errorf("%w: failed to write product deleted event: %w", ErrEventWriteFailed, err)
 	}
 
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("%w: failed to commit transaction: %v", ErrTransactionFailed, err)
+		return fmt.Errorf("%w: failed to commit transaction: %w", ErrTransactionFailed, err)
 	}
 	committed = true
 

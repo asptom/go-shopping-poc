@@ -49,6 +49,16 @@ internal/
 **Using goroutines/channels?**
 → See: 09-concurrency.md
 
+## Standardization Source of Truth
+
+When guidance in `.go-docs/*` and `docs/standardization/*` differs, follow `docs/standardization/*`.
+
+- Program docs: `docs/standardization/README.md`, `docs/standardization/roadmap.md`, `docs/standardization/phase-playbooks.md`
+- Logging standard: `docs/standardization/logging-standard.md`
+- Repository/transaction standard: `docs/standardization/repository-transaction-standard.md`
+- Canonical templates: `docs/standardization/templates/domain-service-template.md`, `docs/standardization/templates/http-handler-template.md`, `docs/standardization/templates/repository-tx-template.md`
+- Enforcement checks: `scripts/ci/standardization_checks.sh`, `.github/workflows/standardization-ci.yml`
+
 ## Key Conventions (At a Glance)
 
 | Aspect | Convention | Reference |
@@ -60,6 +70,8 @@ internal/
 | Interface compliance | `var _ Interface = (*Type)(nil)` | 01-general-style.md |
 | Error handling | Check first, wrap with `%w` | 06-error-handling.md |
 | File organization | One concern per file | 02-clean-architecture.md |
+| HTTP transport helpers | Use `httpx` + `httperr` | docs/standardization/templates/http-handler-template.md |
+| Logging fields | `component`, `operation`, IDs, `request_id`, `duration_ms`, `error` | docs/standardization/logging-standard.md |
 
 ## Quick File References
 

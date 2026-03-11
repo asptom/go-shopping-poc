@@ -10,6 +10,15 @@ The **Repository Pattern** abstracts database operations behind interfaces, enab
 - Transaction management
 - Clean separation of data access from business logic
 
+## Standardization Alignment
+
+Repository and transaction behavior must follow `docs/standardization/repository-transaction-standard.md`:
+
+- Required transaction sequence: `BeginTx -> committed flag -> deferred rollback guard -> writes -> in-tx outbox write -> Commit -> committed=true`
+- Use `%w` for chained errors to preserve `errors.Is` behavior.
+- Keep outbox publish trigger post-commit in service orchestration (do not publish from repository transaction methods).
+- Keep read-modify-write concurrency risks explicit; apply locking/CAS only when intentionally migrating behavior.
+
 ## Repository Interface
 
 ### Defining the Interface
@@ -266,11 +275,11 @@ customer, err := repo.GetCustomerByID(ctx, id)
 if err != nil {
     if errors.Is(err, ErrCustomerNotFound) {
         // Return 404
-        http.Error(w, "Customer not found", http.StatusNotFound)
+        httperr.NotFound(w, "Customer not found")
         return
     }
     // Return 500
-    http.Error(w, "Internal error", http.StatusInternalServerError)
+    httperr.Internal(w, "Internal error")
     return
 }
 ```
