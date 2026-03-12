@@ -125,7 +125,7 @@ The project follows clean architecture with proper configuration separation:
 - Product: topics, group, port
 - Product: topic, group, port
 - WebSocket: URL, timeout, path
-- Location: `deply/k8s/service/<service>/<service>-configmap.yaml
+- Location: `deploy/k8s/service/<service>/<service>-configmap.yaml`
 
 ## Testing
 

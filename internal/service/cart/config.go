@@ -28,6 +28,6 @@ func (c *Config) Validate() error {
 	if c.WriteTopic == "" {
 		return errors.New("write topic is required")
 	}
-	// Removed outbox configuration validation
+
 	return nil
 }

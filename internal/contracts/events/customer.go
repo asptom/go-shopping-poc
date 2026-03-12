@@ -52,7 +52,6 @@ func (f CustomerEventFactory) FromJSON(data []byte) (CustomerEvent, error) {
 	return event, err
 }
 
-// Convenience constructor for CustomerEvent
 func NewCustomerEvent(customerID string, t EventType, resourceID string, details map[string]string) *CustomerEvent {
 	payload := CustomerEventPayload{
 		CustomerID: customerID,
@@ -93,8 +92,6 @@ func (e CustomerEvent) GetEntityID() string {
 func (e CustomerEvent) GetResourceID() string {
 	return e.EventPayload.ResourceID
 }
-
-// Convenience constructors
 
 func NewCustomerCreatedEvent(customerID string, details map[string]string) *CustomerEvent {
 	return NewCustomerEvent(customerID, CustomerCreated, customerID, details)

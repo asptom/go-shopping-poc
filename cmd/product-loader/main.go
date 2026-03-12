@@ -124,7 +124,6 @@ func runProductLoader(ctx context.Context, cliConfig *CLIConfig, logger *slog.Lo
 
 	logger.Debug("Database connection established")
 
-	// Initialize HTTP downloader
 	httpDownloader, err := downloader.NewHTTPDownloader(cfg.CacheDir)
 	if err != nil {
 		return fmt.Errorf("failed to create HTTP downloader: %w", err)
@@ -132,7 +131,6 @@ func runProductLoader(ctx context.Context, cliConfig *CLIConfig, logger *slog.Lo
 
 	logger.Debug("HTTP downloader initialized")
 
-	// Choose MinIO endpoint based on environment
 	minioEndpoint := minioCfg.EndpointLocal
 	if os.Getenv("KUBERNETES_SERVICE_HOST") != "" {
 		minioEndpoint = minioCfg.EndpointKubernetes
@@ -150,12 +148,10 @@ func runProductLoader(ctx context.Context, cliConfig *CLIConfig, logger *slog.Lo
 
 	logger.Debug("MinIO storage initialized")
 
-	// Initialize outbox writer
 	writerProvider := providers.NewWriterProvider(platformDB)
 	outboxWriter := writerProvider.GetWriter()
 	logger.Debug("Outbox writer initialized")
 
-	// Create ingestion infrastructure
 	infrastructure := &product.IngestionInfrastructure{
 		Database:       platformDB,
 		ObjectStorage:  minioStorage,
@@ -163,11 +159,9 @@ func runProductLoader(ctx context.Context, cliConfig *CLIConfig, logger *slog.Lo
 		HTTPDownloader: httpDownloader,
 	}
 
-	// Create admin service
 	ingestionService := product.NewIngestionService(logger, cfg, infrastructure)
 	logger.Debug("Ingestion service created")
 
-	// Create service wrapper for lifecycle management
 	loaderService := &ProductLoaderService{
 		BaseService: service.NewBaseService("product-loader"),
 		service:     ingestionService,
@@ -182,13 +176,11 @@ func runProductLoader(ctx context.Context, cliConfig *CLIConfig, logger *slog.Lo
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-	// Start the ingestion process
 	logger.Info("Starting product ingestion process...")
 
 	ingestionCtx, ingestionCancel := context.WithCancel(ctx)
 	defer ingestionCancel()
 
-	// Run ingestion in a goroutine
 	done := make(chan error, 1)
 	go func() {
 		result, err := loaderService.RunIngestion(ingestionCtx)
@@ -197,7 +189,6 @@ func runProductLoader(ctx context.Context, cliConfig *CLIConfig, logger *slog.Lo
 			return
 		}
 
-		// Log results
 		logger.Info("Ingestion completed successfully!")
 		logger.Info("Batch ID", "batch_id", result.BatchID)
 		logger.Info("Total Products", "count", result.TotalProducts)
@@ -230,7 +221,6 @@ func runProductLoader(ctx context.Context, cliConfig *CLIConfig, logger *slog.Lo
 		logger.Info("Received signal, initiating graceful shutdown", "signal", sig)
 		ingestionCancel()
 
-		// Wait for ingestion to finish or timeout
 		select {
 		case <-done:
 			logger.Info("Ingestion completed during shutdown")
@@ -276,7 +266,6 @@ func main() {
 	}
 }
 
-// ProductLoaderService wraps the admin service for lifecycle management
 type ProductLoaderService struct {
 	*service.BaseService
 	service    *product.IngestionService
@@ -287,7 +276,6 @@ type ProductLoaderService struct {
 	logger     *slog.Logger
 }
 
-// productConfigFromLoaderConfig converts loader config to product config
 func productConfigFromLoaderConfig(loaderCfg *Config) *product.Config {
 	return &product.Config{
 		DatabaseURL:  loaderCfg.DatabaseURL,
@@ -300,7 +288,6 @@ func productConfigFromLoaderConfig(loaderCfg *Config) *product.Config {
 	}
 }
 
-// RunIngestion executes the product ingestion workflow
 func (s *ProductLoaderService) RunIngestion(ctx context.Context) (*product.ProductIngestionResult, error) {
 	s.logger.Info("Starting ingestion", "csv_path", s.csvPath)
 
@@ -319,7 +306,6 @@ func (s *ProductLoaderService) RunIngestion(ctx context.Context) (*product.Produ
 	return result, nil
 }
 
-// getBatchID returns the provided batch ID or generates a new one
 func getBatchID(batchID string) string {
 	if batchID != "" {
 		return batchID

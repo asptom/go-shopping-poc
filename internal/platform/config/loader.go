@@ -38,16 +38,10 @@ type ConfigLoader interface {
 	Validate(config interface{}) error
 }
 
-// Global cache removed - no longer loading shared configuration files
-
 // ViperLoader implements ConfigLoader using Viper
 type ViperLoader struct {
 	viper *viper.Viper
 }
-
-// Global config cache removed - no longer loading shared config files
-
-// Removed loadConfigFileToMap - no longer needed without global caching
 
 // NewViperLoader creates a new Viper-based loader
 func NewViperLoader() *ViperLoader {
@@ -92,8 +86,6 @@ func (l *ViperLoader) Validate(config interface{}) error {
 
 	return nil
 }
-
-// Global config cache removed - no longer needed
 
 // LoadConfig loads configuration from environment variables only
 func LoadConfig[T any](serviceName string) (*T, error) {

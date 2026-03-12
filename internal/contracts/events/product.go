@@ -1,26 +1,3 @@
-// Package events defines the contract interfaces and data structures for events.
-// This package contains only pure data structures and interfaces - no business logic.
-//
-// Key interfaces:
-//   - Event: Common event interface (Type, Topic, Payload, ToJSON)
-//   - EventFactory[T]: Type-safe event reconstruction from JSON
-//
-// Event types:
-//   - CustomerEvent: Customer domain events
-//   - OrderEvent: Order domain events (future)
-//   - ProductEvent: Product domain events
-//
-// Usage example:
-//
-//	// Create a product event
-//	event := events.NewProductCreated(productID, productData)
-//
-//	// Serialize to JSON
-//	jsonData, err := event.ToJSON()
-//
-//	// Deserialize with type safety
-//	factory := events.ProductEventFactory{}
-//	restoredEvent, err := factory.FromJSON(jsonData)
 package events
 
 import (
@@ -31,7 +8,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// ProductEventType is a typed alias for well-known product events
 type ProductEventType string
 
 const (
@@ -80,7 +56,6 @@ func (f ProductEventFactory) FromJSON(data []byte) (ProductEvent, error) {
 	return event, err
 }
 
-// Convenience constructor for ProductEvent
 func NewProductEvent(productID string, t ProductEventType, resourceID string, details map[string]string) *ProductEvent {
 	payload := ProductEventPayload{
 		ProductID:  productID,

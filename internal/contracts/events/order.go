@@ -62,8 +62,6 @@ func (e OrderEvent) ToJSON() ([]byte, error) { return json.Marshal(e) }
 func (e OrderEvent) GetEntityID() string     { return e.Data.CartID }
 func (e OrderEvent) GetResourceID() string   { return e.ID }
 
-// Convenience constructor for OrderEvents
-
 func NewOrderCreatedEvent(orderID string, orderNumber string, cartID string, customerID *string, total float64) *OrderEvent {
 	return NewOrderEvent(orderID, orderNumber, OrderCreated, cartID, customerID, total)
 }

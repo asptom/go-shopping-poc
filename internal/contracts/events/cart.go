@@ -60,7 +60,6 @@ func (e CartItemEvent) ToJSON() ([]byte, error) { return json.Marshal(e) }
 func (e CartItemEvent) GetEntityID() string     { return e.Data.CartID }
 func (e CartItemEvent) GetResourceID() string   { return e.ID }
 
-// Constructor for CartItemAdded
 func NewCartItemAddedEvent(cartID, lineNumber, productID string, quantity int, validationID string) *CartItemEvent {
 	return &CartItemEvent{
 		ID:        uuid.New().String(),
@@ -76,7 +75,6 @@ func NewCartItemAddedEvent(cartID, lineNumber, productID string, quantity int, v
 	}
 }
 
-// Constructor for CartItemConfirmed
 func NewCartItemConfirmedEvent(cartID, lineNumber, productID, productName string, unitPrice float64, quantity int) *CartItemEvent {
 	return &CartItemEvent{
 		ID:        uuid.New().String(),
@@ -93,7 +91,6 @@ func NewCartItemConfirmedEvent(cartID, lineNumber, productID, productName string
 	}
 }
 
-// Constructor for CartItemRejected
 func NewCartItemRejectedEvent(cartID, lineNumber, productID, reason string) *CartItemEvent {
 	return &CartItemEvent{
 		ID:        uuid.New().String(),

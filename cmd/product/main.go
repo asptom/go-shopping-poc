@@ -68,7 +68,6 @@ func main() {
 	logger.Debug("Creating outbox writer provider")
 	writerProvider := providers.NewWriterProvider(platformDB, providers.WithWriterLogger(logger))
 
-	// Event bus setup for consuming cart validation requests
 	logger.Debug("Creating event bus provider")
 	eventBusConfig := event.EventBusConfig{
 		WriteTopic: cfg.WriteTopic,
@@ -81,7 +80,6 @@ func main() {
 	}
 	eventBus := eventBusProvider.GetEventBus()
 
-	// Create outbox publisher for immediate event processing
 	logger.Debug("Creating outbox publisher")
 	publisherProvider := providers.NewPublisherProvider(platformDB, eventBus, providers.WithPublisherLogger(logger))
 	outboxPublisher := publisherProvider.GetPublisher()
@@ -98,7 +96,6 @@ func main() {
 	catalogService := product.NewCatalogService(logger, catalogInfra, cfg)
 	logger.Debug("Service created successfully")
 
-	// Register event handlers
 	logger.Debug("Registering event handlers")
 	cartItemAddedHandler := eventhandlers.NewOnCartItemAdded(catalogService, logger)
 	if err := product.RegisterHandler(
@@ -111,7 +108,6 @@ func main() {
 	}
 	logger.Debug("Event handlers registered successfully")
 
-	// Start event consumer in background
 	consumerCtx, consumerCancel := context.WithCancel(context.Background())
 	defer consumerCancel()
 
@@ -129,7 +125,6 @@ func main() {
 	}
 
 	logger.Debug("Creating MinIO storage client")
-	// Choose MinIO endpoint based on environment
 	minioEndpoint := minioCfg.EndpointLocal
 	if os.Getenv("KUBERNETES_SERVICE_HOST") != "" {
 		minioEndpoint = minioCfg.EndpointKubernetes
