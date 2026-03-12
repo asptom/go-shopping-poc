@@ -6,8 +6,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/google/uuid"
 	"go-shopping-poc/internal/platform/database"
+
+	"github.com/google/uuid"
 )
 
 func (r *cartRepository) AddItem(ctx context.Context, cartID string, item *CartItem) error {
