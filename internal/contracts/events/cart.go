@@ -160,6 +160,7 @@ type SnapshotItem struct {
 	UnitPrice   float64 `json:"unit_price"`
 	Quantity    int     `json:"quantity"`
 	TotalPrice  float64 `json:"total_price"`
+	ImageURL    string  `json:"image_url"`
 }
 
 type CartEvent struct {

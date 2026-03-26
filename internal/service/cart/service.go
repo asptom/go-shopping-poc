@@ -141,11 +141,12 @@ func (s *CartService) DeleteCart(ctx context.Context, cartID string) error {
 	return nil
 }
 
-func (s *CartService) AddItem(ctx context.Context, cartID string, productID string, quantity int) (*CartItem, error) {
+func (s *CartService) AddItem(ctx context.Context, cartID string, productID string, quantity int, imageURL string) (*CartItem, error) {
 	s.logger.Debug("Adding item to cart",
 		"cart_id", cartID,
 		"product_id", productID,
 		"quantity", quantity,
+		"image_url", imageURL,
 	)
 
 	if quantity <= 0 {
@@ -178,6 +179,7 @@ func (s *CartService) AddItem(ctx context.Context, cartID string, productID stri
 	item := &CartItem{
 		ProductID:    productID,
 		Quantity:     quantity,
+		ImageURL:     imageURL,
 		Status:       "pending_validation",
 		ValidationID: &validationID,
 		// LineNumber will be assigned by repository

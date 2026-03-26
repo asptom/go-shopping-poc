@@ -106,7 +106,7 @@ func main() {
 		sse.WithLogger(logger),
 		sse.WithHandlerOptions(
 			sse.WithMissingIDMessage("Missing cart ID"),
-			sse.WithConnectedIDField("cartId"),
+			sse.WithConnectedIDField("cart_id"),
 			sse.WithLogIDKey("cart_id"),
 		),
 	)

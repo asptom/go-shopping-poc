@@ -155,13 +155,13 @@ func (r *orderRepository) insertCreditCardTx(ctx context.Context, tx database.Tx
 
 func (r *orderRepository) insertOrderItemTx(ctx context.Context, tx database.Tx, item *OrderItem) error {
 	query := `
-		INSERT INTO orders.OrderItem (order_id, line_number, product_id, product_name, unit_price, quantity, total_price, item_status, item_status_date_time)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		INSERT INTO orders.OrderItem (order_id, line_number, product_id, product_name, unit_price, quantity, total_price, image_url, item_status, item_status_date_time)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 	`
 
 	_, err := tx.ExecContext(ctx, query,
 		item.OrderID, item.LineNumber, item.ProductID, item.ProductName,
-		item.UnitPrice, item.Quantity, item.TotalPrice, item.ItemStatus, item.ItemStatusDate,
+		item.UnitPrice, item.Quantity, item.TotalPrice, item.ImageURL, item.ItemStatus, item.ItemStatusDate,
 	)
 	if err != nil {
 		return fmt.Errorf("%w: failed to insert order item: %w", ErrDatabaseOperation, err)
@@ -413,7 +413,7 @@ func (r *orderRepository) getAddressesByOrderID(ctx context.Context, orderID uui
 
 func (r *orderRepository) getOrderItemsByOrderID(ctx context.Context, orderID uuid.UUID) ([]OrderItem, error) {
 	query := `
-		SELECT id, order_id, line_number, product_id, product_name, unit_price, quantity, total_price, item_status, item_status_date_time
+		SELECT id, order_id, line_number, product_id, product_name, unit_price, quantity, total_price, image_url, item_status, item_status_date_time
 		FROM orders.OrderItem
 		WHERE order_id = $1
 		ORDER BY line_number

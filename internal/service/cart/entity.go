@@ -118,6 +118,7 @@ type CartItem struct {
 	UnitPrice   float64   `json:"unit_price" db:"unit_price"`
 	Quantity    int       `json:"quantity" db:"quantity"`
 	TotalPrice  float64   `json:"total_price" db:"total_price"`
+	ImageURL    string    `json:"image_url" db:"image_url"`
 
 	// Validation state tracking for event-driven decoupling
 	Status          string  `json:"status" db:"status"`                               // "confirmed", "pending_validation", "backorder"

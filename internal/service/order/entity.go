@@ -88,6 +88,7 @@ type OrderItem struct {
 	UnitPrice      float64   `json:"unit_price" db:"unit_price"`
 	Quantity       int       `json:"quantity" db:"quantity"`
 	TotalPrice     float64   `json:"total_price" db:"total_price"`
+	ImageURL       string    `json:"image_url" db:"image_url"`
 	ItemStatus     string    `json:"item_status" db:"item_status"`
 	ItemStatusDate time.Time `json:"item_status_date_time" db:"item_status_date_time"`
 }
@@ -138,8 +139,8 @@ func (cc *CreditCard) MaskedNumber() string {
 type OrderStatus struct {
 	ID        int64     `json:"id" db:"id"`
 	OrderID   uuid.UUID `json:"order_id" db:"order_id"`
-	Status    string    `json:"order_status" db:"order_status"`
-	ChangedAt time.Time `json:"status_date_time" db:"status_date_time"`
+	Status    string    `json:"status" db:"order_status"`
+	ChangedAt time.Time `json:"timestamp" db:"status_date_time"`
 	Notes     string    `json:"notes,omitempty" db:"notes"`
 }
 

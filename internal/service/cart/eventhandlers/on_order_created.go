@@ -64,10 +64,10 @@ func (h *OnOrderCreated) Handle(ctx context.Context, event events.Event) error {
 	// Push SSE event to subscribers
 	if h.sseHub != nil {
 		sseData := map[string]interface{}{
-			"orderId":     orderEvent.Data.OrderID,
-			"orderNumber": orderEvent.Data.OrderNumber,
-			"cartId":      orderEvent.Data.CartID,
-			"total":       orderEvent.Data.Total,
+			"order_id":     orderEvent.Data.OrderID,
+			"order_number": orderEvent.Data.OrderNumber,
+			"cart_id":      orderEvent.Data.CartID,
+			"total":        orderEvent.Data.Total,
 		}
 		log.Debug("Publish SSE order event", "cart_id", orderEvent.Data.CartID)
 

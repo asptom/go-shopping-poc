@@ -151,13 +151,13 @@ func (h *OnProductValidated) handleProductValidated(ctx context.Context, event e
 	// Send SSE notification
 	if h.sseHub != nil {
 		h.sseHub.Publish(cartID, "cart.item.validated", map[string]interface{}{
-			"lineNumber":  lineNumber,
-			"productId":   productID,
-			"productName": productName,
-			"unitPrice":   unitPrice,
-			"quantity":    targetItem.Quantity,
-			"totalPrice":  targetItem.TotalPrice,
-			"status":      "validated",
+			"line_number":  lineNumber,
+			"product_id":   productID,
+			"product_name": productName,
+			"unit_price":   unitPrice,
+			"quantity":     targetItem.Quantity,
+			"total_price":  targetItem.TotalPrice,
+			"status":       "validated",
 		})
 	}
 
@@ -235,10 +235,10 @@ func (h *OnProductValidated) handleProductUnavailable(ctx context.Context, event
 	// Send SSE notification
 	if h.sseHub != nil {
 		h.sseHub.Publish(cartID, "cart.item.backorder", map[string]interface{}{
-			"lineNumber":      lineNumber,
-			"productId":       productID,
-			"status":          "backorder",
-			"backorderReason": reason,
+			"line_number":      lineNumber,
+			"product_id":       productID,
+			"status":           "backorder",
+			"backorder_reason": reason,
 		})
 	}
 

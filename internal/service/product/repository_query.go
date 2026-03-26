@@ -82,13 +82,21 @@ func (r *productRepository) GetProductsByCategory(ctx context.Context, category 
 	}
 
 	query := `
-		SELECT id, name, description, initial_price, final_price, currency, in_stock,
-			   color, size, country_code, image_count, model_number,
-			   root_category, category, brand, other_attributes, all_available_sizes,
-			   created_at, updated_at
-		FROM products.products
-		WHERE category = $1
-		ORDER BY created_at DESC
+		SELECT p.id, p.name, p.description, p.initial_price, p.final_price, p.currency, p.in_stock,
+			   p.color, p.size, p.country_code, p.image_count, p.model_number,
+			   p.root_category, p.category, p.brand, p.other_attributes, p.all_available_sizes,
+			   p.created_at, p.updated_at,
+			   pi.minio_object_name
+		FROM products.products p
+		LEFT JOIN LATERAL (
+			SELECT minio_object_name 
+			FROM products.product_images 
+			WHERE product_id = p.id AND is_main = true
+			ORDER BY image_order, id
+			LIMIT 1
+		) pi ON true
+		WHERE p.category = $1
+		ORDER BY p.created_at DESC
 		LIMIT $2 OFFSET $3`
 
 	rows, err := r.db.Query(ctx, query, category, limit, offset)
@@ -107,6 +115,7 @@ func (r *productRepository) GetProductsByCategory(ctx context.Context, category 
 			&product.CountryCode, &product.ImageCount, &product.ModelNumber, &product.RootCategory,
 			&product.Category, &product.Brand, &product.OtherAttributes, &product.AllAvailableSizes,
 			&product.CreatedAt, &product.UpdatedAt,
+			&product.MainImageURL,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("%w: failed to scan product row: %w", ErrDatabaseOperation, err)
@@ -136,13 +145,21 @@ func (r *productRepository) GetProductsByBrand(ctx context.Context, brand string
 	}
 
 	query := `
-		SELECT id, name, description, initial_price, final_price, currency, in_stock,
-			   color, size, country_code, image_count, model_number,
-			   root_category, category, brand, other_attributes, all_available_sizes,
-			   created_at, updated_at
-		FROM products.products
-		WHERE brand = $1
-		ORDER BY created_at DESC
+		SELECT p.id, p.name, p.description, p.initial_price, p.final_price, p.currency, p.in_stock,
+			   p.color, p.size, p.country_code, p.image_count, p.model_number,
+			   p.root_category, p.category, p.brand, p.other_attributes, p.all_available_sizes,
+			   p.created_at, p.updated_at,
+			   pi.minio_object_name
+		FROM products.products p
+		LEFT JOIN LATERAL (
+			SELECT minio_object_name 
+			FROM products.product_images 
+			WHERE product_id = p.id AND is_main = true
+			ORDER BY image_order, id
+			LIMIT 1
+		) pi ON true
+		WHERE p.brand = $1
+		ORDER BY p.created_at DESC
 		LIMIT $2 OFFSET $3`
 
 	rows, err := r.db.Query(ctx, query, brand, limit, offset)
@@ -161,6 +178,7 @@ func (r *productRepository) GetProductsByBrand(ctx context.Context, brand string
 			&product.CountryCode, &product.ImageCount, &product.ModelNumber, &product.RootCategory,
 			&product.Category, &product.Brand, &product.OtherAttributes, &product.AllAvailableSizes,
 			&product.CreatedAt, &product.UpdatedAt,
+			&product.MainImageURL,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("%w: failed to scan product row: %w", ErrDatabaseOperation, err)
@@ -190,13 +208,21 @@ func (r *productRepository) SearchProducts(ctx context.Context, query string, li
 	}
 
 	searchQuery := `
-		SELECT id, name, description, initial_price, final_price, currency, in_stock,
-			   color, size, country_code, image_count, model_number,
-			   root_category, category, brand, other_attributes, all_available_sizes,
-			   created_at, updated_at
-		FROM products.products
-		WHERE name ILIKE $1 OR description ILIKE $1
-		ORDER BY created_at DESC
+		SELECT p.id, p.name, p.description, p.initial_price, p.final_price, p.currency, p.in_stock,
+			   p.color, p.size, p.country_code, p.image_count, p.model_number,
+			   p.root_category, p.category, p.brand, p.other_attributes, p.all_available_sizes,
+			   p.created_at, p.updated_at,
+			   pi.minio_object_name
+		FROM products.products p
+		LEFT JOIN LATERAL (
+			SELECT minio_object_name 
+			FROM products.product_images 
+			WHERE product_id = p.id AND is_main = true
+			ORDER BY image_order, id
+			LIMIT 1
+		) pi ON true
+		WHERE p.name ILIKE $1 OR p.description ILIKE $1
+		ORDER BY p.created_at DESC
 		LIMIT $2 OFFSET $3`
 
 	searchPattern := "%" + query + "%"
@@ -216,6 +242,7 @@ func (r *productRepository) SearchProducts(ctx context.Context, query string, li
 			&product.CountryCode, &product.ImageCount, &product.ModelNumber, &product.RootCategory,
 			&product.Category, &product.Brand, &product.OtherAttributes, &product.AllAvailableSizes,
 			&product.CreatedAt, &product.UpdatedAt,
+			&product.MainImageURL,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("%w: failed to scan product row: %w", ErrDatabaseOperation, err)
@@ -242,13 +269,21 @@ func (r *productRepository) GetProductsInStock(ctx context.Context, limit, offse
 	}
 
 	query := `
-		SELECT id, name, description, initial_price, final_price, currency, in_stock,
-			   color, size, country_code, image_count, model_number,
-			   root_category, category, brand, other_attributes, all_available_sizes,
-			   created_at, updated_at
-		FROM products.products
-		WHERE in_stock = true
-		ORDER BY created_at DESC
+		SELECT p.id, p.name, p.description, p.initial_price, p.final_price, p.currency, p.in_stock,
+			   p.color, p.size, p.country_code, p.image_count, p.model_number,
+			   p.root_category, p.category, p.brand, p.other_attributes, p.all_available_sizes,
+			   p.created_at, p.updated_at,
+			   pi.minio_object_name
+		FROM products.products p
+		LEFT JOIN LATERAL (
+			SELECT minio_object_name 
+			FROM products.product_images 
+			WHERE product_id = p.id AND is_main = true
+			ORDER BY image_order, id
+			LIMIT 1
+		) pi ON true
+		WHERE p.in_stock = true
+		ORDER BY p.created_at DESC
 		LIMIT $1 OFFSET $2`
 
 	rows, err := r.db.Query(ctx, query, limit, offset)
@@ -267,6 +302,7 @@ func (r *productRepository) GetProductsInStock(ctx context.Context, limit, offse
 			&product.CountryCode, &product.ImageCount, &product.ModelNumber, &product.RootCategory,
 			&product.Category, &product.Brand, &product.OtherAttributes, &product.AllAvailableSizes,
 			&product.CreatedAt, &product.UpdatedAt,
+			&product.MainImageURL,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("%w: failed to scan product row: %w", ErrDatabaseOperation, err)
@@ -293,12 +329,20 @@ func (r *productRepository) GetAllProducts(ctx context.Context, limit, offset in
 	}
 
 	query := `
-		SELECT id, name, description, initial_price, final_price, currency, in_stock,
-			   color, size, country_code, image_count, model_number,
-			   root_category, category, brand, other_attributes, all_available_sizes,
-			   created_at, updated_at
-		FROM products.products
-		ORDER BY created_at DESC
+		SELECT p.id, p.name, p.description, p.initial_price, p.final_price, p.currency, p.in_stock,
+			   p.color, p.size, p.country_code, p.image_count, p.model_number,
+			   p.root_category, p.category, p.brand, p.other_attributes, p.all_available_sizes,
+			   p.created_at, p.updated_at,
+			   pi.minio_object_name
+		FROM products.products p
+		LEFT JOIN LATERAL (
+			SELECT minio_object_name 
+			FROM products.product_images 
+			WHERE product_id = p.id AND is_main = true
+			ORDER BY image_order, id
+			LIMIT 1
+		) pi ON true
+		ORDER BY p.created_at DESC
 		LIMIT $1 OFFSET $2`
 
 	rows, err := r.db.Query(ctx, query, limit, offset)
@@ -317,6 +361,7 @@ func (r *productRepository) GetAllProducts(ctx context.Context, limit, offset in
 			&product.CountryCode, &product.ImageCount, &product.ModelNumber, &product.RootCategory,
 			&product.Category, &product.Brand, &product.OtherAttributes, &product.AllAvailableSizes,
 			&product.CreatedAt, &product.UpdatedAt,
+			&product.MainImageURL,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("%w: failed to scan product row: %w", ErrDatabaseOperation, err)

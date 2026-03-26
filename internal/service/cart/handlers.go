@@ -16,6 +16,7 @@ type CreateCartRequest struct {
 type AddItemRequest struct {
 	ProductID string `json:"product_id"`
 	Quantity  int    `json:"quantity"`
+	ImageURL  string `json:"image_url"`
 }
 
 type UpdateItemRequest struct {
@@ -135,8 +136,9 @@ func (h *CartHandler) AddItem(w http.ResponseWriter, r *http.Request) {
 		"cart_id", cartID,
 		"product_id", req.ProductID,
 		"quantity", req.Quantity,
+		"image_url", req.ImageURL,
 	)
-	item, err := h.service.AddItem(r.Context(), cartID, req.ProductID, req.Quantity)
+	item, err := h.service.AddItem(r.Context(), cartID, req.ProductID, req.Quantity, req.ImageURL)
 	if err != nil {
 		httperr.Internal(w, "Failed to add item")
 		return

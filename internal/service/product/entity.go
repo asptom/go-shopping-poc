@@ -43,7 +43,7 @@ type Product struct {
 
 	// Temporary fields for ingestion (not persisted)
 	ImageURLs    []string `json:"image_urls,omitempty"`
-	MainImageURL string   `json:"-"` // ADDED: Track main image URL during CSV ingestion (not persisted to DB)
+	MainImageURL string   `json:"main_image_url,omitempty"` // Used in list responses for primary image
 }
 
 // Validate performs domain validation on the Product entity

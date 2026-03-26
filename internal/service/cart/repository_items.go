@@ -47,14 +47,14 @@ func (r *cartRepository) AddItem(ctx context.Context, cartID string, item *CartI
 
 	query := `
 		INSERT INTO carts.CartItem (
-			cart_id, line_number, product_id, product_name, unit_price, quantity, total_price
+			cart_id, line_number, product_id, product_name, unit_price, quantity, total_price, image_url
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7
+			$1, $2, $3, $4, $5, $6, $7, $8
 		)
 	`
 
 	_, err = tx.ExecContext(ctx, query,
-		item.CartID, item.LineNumber, item.ProductID, item.ProductName, item.UnitPrice, item.Quantity, item.TotalPrice)
+		item.CartID, item.LineNumber, item.ProductID, item.ProductName, item.UnitPrice, item.Quantity, item.TotalPrice, item.ImageURL)
 	if err != nil {
 		r.logger.Error("Failed to insert item into database", "cart_id", cartID, "error", err.Error())
 		return fmt.Errorf("%w: failed to insert item: %w", ErrDatabaseOperation, err)
@@ -126,11 +126,14 @@ func (r *cartRepository) GetCartItems(ctx context.Context, cartID string) ([]Car
 	}
 
 	var items []CartItem
+
 	err = r.db.SelectContext(ctx, &items, `
-		SELECT id, cart_id, line_number, product_id, product_name, unit_price, quantity, total_price, status, validation_id, backorder_reason
-		FROM carts.CartItem
-		WHERE cart_id = $1
-		ORDER BY line_number
+		SELECT ci.id, ci.cart_id, ci.line_number, ci.product_id, ci.product_name, 
+		       ci.unit_price, ci.quantity, ci.total_price, ci.status, ci.validation_id, ci.backorder_reason,
+		       ci.image_url
+		FROM carts.CartItem ci
+		WHERE ci.cart_id = $1
+		ORDER BY ci.line_number
 	`, cartUUID)
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to get items: %w", ErrDatabaseOperation, err)
@@ -163,14 +166,14 @@ func (r *cartRepository) AddItemTx(ctx context.Context, tx database.Tx, cartID s
 
 	query := `
 		INSERT INTO carts.CartItem (
-			cart_id, line_number, product_id, product_name, unit_price, quantity, total_price, status, validation_id
+			cart_id, line_number, product_id, product_name, unit_price, quantity, total_price, status, validation_id, image_url
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10
 		)
 	`
 
 	_, err = tx.Exec(ctx, query,
-		item.CartID, item.LineNumber, item.ProductID, item.ProductName, item.UnitPrice, item.Quantity, item.TotalPrice, item.Status, item.ValidationID)
+		item.CartID, item.LineNumber, item.ProductID, item.ProductName, item.UnitPrice, item.Quantity, item.TotalPrice, item.Status, item.ValidationID, item.ImageURL)
 	if err != nil {
 		r.logger.Error("Failed to insert item into database (transactional)", "cart_id", cartID, "error", err.Error())
 		return fmt.Errorf("%w: failed to insert item: %w", ErrDatabaseOperation, err)

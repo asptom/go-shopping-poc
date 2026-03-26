@@ -5,6 +5,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -43,6 +44,12 @@ func (h *CatalogHandler) GetAllProducts(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		httperr.Internal(w, "Failed to retrieve products")
 		return
+	}
+
+	for _, p := range products {
+		if p.MainImageURL != "" {
+			p.MainImageURL = fmt.Sprintf("/api/v1/products/%d/images/%s", p.ID, path.Base(p.MainImageURL))
+		}
 	}
 
 	response := map[string]interface{}{
@@ -108,6 +115,12 @@ func (h *CatalogHandler) GetProductsByCategory(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	for _, p := range products {
+		if p.MainImageURL != "" {
+			p.MainImageURL = fmt.Sprintf("/api/v1/products/%d/images/%s", p.ID, path.Base(p.MainImageURL))
+		}
+	}
+
 	response := map[string]interface{}{
 		"products": products,
 		"category": category,
@@ -135,6 +148,12 @@ func (h *CatalogHandler) GetProductsByBrand(w http.ResponseWriter, r *http.Reque
 	if err != nil {
 		httperr.Internal(w, "Failed to retrieve products by brand")
 		return
+	}
+
+	for _, p := range products {
+		if p.MainImageURL != "" {
+			p.MainImageURL = fmt.Sprintf("/api/v1/products/%d/images/%s", p.ID, path.Base(p.MainImageURL))
+		}
 	}
 
 	response := map[string]interface{}{
@@ -166,6 +185,12 @@ func (h *CatalogHandler) SearchProducts(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	for _, p := range products {
+		if p.MainImageURL != "" {
+			p.MainImageURL = fmt.Sprintf("/api/v1/products/%d/images/%s", p.ID, path.Base(p.MainImageURL))
+		}
+	}
+
 	response := map[string]interface{}{
 		"products": products,
 		"query":    query,
@@ -188,6 +213,12 @@ func (h *CatalogHandler) GetProductsInStock(w http.ResponseWriter, r *http.Reque
 	if err != nil {
 		httperr.Internal(w, "Failed to retrieve in-stock products")
 		return
+	}
+
+	for _, p := range products {
+		if p.MainImageURL != "" {
+			p.MainImageURL = fmt.Sprintf("/api/v1/products/%d/images/%s", p.ID, path.Base(p.MainImageURL))
+		}
 	}
 
 	response := map[string]interface{}{

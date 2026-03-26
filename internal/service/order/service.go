@@ -153,6 +153,7 @@ func (s *OrderService) CreateOrderFromSnapshot(ctx context.Context, cartID strin
 			UnitPrice:      item.UnitPrice,
 			Quantity:       item.Quantity,
 			TotalPrice:     item.TotalPrice,
+			ImageURL:       item.ImageURL,
 			ItemStatus:     "pending",
 			ItemStatusDate: time.Now(),
 		}
