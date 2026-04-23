@@ -1,0 +1,13 @@
+The file cmd/order/main.go exposes an /orders/customer/{customerid} API endpoint that allows a front-end application to retrieve all orders for a given customerId (orderRouter.Get("/orders/customer/{customerId}", handler.GetOrdersByCustomer)). This endpoint must be protected by requiring a caller to have a Bearer token showing that they have logged on to the application and are authenticated.  We are using Keycloak in this project and previously had set up something similar for a product administration API endpoint that has since been removed from the project.  That approach was documented in docs/keycloak-admin-configuration.md.  
+
+Create a plan that allows us to secure the /orders/customer/{customerId} so that only authenticated users can retrieve orders associated with their customerId.  Create an internal rubric that evaluates multiple approaches and selects the best possible approach that adheres to the architecture principles of this project.  
+
+The plan must be separated into distinct phases and be detailed enough to be fully implemented by another LLM with no access to the reasoning that went into plan creation.  Be explicit - show the code and logic needed.  Statements such as "figure out which method to use" should never appear in a detailed plan.  Assume the LLM performing the coding is the equivalent of a junior developer.
+
+Include steps to configure Keycloak to support this protected endpoint with particular focus on how to ensure the customer matches what is passed via the API.  When a user registers in Keycloak, they provide their name, email, and a password.  Once registered, the front-end calls the /customers API with an http POST to create the customer in the database (customerRouter.Post("/customers", handler.CreateCustomer) found in cmd/customer/main.go).  The customer record includes the email address used to register in Keycloak, so that may be the best way to ensure that the token matches with Keycloak - customerId would then not have to be added to Keycloak.  That is a suggestion, but I would like to see what you consider the best and most secuew approach in the plan.
+
+Write the final plan to a file called docs/order-secure-api-plan-v2.md
+
+You must not change any code at this point - this is a planning exercise.
+
+Ask clarifying questions if needed. 
