@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"go-shopping-poc/internal/platform/auth"
 	"go-shopping-poc/internal/platform/cors"
 	"go-shopping-poc/internal/platform/database"
 	"go-shopping-poc/internal/platform/event"
@@ -38,10 +39,10 @@ func main() {
 	}
 
 	logger.Debug("Configuration loaded",
-		"read_topics", cfg.ReadTopics,
-		"write_topic", cfg.WriteTopic,
-		"group", cfg.Group,
-	)
+			"read_topics", cfg.ReadTopics,
+			"write_topic", cfg.WriteTopic,
+			"group", cfg.Group,
+		)
 
 	dbURL := cfg.DatabaseURL
 	if dbURL == "" {
@@ -59,7 +60,7 @@ func main() {
 	defer func() {
 		if err := db.Close(); err != nil {
 			logger.Error("Error closing database", logging.ErrorAttr(err))
-		}
+				}
 	}()
 
 	logger.Debug("Creating event bus provider")
@@ -106,15 +107,32 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Bootstrap identity cache from historical CustomerEvents
+	logger.Info("Bootstrapping identity cache from CustomerEvents")
+	if err := service.BootstrapIdentityCache(context.Background()); err != nil {
+		logger.Warn("Identity cache bootstrap had issues — on-demand fallback active", "error", err)
+	}
+	logger.Info("Identity cache ready", "entries", service.IdentityCacheCount())
+
 	logger.Debug("Starting event consumer", "topics", service.EventBus().ReadTopics())
 	go func() {
 		if err := service.Start(context.Background()); err != nil {
 			logger.Error("Event consumer error", logging.ErrorAttr(err))
-		}
+			}
 	}()
 
 	logger.Debug("Creating order handler")
 	handler := order.NewOrderHandler(service)
+
+	// Set up auth middleware
+	var authMiddleware func(http.Handler) http.Handler
+	if cfg.KeycloakIssuer != "" && cfg.KeycloakJWKSURL != "" {
+		validator := auth.NewKeycloakValidator(cfg.KeycloakIssuer, cfg.KeycloakJWKSURL)
+		authMiddleware = auth.RequireAuth(validator, "")
+		logger.Info("Auth middleware enabled")
+	} else {
+		logger.Warn("Keycloak config not set — auth middleware disabled (all endpoints open)")
+	}
 
 	logger.Debug("Setting up HTTP router")
 	router := chi.NewRouter()
@@ -127,14 +145,19 @@ func main() {
 	})
 
 	orderRouter := chi.NewRouter()
+	if authMiddleware != nil {
+		orderRouter.Use(authMiddleware)
+	}
 	orderRouter.Get("/orders/{id}", handler.GetOrder)
 	orderRouter.Get("/orders/customer/{customerId}", handler.GetOrdersByCustomer)
+	orderRouter.Delete("/orders/{id}", handler.CancelOrder)
+	orderRouter.Patch("/orders/{id}/status", handler.UpdateOrderStatus)
 
 	router.Mount("/api/v1", orderRouter)
 
 	serverAddr := "0.0.0.0" + cfg.ServicePort
 	server := &http.Server{
-		Addr:        serverAddr,
+		Addr:         serverAddr,
 		Handler:     router,
 		ReadTimeout: 30 * time.Second,
 		IdleTimeout: 120 * time.Second,
@@ -148,7 +171,7 @@ func main() {
 		logger.Info("Starting HTTP server", "address", serverAddr)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Error("Failed to start HTTP server", logging.ErrorAttr(err))
-		}
+			}
 	}()
 
 	<-quit
@@ -181,7 +204,30 @@ func registerEventHandlers(service *order.OrderService, logger *slog.Logger) err
 		return fmt.Errorf("failed to register CartCheckedOut handler: %w", err)
 	}
 
-	logger.Debug("Successfully registered CartCheckedOut handler")
+	// Keep identity cache current via ongoing CustomerCreated/CustomerUpdated events
+	identityUpdateHandler := eventhandlers.NewOnCustomerIdentityUpdate(service.IdentityCache(), handlerLogger)
+	logger.Debug("Registering handler", "event_type", identityUpdateHandler.EventType())
+
+	if err := order.RegisterHandler(
+		service,
+		identityUpdateHandler.CreateFactory(),
+		identityUpdateHandler.CreateHandler(),
+	); err != nil {
+		return fmt.Errorf("failed to register CustomerIdentityUpdate handler: %w", err)
+	}
+
+	// Handle fallback verification responses from customer service
+	identityRespHandler := eventhandlers.NewOnIdentityVerificationCompleted(service, handlerLogger)
+	logger.Debug("Registering handler", "event_type", identityRespHandler.EventType())
+
+	if err := order.RegisterHandler(
+		service,
+		identityRespHandler.CreateFactory(),
+		identityRespHandler.CreateHandler(),
+	); err != nil {
+		return fmt.Errorf("failed to register IdentityVerificationCompleted handler: %w", err)
+	}
+
 	logger.Debug("Event handler registration completed")
 
 	return nil

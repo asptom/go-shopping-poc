@@ -17,6 +17,10 @@ type Config struct {
 	// Kafka configuration
 	WriteTopic string `mapstructure:"customer_write_topic" validate:"required"`
 	Group      string `mapstructure:"customer_group"`
+
+	// Keycloak configuration (optional)
+	KeycloakIssuer  string `mapstructure:"keycloak_issuer"`
+	KeycloakJWKSURL string `mapstructure:"keycloak_jwks_url"`
 }
 
 // LoadConfig loads customer service configuration

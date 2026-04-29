@@ -39,9 +39,20 @@ func (r *customerRepository) insertStatusHistory(ctx context.Context, tx databas
 
 // publishCustomerUpdateEvent publishes the customer update event.
 func (r *customerRepository) publishCustomerUpdateEvent(ctx context.Context, tx database.Tx, customer *Customer) error {
-	customerEvent := events.NewCustomerUpdatedEvent(customer.CustomerID, nil)
+	customerEvent := events.NewCustomerUpdatedEvent(customer.CustomerID, customerEventDetails(customer))
 	if err := r.outboxWriter.WriteEvent(ctx, tx, customerEvent); err != nil {
 		return fmt.Errorf("failed to publish customer update event: %w", err)
 	}
 	return nil
+}
+
+func customerEventDetails(customer *Customer) map[string]string {
+	details := map[string]string{
+			"username": customer.Username,
+			"email":    customer.Email,
+	}
+	if customer.KeycloakSub != "" {
+		details["keycloak_sub"] = customer.KeycloakSub
+	}
+	return details
 }

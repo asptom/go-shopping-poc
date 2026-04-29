@@ -19,7 +19,7 @@ import (
 
 // InsertCustomer creates a new customer record in the database.
 func (r *customerRepository) InsertCustomer(ctx context.Context, customer *Customer) error {
-	r.logger.Debug("Inserting new customer")
+	r.logger.Info("Inserting new customer", "operation", "InsertCustomer", "customer_id", customer.CustomerID, "email", customer.Email, "customer_sub", customer.KeycloakSub)
 
 	r.prepareCustomerDefaults(customer)
 
@@ -32,23 +32,29 @@ func (r *customerRepository) InsertCustomer(ctx context.Context, customer *Custo
 
 // insertCustomerWithRelations handles the complete customer creation process
 func (r *customerRepository) insertCustomerWithRelations(ctx context.Context, customer *Customer) error {
+	r.logger.Info("Inserting new customer", "operation", "insertCustomerWithRelations", "customer_id", customer.CustomerID, "email", customer.Email, "customer_sub", customer.KeycloakSub)
+
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
+		r.logger.Error("Failed to begin transaction", "operation", "insertCustomerWithRelations", "error", err)
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	committed := false
 	defer func() {
 		if !committed {
+			r.logger.Warn("Rolling back transaction due to error", "operation", "insertCustomerWithRelations")
 			_ = tx.Rollback()
 		}
 	}()
 
 	if err := r.insertCustomerRecordInTransaction(ctx, tx, customer); err != nil {
+		r.logger.Error("Failed to insert customer record", "operation", "insertCustomerWithRelations", "error", err)
 		return err
 	}
 
 	customerID, err := uuid.Parse(customer.CustomerID)
 	if err != nil {
+		r.logger.Error("Invalid customer ID", "operation", "insertCustomerWithRelations", "customer_id", customer.CustomerID, "error", err)
 		return fmt.Errorf("%w: invalid customer ID: %w", ErrInvalidUUID, err)
 	}
 
@@ -71,20 +77,24 @@ func (r *customerRepository) insertCustomerWithRelations(ctx context.Context, cu
 		ChangedAt:  customer.StatusDateTime,
 	}}
 	if err := r.insertStatusHistory(ctx, tx, initialStatus, customerID); err != nil {
+		r.logger.Error("Failed to insert initial status history", "operation", "insertCustomerWithRelations", "customer_id", customer.CustomerID, "error", err)
 		return err
 	}
 
-	evt := events.NewCustomerCreatedEvent(customer.CustomerID, nil)
+	evt := events.NewCustomerCreatedEvent(customer.CustomerID, customerEventDetails(customer))
 	if err := r.outboxWriter.WriteEvent(ctx, tx, evt); err != nil {
+		r.logger.Error("Failed to publish customer created event", "operation", "insertCustomerWithRelations", "customer_id", customer.CustomerID, "error", err)
 		return fmt.Errorf("failed to publish customer created event: %w", err)
 	}
 
 	if err := tx.Commit(); err != nil {
+		r.logger.Error("Failed to commit transaction", "operation", "insertCustomerWithRelations", "customer_id", customer.CustomerID, "error", err)
 		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 	committed = true
 
 	if err := r.LoadCustomerRelations(ctx, customer); err != nil {
+		r.logger.Error("Failed to load customer relations after creation", "operation", "insertCustomerWithRelations", "customer_id", customer.CustomerID, "error", err)
 		return fmt.Errorf("failed to load customer relations: %w", err)
 	}
 
@@ -93,10 +103,11 @@ func (r *customerRepository) insertCustomerWithRelations(ctx context.Context, cu
 
 // insertCustomerRecordInTransaction inserts customer record within a transaction
 func (r *customerRepository) insertCustomerRecordInTransaction(ctx context.Context, tx database.Tx, customer *Customer) error {
-	customerQuery := `INSERT INTO customers.Customer (customer_id, user_name, email, first_name, last_name, phone, customer_since, customer_status, status_date_time) VALUES (:customer_id, :user_name, :email, :first_name, :last_name, :phone, :customer_since, :customer_status, :status_date_time)`
+	customerQuery := `INSERT INTO customers.Customer (customer_id, user_name, email, first_name, last_name, phone, customer_since, customer_status, status_date_time, keycloak_sub) VALUES (:customer_id, :user_name, :email, :first_name, :last_name, :phone, :customer_since, :customer_status, :status_date_time, :keycloak_sub)`
 
 	_, err := tx.NamedExecContext(ctx, customerQuery, customer)
 	if err != nil {
+		r.logger.Error("Failed to execute insert query for customer", "operation", "insertCustomerRecordInTransaction", "customer_id", customer.CustomerID, "error", err)
 		return fmt.Errorf("%w: failed to execute insert query: %w", ErrDatabaseOperation, err)
 	}
 	return nil
@@ -178,7 +189,8 @@ func (r *customerRepository) updateCustomerRecord(ctx context.Context, tx databa
 		customer_status = :customer_status, status_date_time = :status_date_time,
 		default_shipping_address_id = :default_shipping_address_id,
 		default_billing_address_id = :default_billing_address_id,
-		default_credit_card_id = :default_credit_card_id
+		default_credit_card_id = :default_credit_card_id,
+		keycloak_sub = :keycloak_sub
 		WHERE customer_id = :customer_id`
 
 	result, err := tx.NamedExecContext(ctx, customerQuery, customer)

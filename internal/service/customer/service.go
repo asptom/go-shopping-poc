@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"go-shopping-poc/internal/contracts/events"
 	"go-shopping-poc/internal/platform/database"
 	"go-shopping-poc/internal/platform/event/bus"
 	"go-shopping-poc/internal/platform/logging"
@@ -19,6 +20,16 @@ import (
 
 	"github.com/google/uuid"
 )
+
+// Service is the public interface for the customer service
+type Service interface {
+	service.Service
+}
+
+// RegisterHandler adds a typed event handler for any event type to the service
+func RegisterHandler[T events.Event](s Service, factory events.EventFactory[T], handler bus.HandlerFunc[T]) error {
+	return service.RegisterHandler(s, factory, handler)
+}
 
 // CustomerInfrastructure defines the infrastructure components required by the customer service.
 //
@@ -111,7 +122,7 @@ type PatchCreditCardRequest struct {
 // the HTTP handlers and the repository layer. It contains business
 // logic, validation, and data transformation.
 type CustomerService struct {
-	*service.BaseService
+	*service.EventServiceBase
 	logger         *slog.Logger
 	repo           CustomerRepository
 	infrastructure *CustomerInfrastructure
@@ -126,11 +137,11 @@ func NewCustomerService(logger *slog.Logger, infrastructure *CustomerInfrastruct
 	repo := NewCustomerRepository(infrastructure.Database, infrastructure.OutboxWriter)
 
 	return &CustomerService{
-		BaseService:    service.NewBaseService("customer"),
-		logger:         logger.With("component", "customer_service"),
-		repo:           repo,
-		infrastructure: infrastructure,
-		config:         config,
+		EventServiceBase: service.NewEventServiceBase("customer", infrastructure.EventBus, logger),
+		logger:           logger.With("component", "customer_service"),
+		repo:             repo,
+		infrastructure:   infrastructure,
+		config:           config,
 	}
 }
 
@@ -141,11 +152,11 @@ func NewCustomerServiceWithRepo(logger *slog.Logger, repo CustomerRepository, in
 		logger = logging.FromContext(context.Background())
 	}
 	return &CustomerService{
-		BaseService:    service.NewBaseService("customer"),
-		logger:         logger.With("component", "customer_service"),
-		repo:           repo,
-		infrastructure: infrastructure,
-		config:         config,
+		EventServiceBase: service.NewEventServiceBase("customer", infrastructure.EventBus, logger),
+		logger:           logger.With("component", "customer_service"),
+		repo:             repo,
+		infrastructure:   infrastructure,
+		config:           config,
 	}
 }
 
@@ -177,7 +188,7 @@ func (s *CustomerService) CreateCustomer(ctx context.Context, customer *Customer
 		}
 	}
 
-	s.logger.Info("Create customer requested", "operation", "create_customer")
+	s.logger.Info("Create customer requested", "operation", "create_customer", "customer_id", customer.CustomerID, "email", customer.Email, "customer_sub", customer.KeycloakSub)
 	return s.repo.InsertCustomer(ctx, customer)
 }
 

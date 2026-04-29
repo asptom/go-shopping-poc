@@ -42,136 +42,148 @@ spec:
             image: localhost:5000/go-shopping-poc/customer:1.0
             imagePullPolicy: Always
             env:
-              # Platform config (selective)
-              - name: LOG_LEVEL
-                valueFrom:
+               # Platform config (selective)
+               - name: LOG_LEVEL
+                 valueFrom:
                   configMapKeyRef:
                     name: platform-config
                     key: LOG_LEVEL
 
-              # Database Connection Pool Settings
-              - name: DATABASE_MAX_OPEN_CONNS
-                valueFrom:
+               # Database Connection Pool Settings
+               - name: DATABASE_MAX_OPEN_CONNS
+                 valueFrom:
                   configMapKeyRef:
                     name: platform-config
                     key: DATABASE_MAX_OPEN_CONNS
-              - name: DATABASE_MAX_IDLE_CONNS
-                valueFrom:
+               - name: DATABASE_MAX_IDLE_CONNS
+                 valueFrom:
                   configMapKeyRef:
                     name: platform-config
                     key: DATABASE_MAX_IDLE_CONNS
-              - name: DATABASE_CONN_MAX_LIFETIME
-                valueFrom:
+               - name: DATABASE_CONN_MAX_LIFETIME
+                 valueFrom:
                   configMapKeyRef:
                     name: platform-config
                     key: DATABASE_CONN_MAX_LIFETIME
-              - name: DATABASE_CONN_MAX_IDLE_TIME
-                valueFrom:
+               - name: DATABASE_CONN_MAX_IDLE_TIME
+                 valueFrom:
                   configMapKeyRef:
                     name: platform-config
                     key: DATABASE_CONN_MAX_IDLE_TIME
-              - name: DATABASE_CONNECT_TIMEOUT
-                valueFrom:
+               - name: DATABASE_CONNECT_TIMEOUT
+                 valueFrom:
                   configMapKeyRef:
                     name: platform-config
                     key: DATABASE_CONNECT_TIMEOUT
-              - name: DATABASE_QUERY_TIMEOUT
-                valueFrom:
+               - name: DATABASE_QUERY_TIMEOUT
+                 valueFrom:
                   configMapKeyRef:
                     name: platform-config
                     key: DATABASE_QUERY_TIMEOUT
-              - name: DATABASE_HEALTH_CHECK_INTERVAL
-                valueFrom:
+               - name: DATABASE_HEALTH_CHECK_INTERVAL
+                 valueFrom:
                   configMapKeyRef:
                     name: platform-config
                     key: DATABASE_HEALTH_CHECK_INTERVAL
-              - name: DATABASE_HEALTH_CHECK_TIMEOUT
-                valueFrom:
+               - name: DATABASE_HEALTH_CHECK_TIMEOUT
+                 valueFrom:
                   configMapKeyRef:
                     name: platform-config
                     key: DATABASE_HEALTH_CHECK_TIMEOUT
 
-              # Kafka Configuration
-              - name: KAFKA_BROKERS
-                valueFrom:
+               # Kafka Configuration
+               - name: KAFKA_BROKERS
+                 valueFrom:
                   configMapKeyRef:
                     name: platform-config
                     key: KAFKA_BROKERS
 
-              # Outbox Pattern Configuration
-              - name: OUTBOX_BATCH_SIZE
-                valueFrom:
+               # Outbox Pattern Configuration
+               - name: OUTBOX_BATCH_SIZE
+                 valueFrom:
                   configMapKeyRef:
                     name: platform-config
                     key: OUTBOX_BATCH_SIZE
-              - name: OUTBOX_PROCESS_INTERVAL
-                valueFrom:
+               - name: OUTBOX_PROCESS_INTERVAL
+                 valueFrom:
                   configMapKeyRef:
                     name: platform-config
                     key: OUTBOX_PROCESS_INTERVAL
-              - name: OUTBOX_OPERATION_TIMEOUT
-                valueFrom:
+               - name: OUTBOX_OPERATION_TIMEOUT
+                 valueFrom:
                   configMapKeyRef:
                     name: platform-config
                     key: OUTBOX_OPERATION_TIMEOUT
-              - name: OUTBOX_MAX_RETRIES
-                valueFrom:
+               - name: OUTBOX_MAX_RETRIES
+                 valueFrom:
                   configMapKeyRef:
                     name: platform-config
                     key: OUTBOX_MAX_RETRIES
 
-              # CORS Configuration
-              - name: CORS_ALLOWED_ORIGINS
-                valueFrom:
+               # CORS Configuration
+               - name: CORS_ALLOWED_ORIGINS
+                 valueFrom:
                   configMapKeyRef:
                     name: platform-config
                     key: CORS_ALLOWED_ORIGINS
-              - name: CORS_ALLOWED_METHODS
-                valueFrom:
+               - name: CORS_ALLOWED_METHODS
+                 valueFrom:
                   configMapKeyRef:
                     name: platform-config
                     key: CORS_ALLOWED_METHODS
-              - name: CORS_ALLOWED_HEADERS
-                valueFrom:
+               - name: CORS_ALLOWED_HEADERS
+                 valueFrom:
                   configMapKeyRef:
                     name: platform-config
                     key: CORS_ALLOWED_HEADERS
-              - name: CORS_ALLOW_CREDENTIALS
-                valueFrom:
+               - name: CORS_ALLOW_CREDENTIALS
+                 valueFrom:
                   configMapKeyRef:
                     name: platform-config
                     key: CORS_ALLOW_CREDENTIALS
-              - name: CORS_MAX_AGE
-                valueFrom:
+               - name: CORS_MAX_AGE
+                 valueFrom:
                   configMapKeyRef:
                     name: platform-config
                     key: CORS_MAX_AGE
 
-              # Service config (selective)
-              - name: CUSTOMER_SERVICE_PORT
-                valueFrom:
+               # Keycloak Configuration (optional)
+               - name: KEYCLOAK_ISSUER
+                 valueFrom:
+                  configMapKeyRef:
+                    name: platform-config
+                    key: KEYCLOAK_ISSUER
+               - name: KEYCLOAK_JWKS_URL
+                 valueFrom:
+                  configMapKeyRef:
+                    name: platform-config
+                    key: KEYCLOAK_JWKS_URL
+
+               # Service config (selective)
+               - name: CUSTOMER_SERVICE_PORT
+                 valueFrom:
                   configMapKeyRef:
                     name: customer-config
                     key: CUSTOMER_SERVICE_PORT
-              - name: CUSTOMER_WRITE_TOPIC
-                valueFrom:
+               - name: CUSTOMER_WRITE_TOPIC
+                 valueFrom:
                   configMapKeyRef:
                     name: customer-config
                     key: CUSTOMER_WRITE_TOPIC
-              - name: CUSTOMER_GROUP
-                valueFrom:
+               - name: CUSTOMER_GROUP
+                 valueFrom:
                   configMapKeyRef:
                     name: customer-config
                     key: CUSTOMER_GROUP
 
-              # Secrets (selective)
-              - name: DB_URL
-                valueFrom:
+               # Secrets (selective)
+               - name: DB_URL
+                 valueFrom:
                   secretKeyRef:
                     name: customer-db-secret
                     key: DB_URL
             ports:
-              - containerPort: 8080
+               - containerPort: 8080
             readinessProbe:
               httpGet:
                 path: /health
@@ -204,6 +216,6 @@ spec:
                 port:
                   number: 80
   tls:
-    - hosts:
-        - pocstore.local
-      secretName: pocstorelocal-tls
+     - hosts:
+         - pocstore.local
+       secretName: pocstorelocal-tls

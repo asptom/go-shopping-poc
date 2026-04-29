@@ -16,21 +16,22 @@ import (
 // Customer represents a logical customer entity in the system.
 
 type Customer struct {
-	CustomerID               string           `json:"customer_id" db:"customer_id"` // UUID as string
-	Username                 string           `json:"user_name" db:"user_name"`
-	Email                    string           `json:"email,omitempty" db:"email"`
-	FirstName                string           `json:"first_name,omitempty" db:"first_name"`
-	LastName                 string           `json:"last_name,omitempty" db:"last_name"`
-	Phone                    string           `json:"phone,omitempty" db:"phone"`
-	DefaultShippingAddressID *uuid.UUID       `json:"default_shipping_address_id" db:"default_shipping_address_id"`
-	DefaultBillingAddressID  *uuid.UUID       `json:"default_billing_address_id" db:"default_billing_address_id"`
-	DefaultCreditCardID      *uuid.UUID       `json:"default_credit_card_id" db:"default_credit_card_id"`
-	CustomerSince            time.Time        `json:"customer_since" db:"customer_since"`
-	CustomerStatus           string           `json:"customer_status" db:"customer_status"`
-	StatusDateTime           time.Time        `json:"status_date_time" db:"status_date_time"`
-	Addresses                []Address        `json:"addresses,omitempty"`
-	CreditCards              []CreditCard     `json:"credit_cards,omitempty"`
-	StatusHistory            []CustomerStatus `json:"status_history,omitempty"`
+	CustomerID               string            `json:"customer_id" db:"customer_id"` // UUID as string
+	Username                 string            `json:"user_name" db:"user_name"`
+	Email                    string            `json:"email,omitempty" db:"email"`
+	FirstName                string            `json:"first_name,omitempty" db:"first_name"`
+	LastName                 string            `json:"last_name,omitempty" db:"last_name"`
+	Phone                    string            `json:"phone,omitempty" db:"phone"`
+	DefaultShippingAddressID *uuid.UUID        `json:"default_shipping_address_id" db:"default_shipping_address_id"`
+	DefaultBillingAddressID  *uuid.UUID        `json:"default_billing_address_id" db:"default_billing_address_id"`
+	DefaultCreditCardID      *uuid.UUID        `json:"default_credit_card_id" db:"default_credit_card_id"`
+	CustomerSince            time.Time         `json:"customer_since" db:"customer_since"`
+	CustomerStatus           string            `json:"customer_status" db:"customer_status"`
+	StatusDateTime           time.Time         `json:"status_date_time" db:"status_date_time"`
+	KeycloakSub              string            `json:"-" db:"keycloak_sub"`
+	Addresses                []Address         `json:"addresses,omitempty"`
+	CreditCards              []CreditCard      `json:"credit_cards,omitempty"`
+	StatusHistory            []CustomerStatus  `json:"status_history,omitempty"`
 }
 
 // Validate performs domain validation on the Customer entity
@@ -163,7 +164,7 @@ func (c *CreditCard) MaskedNumber() string {
 }
 
 type CustomerStatus struct {
-	ID         int64     `json:"-" db:"id"`
+	ID         int64      `json:"-" db:"id"`
 	CustomerID uuid.UUID `json:"-" db:"customer_id"`
 	OldStatus  string    `json:"old_status" db:"old_status"`
 	NewStatus  string    `json:"new_status" db:"new_status"`

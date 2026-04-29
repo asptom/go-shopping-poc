@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -13,6 +14,7 @@ import (
 	events "go-shopping-poc/internal/contracts/events"
 	"go-shopping-poc/internal/platform/database"
 	"go-shopping-poc/internal/platform/event/bus"
+	kafka "go-shopping-poc/internal/platform/event/bus/kafka"
 	"go-shopping-poc/internal/platform/logging"
 	"go-shopping-poc/internal/platform/outbox"
 	"go-shopping-poc/internal/platform/service"
@@ -52,10 +54,18 @@ func RegisterHandler[T events.Event](s Service, factory events.EventFactory[T], 
 
 type OrderService struct {
 	*service.EventServiceBase
-	logger         *slog.Logger
-	repo           OrderRepository
-	infrastructure *OrderInfrastructure
-	config         *Config
+	logger              *slog.Logger
+	repo                OrderRepository
+	infrastructure      *OrderInfrastructure
+	config              *Config
+	identityCache       *IdentityCache
+	mu                  sync.Mutex
+	verificationCallbacks map[string]chan verificationResult
+}
+
+type verificationResult struct {
+	identity *CustomerIdentity
+	err      error
 }
 
 func NewOrderService(logger *slog.Logger, infrastructure *OrderInfrastructure, config *Config) *OrderService {
@@ -65,11 +75,13 @@ func NewOrderService(logger *slog.Logger, infrastructure *OrderInfrastructure, c
 	repo := NewOrderRepository(infrastructure.Database, infrastructure.OutboxWriter)
 
 	return &OrderService{
-		EventServiceBase: service.NewEventServiceBase("order", infrastructure.EventBus, logger),
-		logger:           logger.With("component", "order_service"),
-		repo:             repo,
-		infrastructure:   infrastructure,
-		config:           config,
+		EventServiceBase:      service.NewEventServiceBase("order", infrastructure.EventBus, logger),
+		logger:                logger.With("component", "order_service"),
+		repo:                  repo,
+		infrastructure:        infrastructure,
+		config:                config,
+		identityCache:         NewIdentityCache(),
+		verificationCallbacks: make(map[string]chan verificationResult),
 	}
 }
 
@@ -80,9 +92,9 @@ func (s *OrderService) GetOrder(ctx context.Context, orderID string) (*Order, er
 	if err != nil {
 		if errors.Is(err, ErrOrderNotFound) {
 			return nil, err
-		}
+			}
 		return nil, fmt.Errorf("failed to get order: %w", err)
-	}
+		}
 
 	return order, nil
 }
@@ -121,10 +133,10 @@ func (s *OrderService) CreateOrderFromSnapshot(ctx context.Context, cartID strin
 		customerUUID, err := uuid.Parse(*snapshot.CustomerID)
 		if err != nil {
 			s.logger.Warn("Invalid customer ID in snapshot", "customer_id", *snapshot.CustomerID)
-		} else {
+			} else {
 			order.CustomerID = &customerUUID
+			}
 		}
-	}
 
 	if snapshot.Contact != nil {
 		order.Contact = &Contact{
@@ -132,8 +144,8 @@ func (s *OrderService) CreateOrderFromSnapshot(ctx context.Context, cartID strin
 			FirstName: snapshot.Contact.FirstName,
 			LastName:  snapshot.Contact.LastName,
 			Phone:     snapshot.Contact.Phone,
+			}
 		}
-	}
 
 	if snapshot.CreditCard != nil {
 		order.CreditCard = &CreditCard{
@@ -142,8 +154,8 @@ func (s *OrderService) CreateOrderFromSnapshot(ctx context.Context, cartID strin
 			CardHolderName: snapshot.CreditCard.CardHolderName,
 			CardExpires:    snapshot.CreditCard.CardExpires,
 			CardCVV:        snapshot.CreditCard.CardCVV,
+			}
 		}
-	}
 
 	for i, item := range snapshot.Items {
 		order.Items[i] = OrderItem{
@@ -154,10 +166,10 @@ func (s *OrderService) CreateOrderFromSnapshot(ctx context.Context, cartID strin
 			Quantity:       item.Quantity,
 			TotalPrice:     item.TotalPrice,
 			ImageURL:       item.ImageURL,
-			ItemStatus:     "pending",
+			ItemStatus:      "pending",
 			ItemStatusDate: time.Now(),
+			}
 		}
-	}
 
 	for _, addr := range snapshot.Addresses {
 		order.Addresses = append(order.Addresses, Address{
@@ -169,21 +181,21 @@ func (s *OrderService) CreateOrderFromSnapshot(ctx context.Context, cartID strin
 			City:        addr.City,
 			State:       addr.State,
 			Zip:         addr.Zip,
-		})
-	}
+			})
+		}
 
 	if err := s.repo.CreateOrder(ctx, order); err != nil {
 		return nil, fmt.Errorf("failed to create order: %w", err)
-	}
+		}
 
 	// Trigger immediate outbox processing for low latency
 	if s.infrastructure.OutboxPublisher != nil {
 		go func() {
 			if err := s.infrastructure.OutboxPublisher.ProcessNow(); err != nil {
 				s.logger.Warn("Failed to trigger immediate outbox processing", "error", err.Error())
-			}
-		}()
-	}
+				}
+			}()
+		}
 
 	return order, nil
 }
@@ -224,4 +236,75 @@ func (s *OrderService) UpdateOrderStatus(ctx context.Context, orderID string, ne
 	}
 
 	return nil
+}
+
+// BootstrapIdentityCache replays historical CustomerEvents from Kafka and
+// populates the identity cache before the HTTP server starts accepting traffic.
+func (s *OrderService) BootstrapIdentityCache(ctx context.Context) error {
+	eb, ok := s.infrastructure.EventBus.(*kafka.EventBus)
+	if !ok {
+		return fmt.Errorf("event bus does not support replay")
+	}
+
+	messages, err := eb.ReplayTopic(ctx, "CustomerEvents", kafka.DefaultReplayOptions())
+	if err != nil {
+		return fmt.Errorf("failed to replay CustomerEvents: %w", err)
+	}
+
+	for _, msg := range messages {
+		s.processCustomerEventForCache(msg.Value)
+	}
+
+	s.logger.Info("Identity cache bootstrapped", "entries", s.identityCache.Count(), "messages_replayed", len(messages))
+	return nil
+}
+
+func (s *OrderService) processCustomerEventForCache(data []byte) {
+	factory := events.CustomerEventFactory{}
+	evt, err := factory.FromJSON(data)
+	if err != nil {
+		s.logger.Warn("Failed to unmarshal customer event during bootstrap", "error", err)
+		return
+	}
+
+	switch evt.EventType {
+	case events.CustomerCreated, events.CustomerUpdated:
+		keycloakSub := evt.EventPayload.Details["keycloak_sub"]
+		if keycloakSub == "" {
+			return // customer not linked to Keycloak, skip
+		}
+		s.identityCache.Set(keycloakSub, CustomerIdentity{
+			CustomerID:  evt.EventPayload.CustomerID,
+			Email:       evt.EventPayload.Details["email"],
+			KeycloakSub: keycloakSub,
+			})
+	}
+}
+
+// IdentityCache returns the identity cache for use by event handlers
+func (s *OrderService) IdentityCache() *IdentityCache {
+	return s.identityCache
+}
+
+// IdentityCacheCount returns the number of entries in the identity cache
+func (s *OrderService) IdentityCacheCount() int {
+	return s.identityCache.Count()
+}
+
+// DispatchVerificationResult signals a waiting goroutine with the result of
+// a synchronous Kafka identity verification.
+func (s *OrderService) DispatchVerificationResult(requestID string, identity CustomerIdentity, err error) {
+	s.mu.Lock()
+	ch, ok := s.verificationCallbacks[requestID]
+	if ok {
+		delete(s.verificationCallbacks, requestID)
+	}
+	s.mu.Unlock()
+
+	if !ok {
+		s.logger.Warn("Verification response for unknown request", "request_id", requestID)
+		return
+	}
+
+	ch <- verificationResult{identity: &identity, err: err}
 }

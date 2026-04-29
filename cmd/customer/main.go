@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"go-shopping-poc/internal/platform/auth"
 	"go-shopping-poc/internal/platform/cors"
 	"go-shopping-poc/internal/platform/database"
 	"go-shopping-poc/internal/platform/event"
@@ -16,6 +17,7 @@ import (
 	"go-shopping-poc/internal/platform/outbox/providers"
 
 	"go-shopping-poc/internal/service/customer"
+	"go-shopping-poc/internal/service/customer/eventhandlers"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -30,7 +32,7 @@ func main() {
 	defer func() {
 		if r := recover(); r != nil {
 			logger.Error("Panic recovered in customer service", "panic", r)
-		}
+			}
 	}()
 
 	logger.Info("Customer service starting", "version", "1.0.0")
@@ -59,7 +61,7 @@ func main() {
 	defer func() {
 		if err := db.Close(); err != nil {
 			logger.Error("Error closing database connection", logging.ErrorAttr(err))
-		}
+			}
 	}()
 
 	logger.Debug("Creating event bus provider")
@@ -94,6 +96,14 @@ func main() {
 	}
 	corsHandler := corsProvider.GetCORSHandler()
 
+	// Optional Keycloak auth middleware
+	var authMiddleware func(http.Handler) http.Handler
+	if cfg.KeycloakIssuer != "" && cfg.KeycloakJWKSURL != "" {
+		validator := auth.NewKeycloakValidator(cfg.KeycloakIssuer, cfg.KeycloakJWKSURL)
+		authMiddleware = auth.RequireAuth(validator, "")
+		logger.Info("Keycloak auth middleware enabled")
+	}
+
 	logger.Debug("Creating customer infrastructure")
 	infrastructure := customer.NewCustomerInfrastructure(db, eventBus, outboxWriter, outboxPublisher, corsHandler)
 	logger.Debug("Infrastructure created successfully")
@@ -106,6 +116,26 @@ func main() {
 	handler := customer.NewCustomerHandler(service)
 	logger.Debug("Handler created successfully")
 
+	// Register identity verification event handler (consumes from OrderEvents topic)
+	identityVerificationHandler := eventhandlers.NewOnIdentityVerificationRequested(
+		*service, logger.With("component", "identity_verification"),
+	)
+	if err := customer.RegisterHandler(
+		service,
+		identityVerificationHandler.CreateFactory(),
+		identityVerificationHandler.CreateHandler(),
+	); err != nil {
+		logger.Error("Failed to register identity verification handler", logging.ErrorAttr(err))
+		os.Exit(1)
+	}
+
+	// Start event consumer (handles verification requests from order service)
+	go func() {
+		if err := service.Start(context.Background()); err != nil {
+			logger.Error("Event consumer error", logging.ErrorAttr(err))
+		}
+	}()
+
 	logger.Debug("Setting up HTTP router")
 	router := chi.NewRouter()
 	logger.Debug("Router setup completed")
@@ -115,10 +145,25 @@ func main() {
 	router.Get("/health", healthHandler)
 
 	customerRouter := chi.NewRouter()
-	customerRouter.Post("/customers", handler.CreateCustomer)
+
+	// POST /customers — uses optional auth (claims extracted in handler if present)
+	if authMiddleware != nil {
+		protected := customerRouter.With(authMiddleware)
+		protected.Post("/customers", handler.CreateCustomer)
+	} else {
+		customerRouter.Post("/customers", handler.CreateCustomer)
+	}
 	customerRouter.Get("/customers/{email}", handler.GetCustomerByEmailPath)
-	customerRouter.Put("/customers", handler.UpdateCustomer)
-	customerRouter.Patch("/customers/{id}", handler.PatchCustomer)
+
+	// Protected routes — apply auth middleware (if configured)
+	if authMiddleware != nil {
+		protected := customerRouter.With(authMiddleware)
+		protected.Put("/customers", handler.UpdateCustomer)
+		protected.Patch("/customers/{id}", handler.PatchCustomer)
+	} else {
+		customerRouter.Put("/customers", handler.UpdateCustomer)
+		customerRouter.Patch("/customers/{id}", handler.PatchCustomer)
+	}
 
 	customerRouter.Post("/customers/{id}/addresses", handler.AddAddress)
 	customerRouter.Put("/customers/addresses/{addressId}", handler.UpdateAddress)
@@ -142,9 +187,9 @@ func main() {
 	server := &http.Server{
 		Addr:         serverAddr,
 		Handler:      router,
-		ReadTimeout:  30 * time.Second,
+		ReadTimeout:   30 * time.Second,
 		WriteTimeout: 30 * time.Second,
-		IdleTimeout:  120 * time.Second,
+		IdleTimeout:   120 * time.Second,
 	}
 
 	done := make(chan bool, 1)
@@ -156,7 +201,7 @@ func main() {
 		logger.Info("Starting HTTP server", "address", serverAddr)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Error("Failed to start HTTP server", logging.ErrorAttr(err))
-		}
+			}
 	}()
 
 	<-quit
@@ -167,7 +212,7 @@ func main() {
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		logger.Error("Server forced to shutdown", logging.ErrorAttr(err))
-	}
+		}
 
 	close(done)
 	logger.Info("Server exited")

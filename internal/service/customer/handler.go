@@ -5,6 +5,7 @@ import (
 	"net/mail"
 	"net/url"
 
+	"go-shopping-poc/internal/platform/auth"
 	"go-shopping-poc/internal/platform/httperr"
 	"go-shopping-poc/internal/platform/httpx"
 )
@@ -22,6 +23,14 @@ func (h *CustomerHandler) CreateCustomer(w http.ResponseWriter, r *http.Request)
 	if err := httpx.DecodeJSON(r, &customer); err != nil {
 		httperr.InvalidRequest(w, "Invalid JSON in request body")
 		return
+	}
+
+	// Extract keycloak_sub from JWT if present (optional auth)
+	if claims, ok := auth.GetClaims(r.Context()); ok {
+		customer.KeycloakSub = claims.Subject
+		if claims.PreferredUsername != "" {
+			customer.Username = claims.PreferredUsername
+		}
 	}
 
 	// Validate required fields
@@ -115,7 +124,7 @@ func (h *CustomerHandler) GetCustomerByEmail(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	if cust == nil {
-		// No customer found -> return 204 No Content
+		// No customer found -> return 204 NoContent
 		httpx.WriteNoContent(w)
 		return
 	}

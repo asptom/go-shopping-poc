@@ -7,8 +7,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math/big"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -45,6 +47,27 @@ type KeycloakValidator struct {
 	jwksURL string
 }
 
+var (
+	authLogger *slog.Logger
+)
+
+func init() {
+	level := slog.LevelInfo
+	if lvl := os.Getenv("LOG_LEVEL"); lvl != "" {
+		switch strings.ToLower(lvl) {
+		case "debug":
+			level = slog.LevelDebug
+		case "warn", "warning":
+			level = slog.LevelWarn
+		case "error":
+			level = slog.LevelError
+		}
+	}
+	authLogger = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+		Level: level,
+	})).With("component", "auth")
+}
+
 // NewKeycloakValidator creates a new Keycloak JWT validator
 func NewKeycloakValidator(issuer, jwksURL string) *KeycloakValidator {
 	return &KeycloakValidator{
@@ -55,6 +78,7 @@ func NewKeycloakValidator(issuer, jwksURL string) *KeycloakValidator {
 
 // ValidateToken validates a JWT token and returns claims
 func (k *KeycloakValidator) ValidateToken(ctx context.Context, token string) (*Claims, error) {
+	authLogger.Info("Validating token", "component", "auth", "operation", "ValidateToken", "token", token)
 	parsedToken, err := jwt.ParseWithClaims(token, &Claims{}, func(token *jwt.Token) (interface{}, error) {
 		// Support both HMAC and RSA
 		switch method := token.Method; method {
@@ -68,11 +92,13 @@ func (k *KeycloakValidator) ValidateToken(ctx context.Context, token string) (*C
 	})
 
 	if err != nil {
+		authLogger.Info("Validating token", "component", "auth", "operation", "ValidateToken", "parse error", err)
 		return nil, fmt.Errorf("%w: %v", ErrInvalidToken, err)
 	}
 
 	if claims, ok := parsedToken.Claims.(*Claims); ok && parsedToken.Valid {
 		if claims.Issuer != k.issuer {
+			authLogger.Info("Validating token", "component", "auth", "operation", "ValidateToken", "issuer mismatch - expected_issuer", k.issuer, "token_issuer", claims.Issuer)
 			return nil, fmt.Errorf("%w: issuer mismatch", ErrInvalidToken)
 		}
 		return claims, nil
@@ -85,12 +111,14 @@ func (k *KeycloakValidator) ValidateToken(ctx context.Context, token string) (*C
 func (k *KeycloakValidator) getPublicKey(kid string) (*rsa.PublicKey, error) {
 	resp, err := http.Get(k.jwksURL)
 	if err != nil {
+		authLogger.Error("Failed to fetch JWKS", "component", "auth", "operation", "getPublicKey", "error", err)
 		return nil, fmt.Errorf("failed to fetch JWKS: %v", err)
 	}
 	defer resp.Body.Close()
 
 	var jwks JWKS
 	if err := json.NewDecoder(resp.Body).Decode(&jwks); err != nil {
+
 		return nil, fmt.Errorf("failed to decode JWKS: %v", err)
 	}
 
@@ -99,10 +127,12 @@ func (k *KeycloakValidator) getPublicKey(kid string) (*rsa.PublicKey, error) {
 			// Decode the modulus and exponent
 			nBytes, err := base64.RawURLEncoding.DecodeString(key.N)
 			if err != nil {
+				authLogger.Error("Failed to decode modulus from JWKS", "component", "auth", "operation", "getPublicKey", "kid", kid, "error", err)
 				return nil, fmt.Errorf("failed to decode modulus: %v", err)
 			}
 			eBytes, err := base64.RawURLEncoding.DecodeString(key.E)
 			if err != nil {
+				authLogger.Error("Failed to decode exponent from JWKS", "component", "auth", "operation", "getPublicKey", "kid", kid, "error", err)
 				return nil, fmt.Errorf("failed to decode exponent: %v", err)
 			}
 
@@ -122,6 +152,7 @@ func (k *KeycloakValidator) getPublicKey(kid string) (*rsa.PublicKey, error) {
 // HasRole checks if the claims contain a specific role
 func (c *Claims) HasRole(role string) bool {
 	if c.RealmAccess == nil || c.RealmAccess.Roles == nil {
+		authLogger.Info("Claims do not contain realm access roles", "component", "auth", "operation", "HasRole")
 		return false
 	}
 
@@ -130,6 +161,7 @@ func (c *Claims) HasRole(role string) bool {
 			return true
 		}
 	}
+	authLogger.Info("Required role not found in claims", "component", "auth", "operation", "HasRole", "required_role", role, "available_roles", c.RealmAccess.Roles)
 	return false
 }
 
@@ -153,11 +185,13 @@ func RequireAuth(validator *KeycloakValidator, requiredRole string) func(http.Ha
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
+				authLogger.Info("Missing authorization header", "component", "auth", "operation", "RequireAuth")
 				http.Error(w, ErrMissingAuthHeader.Error(), http.StatusUnauthorized)
 				return
 			}
 
 			if !strings.HasPrefix(authHeader, "Bearer ") {
+				authLogger.Info("Invalid authorization header format", "component", "auth", "operation", "RequireAuth", "auth_header", authHeader)
 				http.Error(w, ErrInvalidAuthHeader.Error(), http.StatusUnauthorized)
 				return
 			}
@@ -166,11 +200,13 @@ func RequireAuth(validator *KeycloakValidator, requiredRole string) func(http.Ha
 
 			claims, err := validator.ValidateToken(r.Context(), token)
 			if err != nil {
+				authLogger.Info("Invalid token", "component", "auth", "operation", "RequireAuth", "error", err)
 				http.Error(w, ErrInvalidToken.Error(), http.StatusUnauthorized)
 				return
 			}
 
 			if requiredRole != "" && !claims.HasRole(requiredRole) {
+				authLogger.Info("Missing required role", "component", "auth", "operation", "RequireAuth", "required_role", requiredRole, "user_roles", claims.RealmAccess.Roles)
 				http.Error(w, ErrMissingRole.Error(), http.StatusForbidden)
 				return
 			}
@@ -183,6 +219,7 @@ func RequireAuth(validator *KeycloakValidator, requiredRole string) func(http.Ha
 
 // GetClaims retrieves claims from the request context
 func GetClaims(ctx context.Context) (*Claims, bool) {
+	authLogger.Info("Retrieving claims from context", "component", "auth", "operation", "GetClaims")
 	claims, ok := ctx.Value(claimsKey).(*Claims)
 	return claims, ok
 }

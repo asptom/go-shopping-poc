@@ -35,3 +35,13 @@ func NotFound(w http.ResponseWriter, message string) {
 func Internal(w http.ResponseWriter, message string) {
 	Send(w, http.StatusInternalServerError, platformerrors.ErrorTypeInternal, message)
 }
+
+// Forbidden writes a 403 forbidden error response.
+func Forbidden(w http.ResponseWriter, message string) {
+	Send(w, http.StatusForbidden, platformerrors.ErrorTypeForbidden, message)
+}
+
+// GatewayTimeout writes a 504 gateway_timeout error response.
+func GatewayTimeout(w http.ResponseWriter, message string) {
+	Send(w, http.StatusGatewayTimeout, platformerrors.ErrorTypeGatewayTimeout, message)
+}
