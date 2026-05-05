@@ -25,7 +25,7 @@ type CartInfrastructure struct {
 	OutboxWriter    *outbox.Writer
 	OutboxPublisher *outbox.Publisher
 	CORSHandler     func(http.Handler) http.Handler
-	SSEProvider     *sse.Provider
+	SSEProvider      *sse.Provider
 }
 
 func NewCartInfrastructure(
@@ -60,10 +60,11 @@ func RegisterHandler[T events.Event](s Service, factory events.EventFactory[T], 
 
 type CartService struct {
 	*service.EventServiceBase
-	logger         *slog.Logger
-	repo           CartRepository
+	logger       *slog.Logger
+	repo         CartRepository
 	infrastructure *CartInfrastructure
-	config         *Config
+	config       *Config
+	productCache *ProductCache
 }
 
 func NewCartService(logger *slog.Logger, infrastructure *CartInfrastructure, config *Config) *CartService {
@@ -78,6 +79,7 @@ func NewCartService(logger *slog.Logger, infrastructure *CartInfrastructure, con
 		repo:             repo,
 		infrastructure:   infrastructure,
 		config:           config,
+		productCache:     NewProductCache(),
 	}
 }
 
@@ -91,6 +93,7 @@ func NewCartServiceWithRepo(logger *slog.Logger, repo CartRepository, infrastruc
 		repo:             repo,
 		infrastructure:   infrastructure,
 		config:           config,
+		productCache:     NewProductCache(),
 	}
 }
 
@@ -174,7 +177,137 @@ func (s *CartService) AddItem(ctx context.Context, cartID string, productID stri
 		// If backorder, allow adding again (will create new validation attempt)
 	}
 
-	// Create item with pending status with correlation ID for validation
+	// Fast path: check product cache before emitting event.
+	// If the product is in the cache, we can validate synchronously
+	// without the event round-trip.
+	cacheEntry, cacheHit := s.productCache.Get(productID)
+	if cacheHit {
+		if !cacheEntry.InStock {
+			s.logger.Debug("Product out of stock (cache)", "product_id", productID)
+			// Create a backorder item — same as the event-driven path's ProductUnavailable handling
+			validationID := uuid.New().String()
+			reason := "product_out_of_stock"
+			item := &CartItem{
+				ProductID:    productID,
+				Quantity:     quantity,
+				ImageURL:     imageURL,
+				Status:       "backorder",
+				ValidationID: &validationID,
+				BackorderReason: &reason,
+			}
+
+			tx, err := s.infrastructure.Database.BeginTx(ctx, nil)
+			if err != nil {
+				return nil, fmt.Errorf("failed to begin transaction: %w", err)
+			}
+
+			committed := false
+			defer func() {
+				if !committed {
+					_ = tx.Rollback()
+				}
+			}()
+
+			if err := s.repo.AddItemTx(ctx, tx, cartID, item); err != nil {
+				return nil, fmt.Errorf("failed to add item: %w", err)
+			}
+
+			if err := tx.Commit(); err != nil {
+				return nil, fmt.Errorf("failed to commit transaction: %w", err)
+			}
+			committed = true
+
+			s.logger.Debug("Updating cart totals with backorder item", "cart_id", cartID)
+			if err := s.repo.UpdateCart(ctx, cart); err != nil {
+				s.logger.Warn("Failed to update cart totals", "cart_id", cartID, "error", err.Error())
+			}
+
+			if s.infrastructure.SSEProvider != nil {
+				s.infrastructure.SSEProvider.GetHub().Publish(cartID, "cart.item.backorder", map[string]interface{}{
+					"line_number":      item.LineNumber,
+					"product_id":       productID,
+					"status":           "backorder",
+					"backorder_reason": reason,
+				})
+			}
+
+			s.logger.Info("Added backorder item (cache miss - out of stock)",
+				"cart_id", cartID,
+				"product_id", productID,
+				"quantity", quantity,
+			)
+			return item, nil
+		}
+
+		// Product is in stock — fast path: confirm immediately without event round-trip.
+		validationID := uuid.New().String()
+		item := &CartItem{
+			ProductID:    productID,
+			Quantity:     quantity,
+			ImageURL:     imageURL,
+			Status:       "confirmed",
+			ValidationID: &validationID,
+			ProductName:  cacheEntry.Name,
+			UnitPrice:    cacheEntry.FinalPrice,
+		}
+
+		tx, err := s.infrastructure.Database.BeginTx(ctx, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to begin transaction: %w", err)
+		}
+
+		committed := false
+		defer func() {
+			if !committed {
+				_ = tx.Rollback()
+			}
+		}()
+
+		if err := s.repo.AddItemTx(ctx, tx, cartID, item); err != nil {
+			return nil, fmt.Errorf("failed to add item: %w", err)
+		}
+
+		if err := tx.Commit(); err != nil {
+			return nil, fmt.Errorf("failed to commit transaction: %w", err)
+		}
+		committed = true
+
+		cart.Items = append(cart.Items, *item)
+		cart.CalculateTotals()
+
+		s.logger.Debug("Updating cart totals after confirmed item", "cart_id", cartID)
+		if err := s.repo.UpdateCart(ctx, cart); err != nil {
+			s.logger.Warn("Failed to update cart totals", "cart_id", cartID, "error", err.Error())
+		}
+
+		item.CalculateLineTotal()
+
+		if s.infrastructure.SSEProvider != nil {
+			s.infrastructure.SSEProvider.GetHub().Publish(cartID, "cart.item.validated", map[string]interface{}{
+				"line_number":  item.LineNumber,
+				"product_id":   productID,
+				"product_name": cacheEntry.Name,
+				"unit_price":   cacheEntry.FinalPrice,
+				"quantity":     item.Quantity,
+				"total_price":  item.TotalPrice,
+				"status":       "validated",
+			})
+		}
+
+		s.logger.Info("Added item to cart (fast path - cache hit)",
+			"cart_id", cartID,
+			"product_id", productID,
+			"quantity", quantity,
+		)
+		return item, nil
+	}
+
+	// Slow path: product not in cache. Fall back to event-driven validation.
+	// This is the existing behavior — emit CartItemAdded and wait for
+	// ProductValidated/ProductUnavailable events from the product service.
+
+	s.logger.Debug("Product not in cache, emitting validation event", "product_id", productID)
+
 	validationID := uuid.New().String()
 	item := &CartItem{
 		ProductID:    productID,
@@ -240,9 +373,11 @@ func (s *CartService) AddItem(ctx context.Context, cartID string, productID stri
 		)
 	}
 
-	s.logger.Debug("Added pending item to cart",
-		"item_line_number", item.LineNumber,
+	s.logger.Debug("Added pending item to cart (cache miss, awaiting validation)",
 		"cart_id", cartID,
+		"product_id", productID,
+		"quantity", quantity,
+		"item_line_number", item.LineNumber,
 	)
 	s.logger.Info("Added item to cart, pending validation",
 		"cart_id", cartID,
@@ -454,4 +589,9 @@ func (s *CartService) GetRepository() CartRepository {
 // GetInfrastructure returns the cart infrastructure for use by event handlers
 func (s *CartService) GetInfrastructure() *CartInfrastructure {
 	return s.infrastructure
+}
+
+// GetProductCache returns the product cache for use by event handlers.
+func (s *CartService) GetProductCache() *ProductCache {
+	return s.productCache
 }

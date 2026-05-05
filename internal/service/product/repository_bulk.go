@@ -7,6 +7,7 @@ package product
 import (
 	"context"
 	"fmt"
+	events "go-shopping-poc/internal/contracts/events"
 )
 
 // BulkInsertProducts inserts multiple products efficiently
@@ -36,6 +37,20 @@ func (r *productRepository) BulkInsertProducts(ctx context.Context, products []*
 
 		if err := r.insertProductRecord(ctx, tx, product); err != nil {
 			return fmt.Errorf("failed to insert product %d: %w", product.ID, err)
+		}
+
+		// Publish product created event to outbox
+		// This allows other services to initialize their product cache (if they have one)
+		evt := events.NewProductCreatedEvent(fmt.Sprintf("%d", product.ID), map[string]string{
+			"name":        product.Name,
+			"brand":       product.Brand,
+			"final_price": product.FormattedPrice(),
+			"in_stock":    fmt.Sprintf("%t", product.InStock),
+			"images":      fmt.Sprintf("%d", len(product.Images)),
+		})
+
+		if err := r.outboxWriter.WriteEvent(ctx, tx, evt); err != nil {
+			return fmt.Errorf("%w: failed to write product created event: %w", ErrEventWriteFailed, err)
 		}
 	}
 

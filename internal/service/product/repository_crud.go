@@ -62,10 +62,11 @@ func (r *productRepository) insertProductWithImages(ctx context.Context, product
 
 	// Publish product created event to outbox
 	evt := events.NewProductCreatedEvent(fmt.Sprintf("%d", product.ID), map[string]string{
-		"name":   product.Name,
-		"brand":  product.Brand,
-		"price":  product.FormattedPrice(),
-		"images": fmt.Sprintf("%d", len(product.Images)),
+		"name":        product.Name,
+		"brand":       product.Brand,
+		"final_price": product.FormattedPrice(),
+		"in_stock":    fmt.Sprintf("%t", product.InStock),
+		"images":      fmt.Sprintf("%d", len(product.Images)),
 	})
 
 	if err := r.outboxWriter.WriteEvent(ctx, tx, evt); err != nil {
@@ -161,8 +162,10 @@ func (r *productRepository) UpdateProduct(ctx context.Context, product *Product)
 
 	// Publish product updated event to outbox
 	evt := events.NewProductUpdatedEvent(fmt.Sprintf("%d", product.ID), map[string]string{
-		"name":  product.Name,
-		"brand": product.Brand,
+		"name":        product.Name,
+		"brand":       product.Brand,
+		"final_price": product.FormattedPrice(),
+		"in_stock":    fmt.Sprintf("%t", product.InStock),
 	})
 
 	if err := r.outboxWriter.WriteEvent(ctx, tx, evt); err != nil {

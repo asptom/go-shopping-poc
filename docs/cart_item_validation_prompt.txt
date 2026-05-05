@@ -1,0 +1,22 @@
+The cart service is currently using event processing to validate products as they are added to a cart by the user of a front-end application.  This was implemented as the primary validation process because 
+the architecture does not allow separate domain microservices to read the daatabases of other services nor does it allow the services to use http services to communicate with each
+other.  The architecture uses the SAGA pattern.  
+
+We recently implemented the plan detailed in @docs/order-secure-api-plan-v4.md. We ran into a simialr situation in which the order process needed to be able to validate customer data
+for security purposes without directly reading the customer database or using http services internally.  To resolve that we implemented a cache of the necessary customer data that is
+initialized on startup of the order service and is maintained through the handling of customer_created and customer_updated events.  That is the primary mechanism used to check customer
+information by the order service.  We do use events as a secondary mechanism if the cache fails.
+
+I would like to do something similar for the cart service to make product validation a little quicker.  Learn how the order and customer services have implemented the cache and secondary event
+mechanism, evaluate the current product validation flow used by the cart and product services, and then produce a plan to implement that process for the cart and product services for product 
+validation.  There may be other services in which having a product cache could be useful, so keep that in mind as you develop the plan.
+
+Create an internal rubric for yourself to evaluate and identify the best approach.  Do not accept your first design as necessarily being the best.  Be critical and find gaps or missing details. 
+You do not have to duplicate the order/customer approach particularly if you find a better way. You must, however, follow the architectural guidelines for the project.  Once you have found the 
+best possible approach (even if it means staying with what we currently have) write that plan to a new file called docs/product_validation_plan_v1.md.  
+
+The plan must have distinct phases that consider the best use of context within an AI model.  The plan will be implemented by another LLM using agenting coding tools, so it must be detailed enough 
+so that the equivalent of a junior developer is able to implement the plan.  Do not leave architectural decisions up to the implementer.  Be explicit about which files are updated or added with clear code
+examples that follow the existing patterns of the project.  Do not assume that the reasons for your choices orplan directions will be clear to the consumer - make them clear.
+
+Ask clarifying questions if needed.

@@ -233,6 +233,23 @@ func registerEventHandlers(service *cart.CartService, sseHub *sse.Hub, logger *s
 	}
 
 	logger.Debug("Successfully registered ProductValidated handler")
+
+	// Product cache event handler — keeps the product cache current.
+	// Subscribes to ProductCreated, ProductUpdated, ProductDeleted events
+	// from the ProductEvents topic.
+	productCache := service.GetProductCache()
+	productEventHandler := eventhandlers.NewOnProductEvent(productCache, handlerLogger)
+	logger.Debug("Registering handler", "event_type", productEventHandler.EventType())
+
+	if err := cart.RegisterHandler(
+		service,
+		productEventHandler.CreateFactory(),
+		productEventHandler.CreateHandler(),
+	); err != nil {
+		return fmt.Errorf("failed to register ProductEvent handler: %w", err)
+	}
+
+	logger.Debug("Successfully registered ProductEvent handler")
 	logger.Debug("Event handler registration completed")
 
 	return nil
