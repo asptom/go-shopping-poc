@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Go Shopping POC is a microservices-based e-commerce proof-of-concept built with Go, demonstrating Clean Architecture, event-driven design (Kafka), and Kubernetes deployment. It uses Go 1.24.2 with Chi for HTTP, pgx/sqlx for PostgreSQL, segmentio/kafka-go for messaging, MinIO for object storage, and Viper for config.
+Go Shopping POC is a microservices-based e-commerce proof-of-concept built with Go, demonstrating Clean Architecture, event-driven design (Kafka), and Kubernetes deployment. It uses Go 1.26.4 with Chi for HTTP, pgx/sqlx for PostgreSQL, segmentio/kafka-go for messaging, MinIO for object storage, and Viper for config.
 
 ## Commands
 

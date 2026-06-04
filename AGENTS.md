@@ -1,6 +1,6 @@
 # Go Shopping POC
 
-Go 1.24.2, Clean Architecture microservices. Chi, pgx/sqlx, Kafka, MinIO, Viper, JWT/Keycloak.
+Go 1.26.4, Clean Architecture microservices. Chi, pgx/sqlx, Kafka, MinIO, Viper, JWT/Keycloak.
 
 ## Commands
 

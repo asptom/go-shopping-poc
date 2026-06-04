@@ -44,7 +44,7 @@ func (r *productRepository) BulkInsertProducts(ctx context.Context, products []*
 		evt := events.NewProductCreatedEvent(fmt.Sprintf("%d", product.ID), map[string]string{
 			"name":        product.Name,
 			"brand":       product.Brand,
-			"final_price": product.FormattedPrice(),
+			"final_price": fmt.Sprintf("%.2f", product.FinalPrice),
 			"in_stock":    fmt.Sprintf("%t", product.InStock),
 			"images":      fmt.Sprintf("%d", len(product.Images)),
 		})
