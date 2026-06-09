@@ -14,7 +14,7 @@ import (
 // responses back to the waiting VerifyCustomerIdentity call.
 type OnIdentityVerificationCompleted struct {
 	service *order.OrderService
-	logger    *slog.Logger
+	logger  *slog.Logger
 }
 
 func NewOnIdentityVerificationCompleted(service *order.OrderService, logger *slog.Logger) *OnIdentityVerificationCompleted {
@@ -56,9 +56,9 @@ func (h *OnIdentityVerificationCompleted) Handle(ctx context.Context, event even
 	h.service.DispatchVerificationResult(
 		respEvent.Data.RequestID,
 		order.CustomerIdentity{
-			CustomerID:  respEvent.Data.CustomerID,
-			Email:       respEvent.Data.ResolvedEmail,
-			},
+			CustomerID: respEvent.Data.CustomerID,
+			Email:      respEvent.Data.ResolvedEmail,
+		},
 		err,
 	)
 	return nil

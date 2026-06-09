@@ -54,12 +54,12 @@ func RegisterHandler[T events.Event](s Service, factory events.EventFactory[T], 
 
 type OrderService struct {
 	*service.EventServiceBase
-	logger              *slog.Logger
-	repo                OrderRepository
-	infrastructure      *OrderInfrastructure
-	config              *Config
-	identityCache       *IdentityCache
-	mu                  sync.Mutex
+	logger                *slog.Logger
+	repo                  OrderRepository
+	infrastructure        *OrderInfrastructure
+	config                *Config
+	identityCache         *IdentityCache
+	mu                    sync.Mutex
 	verificationCallbacks map[string]chan verificationResult
 }
 
@@ -92,9 +92,9 @@ func (s *OrderService) GetOrder(ctx context.Context, orderID string) (*Order, er
 	if err != nil {
 		if errors.Is(err, ErrOrderNotFound) {
 			return nil, err
-			}
-		return nil, fmt.Errorf("failed to get order: %w", err)
 		}
+		return nil, fmt.Errorf("failed to get order: %w", err)
+	}
 
 	return order, nil
 }
@@ -133,10 +133,10 @@ func (s *OrderService) CreateOrderFromSnapshot(ctx context.Context, cartID strin
 		customerUUID, err := uuid.Parse(*snapshot.CustomerID)
 		if err != nil {
 			s.logger.Warn("Invalid customer ID in snapshot", "customer_id", *snapshot.CustomerID)
-			} else {
+		} else {
 			order.CustomerID = &customerUUID
-			}
 		}
+	}
 
 	if snapshot.Contact != nil {
 		order.Contact = &Contact{
@@ -144,8 +144,8 @@ func (s *OrderService) CreateOrderFromSnapshot(ctx context.Context, cartID strin
 			FirstName: snapshot.Contact.FirstName,
 			LastName:  snapshot.Contact.LastName,
 			Phone:     snapshot.Contact.Phone,
-			}
 		}
+	}
 
 	if snapshot.CreditCard != nil {
 		order.CreditCard = &CreditCard{
@@ -154,8 +154,8 @@ func (s *OrderService) CreateOrderFromSnapshot(ctx context.Context, cartID strin
 			CardHolderName: snapshot.CreditCard.CardHolderName,
 			CardExpires:    snapshot.CreditCard.CardExpires,
 			CardCVV:        snapshot.CreditCard.CardCVV,
-			}
 		}
+	}
 
 	for i, item := range snapshot.Items {
 		order.Items[i] = OrderItem{
@@ -166,10 +166,10 @@ func (s *OrderService) CreateOrderFromSnapshot(ctx context.Context, cartID strin
 			Quantity:       item.Quantity,
 			TotalPrice:     item.TotalPrice,
 			ImageURL:       item.ImageURL,
-			ItemStatus:      "pending",
+			ItemStatus:     "pending",
 			ItemStatusDate: time.Now(),
-			}
 		}
+	}
 
 	for _, addr := range snapshot.Addresses {
 		order.Addresses = append(order.Addresses, Address{
@@ -181,21 +181,21 @@ func (s *OrderService) CreateOrderFromSnapshot(ctx context.Context, cartID strin
 			City:        addr.City,
 			State:       addr.State,
 			Zip:         addr.Zip,
-			})
-		}
+		})
+	}
 
 	if err := s.repo.CreateOrder(ctx, order); err != nil {
 		return nil, fmt.Errorf("failed to create order: %w", err)
-		}
+	}
 
 	// Trigger immediate outbox processing for low latency
 	if s.infrastructure.OutboxPublisher != nil {
 		go func() {
 			if err := s.infrastructure.OutboxPublisher.ProcessNow(); err != nil {
 				s.logger.Warn("Failed to trigger immediate outbox processing", "error", err.Error())
-				}
-			}()
-		}
+			}
+		}()
+	}
 
 	return order, nil
 }
@@ -277,7 +277,7 @@ func (s *OrderService) processCustomerEventForCache(data []byte) {
 			CustomerID:  evt.EventPayload.CustomerID,
 			Email:       evt.EventPayload.Details["email"],
 			KeycloakSub: keycloakSub,
-			})
+		})
 	}
 }
 

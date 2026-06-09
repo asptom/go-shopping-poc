@@ -25,7 +25,7 @@ type CartInfrastructure struct {
 	OutboxWriter    *outbox.Writer
 	OutboxPublisher *outbox.Publisher
 	CORSHandler     func(http.Handler) http.Handler
-	SSEProvider      *sse.Provider
+	SSEProvider     *sse.Provider
 }
 
 func NewCartInfrastructure(
@@ -60,11 +60,11 @@ func RegisterHandler[T events.Event](s Service, factory events.EventFactory[T], 
 
 type CartService struct {
 	*service.EventServiceBase
-	logger       *slog.Logger
-	repo         CartRepository
+	logger         *slog.Logger
+	repo           CartRepository
 	infrastructure *CartInfrastructure
-	config       *Config
-	productCache *ProductCache
+	config         *Config
+	productCache   *ProductCache
 }
 
 func NewCartService(logger *slog.Logger, infrastructure *CartInfrastructure, config *Config) *CartService {
@@ -188,11 +188,11 @@ func (s *CartService) AddItem(ctx context.Context, cartID string, productID stri
 			validationID := uuid.New().String()
 			reason := "product_out_of_stock"
 			item := &CartItem{
-				ProductID:    productID,
-				Quantity:     quantity,
-				ImageURL:     imageURL,
-				Status:       "backorder",
-				ValidationID: &validationID,
+				ProductID:       productID,
+				Quantity:        quantity,
+				ImageURL:        imageURL,
+				Status:          "backorder",
+				ValidationID:    &validationID,
 				BackorderReason: &reason,
 			}
 

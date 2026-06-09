@@ -32,7 +32,7 @@ func main() {
 	defer func() {
 		if r := recover(); r != nil {
 			logger.Error("Panic recovered in customer service", "panic", r)
-			}
+		}
 	}()
 
 	logger.Info("Customer service starting", "version", "1.0.0")
@@ -61,7 +61,7 @@ func main() {
 	defer func() {
 		if err := db.Close(); err != nil {
 			logger.Error("Error closing database connection", logging.ErrorAttr(err))
-			}
+		}
 	}()
 
 	logger.Debug("Creating event bus provider")
@@ -187,9 +187,9 @@ func main() {
 	server := &http.Server{
 		Addr:         serverAddr,
 		Handler:      router,
-		ReadTimeout:   30 * time.Second,
+		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
-		IdleTimeout:   120 * time.Second,
+		IdleTimeout:  120 * time.Second,
 	}
 
 	done := make(chan bool, 1)
@@ -201,7 +201,7 @@ func main() {
 		logger.Info("Starting HTTP server", "address", serverAddr)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Error("Failed to start HTTP server", logging.ErrorAttr(err))
-			}
+		}
 	}()
 
 	<-quit
@@ -212,7 +212,7 @@ func main() {
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		logger.Error("Server forced to shutdown", logging.ErrorAttr(err))
-		}
+	}
 
 	close(done)
 	logger.Info("Server exited")

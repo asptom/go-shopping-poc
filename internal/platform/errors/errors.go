@@ -18,13 +18,13 @@ type ErrorResponse struct {
 
 // ErrorType constants for consistent error categorization
 const (
-	ErrorTypeInvalidRequest  = "invalid_request"
-	ErrorTypeValidation      = "validation_error"
-	ErrorTypeInternal        = "internal_error"
-	ErrorTypeNotFound        = "not_found"
-	ErrorTypeUnauthorized    = "unauthorized"
-	ErrorTypeForbidden       = "forbidden"
-	ErrorTypeGatewayTimeout  = "gateway_timeout"
+	ErrorTypeInvalidRequest = "invalid_request"
+	ErrorTypeValidation     = "validation_error"
+	ErrorTypeInternal       = "internal_error"
+	ErrorTypeNotFound       = "not_found"
+	ErrorTypeUnauthorized   = "unauthorized"
+	ErrorTypeForbidden      = "forbidden"
+	ErrorTypeGatewayTimeout = "gateway_timeout"
 )
 
 // SendError sends a structured JSON error response

@@ -39,10 +39,10 @@ func main() {
 	}
 
 	logger.Debug("Configuration loaded",
-			"read_topics", cfg.ReadTopics,
-			"write_topic", cfg.WriteTopic,
-			"group", cfg.Group,
-		)
+		"read_topics", cfg.ReadTopics,
+		"write_topic", cfg.WriteTopic,
+		"group", cfg.Group,
+	)
 
 	dbURL := cfg.DatabaseURL
 	if dbURL == "" {
@@ -60,7 +60,7 @@ func main() {
 	defer func() {
 		if err := db.Close(); err != nil {
 			logger.Error("Error closing database", logging.ErrorAttr(err))
-				}
+		}
 	}()
 
 	logger.Debug("Creating event bus provider")
@@ -118,7 +118,7 @@ func main() {
 	go func() {
 		if err := service.Start(context.Background()); err != nil {
 			logger.Error("Event consumer error", logging.ErrorAttr(err))
-			}
+		}
 	}()
 
 	logger.Debug("Creating order handler")
@@ -157,7 +157,7 @@ func main() {
 
 	serverAddr := "0.0.0.0" + cfg.ServicePort
 	server := &http.Server{
-		Addr:         serverAddr,
+		Addr:        serverAddr,
 		Handler:     router,
 		ReadTimeout: 30 * time.Second,
 		IdleTimeout: 120 * time.Second,
@@ -171,7 +171,7 @@ func main() {
 		logger.Info("Starting HTTP server", "address", serverAddr)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Error("Failed to start HTTP server", logging.ErrorAttr(err))
-			}
+		}
 	}()
 
 	<-quit

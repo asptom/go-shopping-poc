@@ -10,11 +10,11 @@ import (
 type OrderEventType string
 
 const (
-	OrderCreated                             OrderEventType = "order.created"
-	OrderUpdated                             OrderEventType = "order.updated"
-	OrderDeleted                             OrderEventType = "order.deleted"
-	CustomerIdentityVerificationRequested   OrderEventType = "order.customer.identity_verification_requested"
-	CustomerIdentityVerificationCompleted   OrderEventType = "order.customer.identity_verification_completed"
+	OrderCreated                          OrderEventType = "order.created"
+	OrderUpdated                          OrderEventType = "order.updated"
+	OrderDeleted                          OrderEventType = "order.deleted"
+	CustomerIdentityVerificationRequested OrderEventType = "order.customer.identity_verification_requested"
+	CustomerIdentityVerificationCompleted OrderEventType = "order.customer.identity_verification_completed"
 )
 
 type OrderEventPayload struct {
@@ -85,18 +85,18 @@ type CustomerIdentityVerificationRequestPayload struct {
 
 // CustomerIdentityVerificationRequestEvent is published to OrderEvents by the order service
 type CustomerIdentityVerificationRequestEvent struct {
-	ID        string                                              `json:"id"`
-	EventType OrderEventType                                      `json:"type"`
-	Timestamp time.Time                                           `json:"timestamp"`
-	Data      CustomerIdentityVerificationRequestPayload          `json:"payload"`
+	ID        string                                     `json:"id"`
+	EventType OrderEventType                             `json:"type"`
+	Timestamp time.Time                                  `json:"timestamp"`
+	Data      CustomerIdentityVerificationRequestPayload `json:"payload"`
 }
 
-func (e CustomerIdentityVerificationRequestEvent) Type() string                      { return string(e.EventType) }
-func (e CustomerIdentityVerificationRequestEvent) Topic() string                     { return "OrderEvents" }
-func (e CustomerIdentityVerificationRequestEvent) Payload() any                      { return e.Data }
-func (e CustomerIdentityVerificationRequestEvent) ToJSON() ([]byte, error)           { return json.Marshal(e) }
-func (e CustomerIdentityVerificationRequestEvent) GetEntityID() string               { return e.Data.KeycloakSub }
-func (e CustomerIdentityVerificationRequestEvent) GetResourceID() string             { return e.ID }
+func (e CustomerIdentityVerificationRequestEvent) Type() string            { return string(e.EventType) }
+func (e CustomerIdentityVerificationRequestEvent) Topic() string           { return "OrderEvents" }
+func (e CustomerIdentityVerificationRequestEvent) Payload() any            { return e.Data }
+func (e CustomerIdentityVerificationRequestEvent) ToJSON() ([]byte, error) { return json.Marshal(e) }
+func (e CustomerIdentityVerificationRequestEvent) GetEntityID() string     { return e.Data.KeycloakSub }
+func (e CustomerIdentityVerificationRequestEvent) GetResourceID() string   { return e.ID }
 
 // CustomerIdentityVerificationRequestEventFactory implements EventFactory
 type CustomerIdentityVerificationRequestEventFactory struct{}
@@ -131,18 +131,18 @@ type CustomerIdentityVerificationResultPayload struct {
 
 // CustomerIdentityVerificationCompletedEvent is published to CustomerEvents by the customer service
 type CustomerIdentityVerificationCompletedEvent struct {
-	ID        string                                               `json:"id"`
-	EventType OrderEventType                                       `json:"type"`
-	Timestamp time.Time                                            `json:"timestamp"`
-	Data      CustomerIdentityVerificationResultPayload            `json:"payload"`
+	ID        string                                    `json:"id"`
+	EventType OrderEventType                            `json:"type"`
+	Timestamp time.Time                                 `json:"timestamp"`
+	Data      CustomerIdentityVerificationResultPayload `json:"payload"`
 }
 
-func (e CustomerIdentityVerificationCompletedEvent) Type() string                     { return string(e.EventType) }
-func (e CustomerIdentityVerificationCompletedEvent) Topic() string                    { return "CustomerEvents" }
-func (e CustomerIdentityVerificationCompletedEvent) Payload() any                     { return e.Data }
-func (e CustomerIdentityVerificationCompletedEvent) ToJSON() ([]byte, error)          { return json.Marshal(e) }
-func (e CustomerIdentityVerificationCompletedEvent) GetEntityID() string              { return e.Data.CustomerID }
-func (e CustomerIdentityVerificationCompletedEvent) GetResourceID() string            { return e.ID }
+func (e CustomerIdentityVerificationCompletedEvent) Type() string            { return string(e.EventType) }
+func (e CustomerIdentityVerificationCompletedEvent) Topic() string           { return "CustomerEvents" }
+func (e CustomerIdentityVerificationCompletedEvent) Payload() any            { return e.Data }
+func (e CustomerIdentityVerificationCompletedEvent) ToJSON() ([]byte, error) { return json.Marshal(e) }
+func (e CustomerIdentityVerificationCompletedEvent) GetEntityID() string     { return e.Data.CustomerID }
+func (e CustomerIdentityVerificationCompletedEvent) GetResourceID() string   { return e.ID }
 
 // CustomerIdentityVerificationCompletedEventFactory implements EventFactory
 type CustomerIdentityVerificationCompletedEventFactory struct{}

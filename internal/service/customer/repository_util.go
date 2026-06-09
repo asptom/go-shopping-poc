@@ -48,8 +48,8 @@ func (r *customerRepository) publishCustomerUpdateEvent(ctx context.Context, tx 
 
 func customerEventDetails(customer *Customer) map[string]string {
 	details := map[string]string{
-			"username": customer.Username,
-			"email":    customer.Email,
+		"username": customer.Username,
+		"email":    customer.Email,
 	}
 	if customer.KeycloakSub != "" {
 		details["keycloak_sub"] = customer.KeycloakSub

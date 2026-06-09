@@ -31,16 +31,16 @@ func (h *OnCustomerIdentityUpdate) Handle(ctx context.Context, event events.Even
 	case events.CustomerEvent:
 		if e.EventType != events.CustomerCreated && e.EventType != events.CustomerUpdated {
 			return nil
-			}
+		}
 		keycloakSub := e.EventPayload.Details["keycloak_sub"]
 		if keycloakSub == "" {
 			return nil // not linked to Keycloak
-			}
+		}
 		h.cache.Set(keycloakSub, order.CustomerIdentity{
 			CustomerID:  e.EventPayload.CustomerID,
 			Email:       e.EventPayload.Details["email"],
 			KeycloakSub: keycloakSub,
-			})
+		})
 		h.logger.Debug("Identity cache updated",
 			"customer_id", e.EventPayload.CustomerID,
 			"event_type", string(e.EventType))

@@ -38,11 +38,11 @@ func NewOnProductEvent(cache *cart.ProductCache, logger *slog.Logger) *OnProduct
 //
 // It dispatches to handler methods based on event type:
 //
-//	- ProductCreated: Insert new entry into cache
-//	- ProductUpdated: Upsert existing entry in cache
-//	- ProductDeleted: Remove entry from cache
-//	- ProductValidated: Upsert cache entry with validation data (stock, price, name)
-//	- ProductUnavailable: Upsert cache entry marking product as out of stock
+//   - ProductCreated: Insert new entry into cache
+//   - ProductUpdated: Upsert existing entry in cache
+//   - ProductDeleted: Remove entry from cache
+//   - ProductValidated: Upsert cache entry with validation data (stock, price, name)
+//   - ProductUnavailable: Upsert cache entry marking product as out of stock
 //
 // All other event types are silently ignored.
 func (h *OnProductEvent) Handle(ctx context.Context, event events.Event) error {
