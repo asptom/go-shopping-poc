@@ -3,8 +3,14 @@
 set -euo pipefail
 
 echo "[phase-6] checking gofmt compliance"
-GO_FILES=$(git ls-files '*.go')
-UNFORMATTED=$(gofmt -l ${GO_FILES})
+UNFORMATTED=""
+for f in $(git ls-files '*.go'); do
+  result=$(gofmt -l "$f")
+  if [[ -n "$result" ]]; then
+    UNFORMATTED="${UNFORMATTED:+${UNFORMATTED}
+}${result}"
+  fi
+done
 if [[ -n "${UNFORMATTED}" ]]; then
   echo "gofmt check failed; run gofmt on:"
   printf '%s\n' "${UNFORMATTED}"
@@ -13,7 +19,14 @@ fi
 
 if command -v goimports >/dev/null 2>&1; then
   echo "[phase-6] checking goimports compliance"
-  UNIMPORTS=$(goimports -l ${GO_FILES})
+  UNIMPORTS=""
+  for f in $(git ls-files '*.go'); do
+    result=$(goimports -l "$f")
+    if [[ -n "$result" ]]; then
+      UNIMPORTS="${UNIMPORTS:+${UNIMPORTS}
+}${result}"
+    fi
+  done
   if [[ -n "${UNIMPORTS}" ]]; then
     echo "goimports check failed; run goimports on:"
     printf '%s\n' "${UNIMPORTS}"
