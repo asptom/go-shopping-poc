@@ -19,7 +19,7 @@ import (
 
 // InsertCustomer creates a new customer record in the database.
 func (r *customerRepository) InsertCustomer(ctx context.Context, customer *Customer) error {
-	r.logger.Info("Inserting new customer", "operation", "InsertCustomer", "customer_id", customer.CustomerID, "email", customer.Email, "customer_sub", customer.KeycloakSub)
+	r.logger.Info("Inserting new customer", "operation", "InsertCustomer", "customer_id", customer.CustomerID, "customer_sub", customer.KeycloakSub)
 
 	r.prepareCustomerDefaults(customer)
 
@@ -32,7 +32,7 @@ func (r *customerRepository) InsertCustomer(ctx context.Context, customer *Custo
 
 // insertCustomerWithRelations handles the complete customer creation process
 func (r *customerRepository) insertCustomerWithRelations(ctx context.Context, customer *Customer) error {
-	r.logger.Info("Inserting new customer", "operation", "insertCustomerWithRelations", "customer_id", customer.CustomerID, "email", customer.Email, "customer_sub", customer.KeycloakSub)
+	r.logger.Info("Inserting new customer", "operation", "insertCustomerWithRelations", "customer_id", customer.CustomerID, "customer_sub", customer.KeycloakSub)
 
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {

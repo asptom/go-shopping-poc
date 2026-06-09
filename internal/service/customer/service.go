@@ -188,7 +188,7 @@ func (s *CustomerService) CreateCustomer(ctx context.Context, customer *Customer
 		}
 	}
 
-	s.logger.Info("Create customer requested", "operation", "create_customer", "customer_id", customer.CustomerID, "email", customer.Email, "customer_sub", customer.KeycloakSub)
+	s.logger.Info("Create customer requested", "operation", "create_customer", "customer_id", customer.CustomerID, "customer_sub", customer.KeycloakSub)
 	return s.repo.InsertCustomer(ctx, customer)
 }
 
